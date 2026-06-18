@@ -3,9 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>명함관리</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <title>DXel_명함관리</title>
 </head>
 <body>
-  
+  <div class="container">
+    <header>
+      <div class="logo">Folio Archive</div>
+
+      <div class="searchBox">
+        <span>⌕</span>
+        <input type="text" id="searchInput" placeholder="Search archive...">
+      </div>
+
+      <nav>
+        <a href="#">Collection</a>
+        <a href="#">Network</a>
+        <a href="#">Settings</a>
+      </nav>
+
+      <button class="addBtn">New Entry</button>
+    </header>
+
+    <main>
+      <div class="filterBox">
+        <span>THE TRAY:</span>
+        <button class="filter active" data-type="all">All</button>
+        <button class="filter" data-type="partner">Partners</button>
+        <button class="filter" data-type="client">Clients</button>
+        <button class="filter" data-type="tech">Tech</button>
+      </div>
+
+      <section class="cardGrid" id="cardGrid"></section>
+    </main>
+
+    <footer>
+      <div class="footerLeft">
+        © 2026 DXEL BUSINESS CARD MANAGER
+      </div>
+
+      <div class="footerRight">
+        <span class="sync">
+          <i></i>
+          Local AI Ready
+        </span>
+
+        <span>SQLite</span>
+        <span>CSV Export</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="./js/card.js"></script>
 </body>
 </html>
