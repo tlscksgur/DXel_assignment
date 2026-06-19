@@ -3,7 +3,15 @@ const contacts = [
   {name: "김민수", position: "Backend Developer", company: "Archive Lab", mobile: "010-2222-3333", email: "minsu@archive.com", date: "2026.06.18"},
   {name: "이서연", position: "AI Engineer", company: "Local OCR Studio", mobile: "010-5555-7777", email: "seoyeon@ocr.io", date: "2026.06.18"},
   {name: "박지훈", position: "Product Designer", company: "Contact Works", mobile: "010-8888-9999", email: "jihun@contact.kr", date: "2026.06.18"},
-  {name: "신찬투", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"}
+  {name: "신찬투", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
+  {name: "신찬쓰리", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
+  {name: "신찬포", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
+  {name: "신찬파이브", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
+  {name: "신찬식스", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
+  {name: "신찬세븐", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
+  {name: "신찬에잇", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
+  {name: "신찬나인", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
+  {name: "신찬텐", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"}
 ];
 
 const cardTrack = document.querySelector("#cardTrack");
