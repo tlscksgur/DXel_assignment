@@ -28,6 +28,7 @@ function renderCards(data){
     cardTrack.innerHTML += `
       ${createCard(contact)}
     `;
+
   });
 
   requestAnimationFrame(() => {
