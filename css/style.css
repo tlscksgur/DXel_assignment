@@ -16,7 +16,7 @@ header{width: 100%; height: 76px; padding: 0 42px; display: flex; align-items: c
 .headerBox1 ul li a.active{color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
 .headerBox1 ul li:nth-child(2){letter-spacing: 2px;}
 
-.cardAdd{height: 42px; padding: 0 28px; border: none; border-radius: 100px; background: var(--primary); color: #fff; font-size: 14px; font-weight: bold; letter-spacing: 1px; cursor: pointer; box-shadow: 0 5px 18px rgba(3,22,50,.15); }
+.cardAdd{height: 42px; padding: 0 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 100px; background: var(--primary); color: #fff; font-size: 14px; font-weight: bold; letter-spacing: 1px; cursor: pointer; box-shadow: 0 5px 18px rgba(3,22,50,.15); }
 
 main{width: 100%; padding-top: 90px; }
 
@@ -30,7 +30,7 @@ main{width: 100%; padding-top: 90px; }
 
 .cardArea{width: 100%; overflow: hidden; padding: 20px 0 80px; }
 .cardTrack{display: flex; gap: 22px; width: max-content; padding-left: 5%; }
-.cardTrack.slide{animation: cardFlow 38s linear infinite; }
+.cardTrack.slide{animation: cardFlow 45s linear infinite; }
 /* .cardTrack.slide:hover{animation-play-state: paused;} */
 .cardTrack .contactCard:hover{scale: 1.03; /* cursor: pointer; */}
 

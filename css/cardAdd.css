@@ -1,0 +1,512 @@
+.card-add-page main{
+  padding: 64px 5% 150px;
+}
+
+.addMain{
+  min-height: calc(100vh - 76px);
+}
+
+.addTitle{
+  width: 100%;
+  max-width: 1380px;
+  margin: 0 auto 34px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.eyebrow{
+  display: block;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2.6px;
+  color: #8D8A84;
+}
+
+.addTitle h1{
+  font-size: 54px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  color: var(--primary);
+}
+
+.addTitle p{
+  margin-top: 8px;
+  font-size: 17px;
+  color: var(--secondary);
+}
+
+.processStatus{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.processStatus span{
+  height: 34px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255,255,255,.7);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #9A9893;
+}
+
+.processStatus .active{
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.reviewBoard{
+  width: 100%;
+  max-width: 1380px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(360px, .9fr) minmax(520px, 1.1fr);
+  gap: 34px;
+  align-items: start;
+}
+
+.uploadPanel,
+.extractPanel{
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 18px 45px rgba(26,43,72,.08);
+}
+
+.uploadPanel{
+  padding: 22px;
+  border-radius: 18px;
+}
+
+.uploadBox{
+  position: relative;
+  min-height: 118px;
+  border: 1px dashed #B9B5AD;
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.uploadBox input{
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.uploadBox label{
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.uploadIcon{
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.uploadBox strong{
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.uploadBox em{
+  font-style: normal;
+  font-size: 13px;
+  color: var(--secondary);
+}
+
+.previewFrame{
+  margin-top: 18px;
+  aspect-ratio: 1.45 / 1;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.18), rgba(3,22,50,.06)),
+    #E8E3DB;
+  overflow: hidden;
+}
+
+.previewFrame img{
+  width: min(96%, 620px);
+  max-height: 92%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 18px 35px rgba(3,22,50,.22);
+  transform: rotate(-4deg);
+}
+
+.emptyPreview{
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px dashed rgba(3,22,50,.22);
+  border-radius: 14px;
+  color: rgba(3,22,50,.45);
+  text-align: center;
+}
+
+.emptyPreview span{
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+
+.emptyPreview p{
+  font-size: 14px;
+  color: var(--secondary);
+}
+
+.queueBox{
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--primary);
+  color: #fff;
+}
+
+.queueHeader,
+.queueItem{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.queueHeader{
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,.16);
+}
+
+.queueHeader span{
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.queueHeader b{
+  font-size: 13px;
+  color: rgba(255,255,255,.7);
+}
+
+.queueItem{
+  min-height: 38px;
+  padding: 0 4px;
+  color: rgba(255,255,255,.62);
+}
+
+.queueItem.current{
+  color: #fff;
+}
+
+.queueItem span{
+  width: 28px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.queueItem p{
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+
+.queueItem b{
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.emptyQueue{
+  padding: 16px 4px 2px;
+  font-size: 14px;
+  color: rgba(255,255,255,.62);
+}
+
+.extractPanel{
+  padding: 30px;
+  border-radius: 18px;
+}
+
+.panelHeader{
+  margin-bottom: 22px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.panelHeader h2{
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -1px;
+}
+
+.runningBadge{
+  height: 34px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #E9EFE4;
+  color: #526248;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.extractForm{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.fieldGroup{
+  position: relative;
+  min-width: 0;
+}
+
+.fieldGroup.wide{
+  grid-column: span 2;
+}
+
+.fieldGroup label{
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #8D8A84;
+}
+
+.fieldGroup input,
+.fieldGroup textarea{
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  outline: none;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 15px;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.fieldGroup input{
+  height: 50px;
+  padding: 0 15px;
+}
+
+.fieldGroup textarea{
+  padding: 14px 15px;
+  resize: vertical;
+}
+
+.fieldGroup input:focus,
+.fieldGroup textarea:focus{
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(3,22,50,.08);
+}
+
+.identity input{
+  height: 58px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.validationStrip{
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.validationStrip span{
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--secondary);
+}
+
+.duplicateBox{
+  margin-top: 18px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid #DED7CC;
+  border-radius: 14px;
+  background: #FFFCF5;
+}
+
+.duplicateBox p{
+  font-size: 15px;
+  color: var(--primary);
+}
+
+.duplicateActions{
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.duplicateActions button{
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actionDock{
+  width: min(680px, 90%);
+  min-height: 88px;
+  margin: 34px auto 0;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.25fr;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: rgba(255,255,255,.82);
+  box-shadow: 0 18px 45px rgba(26,43,72,.08);
+}
+
+.actionDock button{
+  min-width: 0;
+  height: 62px;
+  border-radius: 16px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.ghostAction{
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--secondary);
+}
+
+.subAction{
+  border: 1px solid var(--primary);
+  background: #fff;
+  color: var(--primary);
+}
+
+.mainAction{
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(3,22,50,.18);
+}
+
+@media (max-width: 1100px){
+  .card-add-page main{
+    padding-top: 44px;
+  }
+
+  .addTitle{
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .reviewBoard{
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px){
+  .card-add-page main{
+    padding: 34px 20px 145px;
+  }
+
+  .addTitle h1{
+    font-size: 42px;
+  }
+
+  .processStatus{
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .uploadPanel,
+  .extractPanel{
+    padding: 18px;
+  }
+
+  .previewFrame{
+    padding: 14px;
+  }
+
+  .panelHeader{
+    flex-direction: column;
+  }
+
+  .extractForm{
+    grid-template-columns: 1fr;
+  }
+
+  .fieldGroup.wide{
+    grid-column: span 1;
+  }
+
+  .duplicateBox{
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .duplicateActions{
+    width: 100%;
+  }
+
+  .duplicateActions button{
+    flex: 1;
+  }
+
+  .actionDock{
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/cardAdd.css">
+  <title>DXel Card Add</title>
+</head>
+<body class="card-add-page">
+  <div class="container">
+    <header>
+      <div class="headerBox1">
+        <div class="logo">명함관리</div>
+        <ul>
+          <li><a href="./index.html" class="active">홈</a></li>
+          <li><a href="./BCM.html">명함관리</a></li>
+        </ul>
+      </div>
+      <div class="headerBox2">
+        <a href="./cardAdd.html" class="cardAdd">+ 명함등록</a>
+      </div>
+    </header>
+
+    <main class="addMain">
+      <section class="addTitle">
+        <div>
+          <span class="eyebrow">LOCAL OCR REVIEW</span>
+          <h1>명함 추가</h1>
+          <p>명함 사진을 올린 뒤 추출된 정보를 확인하고 저장하세요.</p>
+        </div>
+        <div class="processStatus">
+          <span class="active">01 업로드</span>
+          <span class="active">02 확인</span>
+          <span>03 저장</span>
+        </div>
+      </section>
+
+      <section class="reviewBoard" aria-label="명함 추출 결과 확인">
+        <aside class="uploadPanel">
+          <div class="uploadBox">
+            <input type="file" id="cardImage" accept="image/*" capture="environment" multiple>
+            <label for="cardImage">
+              <span class="uploadIcon">+</span>
+              <strong>명함 사진 업로드</strong>
+              <em>휴대폰 촬영 또는 파일 선택</em>
+            </label>
+          </div>
+
+          <div class="previewFrame">
+            <div class="emptyPreview">
+              <span>NO IMAGE</span>
+              <p>명함 사진을 업로드하면 이곳에 표시됩니다.</p>
+            </div>
+          </div>
+
+          <div class="queueBox">
+            <div class="queueHeader">
+              <span>연속 업로드</span>
+              <b>0장 대기</b>
+            </div>
+            <p class="emptyQueue">업로드한 명함이 없습니다.</p>
+          </div>
+        </aside>
+
+        <section class="extractPanel">
+          <div class="panelHeader">
+            <div>
+              <span class="eyebrow">EXTRACTION RESULT</span>
+              <h2>추출 결과 확인</h2>
+            </div>
+            <span class="runningBadge">업로드 대기</span>
+          </div>
+
+          <form class="extractForm">
+            <div class="fieldGroup identity">
+              <label for="name">이름</label>
+              <input type="text" id="name">
+            </div>
+
+            <div class="fieldGroup">
+              <label for="company">회사</label>
+              <input type="text" id="company">
+            </div>
+
+            <div class="fieldGroup">
+              <label for="department">부서</label>
+              <input type="text" id="department">
+            </div>
+
+            <div class="fieldGroup">
+              <label for="position">직책</label>
+              <input type="text" id="position">
+            </div>
+
+            <div class="fieldGroup">
+              <label for="mobile">휴대폰</label>
+              <input type="tel" id="mobile">
+            </div>
+
+            <div class="fieldGroup">
+              <label for="phone">유선전화</label>
+              <input type="tel" id="phone">
+            </div>
+
+            <div class="fieldGroup wide">
+              <label for="email">이메일</label>
+              <input type="email" id="email">
+            </div>
+
+            <div class="fieldGroup wide">
+              <label for="homepage">홈페이지</label>
+              <input type="url" id="homepage">
+            </div>
+
+            <div class="fieldGroup wide">
+              <label for="address">주소</label>
+              <textarea id="address" rows="3"></textarea>
+            </div>
+          </form>
+
+          <div class="validationStrip">
+            <span>전화번호 검사 대기</span>
+            <span>이메일 검사 대기</span>
+            <span>중복 검사 대기</span>
+          </div>
+
+          <div class="duplicateBox">
+            <div>
+              <span class="eyebrow">DUPLICATE CHECK</span>
+              <p>저장 전 같은 전화번호 또는 이름과 회사가 있는지 확인합니다.</p>
+            </div>
+            <div class="duplicateActions">
+              <button type="button">기존 항목 보기</button>
+              <button type="button">별도 등록</button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="actionDock" aria-label="명함 등록 작업">
+        <button class="ghostAction" type="button">취소</button>
+        <button class="subAction" type="button">다음 명함</button>
+        <button class="mainAction" type="button">확인 후 저장</button>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footerLeft">
+        (c) 2026 DXEL BUSINESS CARD MANAGER
+      </div>
+
+      <div class="footerRight">
+        <span class="sync">
+          <i></i>
+          Local AI Ready
+        </span>
+
+        <span>SQLite</span>
+        <span>CSV Export</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
