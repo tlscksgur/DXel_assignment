@@ -71,7 +71,11 @@
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(360px, .9fr) minmax(520px, 1.1fr);
-  gap: 34px;
+  grid-template-areas:
+    "upload extract"
+    "actions extract";
+  column-gap: 34px;
+  row-gap: 18px;
   align-items: start;
 }
 
@@ -83,6 +87,7 @@
 }
 
 .uploadPanel{
+  grid-area: upload;
   padding: 22px;
   border-radius: 18px;
 }
@@ -258,6 +263,7 @@
 }
 
 .extractPanel{
+  grid-area: extract;
   padding: 30px;
   border-radius: 18px;
 }
@@ -399,27 +405,31 @@
 }
 
 .actionDock{
-  width: min(680px, 90%);
-  min-height: 88px;
-  margin: 34px auto 0;
+  grid-area: actions;
+  width: 100%;
+}
+
+.actionButtons{
+  width: 100%;
   padding: 12px;
+  margin-top: 20px;
   display: grid;
-  grid-template-columns: 1fr 1fr 1.25fr;
-  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: 18px;
   background: rgba(255,255,255,.82);
-  box-shadow: 0 18px 45px rgba(26,43,72,.08);
+  box-shadow: 0 10px 26px rgba(26,43,72,.06);
 }
 
 .actionDock button{
   min-width: 0;
-  height: 62px;
-  border-radius: 16px;
+  height: 44px;
+  border-radius: 12px;
   font-family: inherit;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 1px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .4px;
   cursor: pointer;
 }
 
@@ -436,10 +446,11 @@
 }
 
 .mainAction{
+  grid-column: span 2;
   border: 1px solid var(--primary);
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 10px 24px rgba(3,22,50,.18);
+  box-shadow: 0 6px 16px rgba(3,22,50,.12);
 }
 
 @media (max-width: 1100px){
@@ -454,6 +465,11 @@
 
   .reviewBoard{
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "upload"
+      "actions"
+      "extract";
+    row-gap: 18px;
   }
 }
 
@@ -505,8 +521,11 @@
     flex: 1;
   }
 
-  .actionDock{
-    width: 100%;
+  .actionButtons{
     grid-template-columns: 1fr;
+  }
+
+  .mainAction{
+    grid-column: span 1;
   }
 }
