@@ -2,6 +2,22 @@
   padding: 64px 5% 150px;
 }
 
+.card-add-page .cardAdd.subActive{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  box-shadow: 0 8px 20px rgba(3,22,50,.12), inset 0 0 0 1px rgba(255,255,255,.75);
+  /* transform: translateY(-1px); */
+}
+
+.card-add-page .cardAdd.subActive:active{
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(3,22,50,.10), inset 0 0 0 1px rgba(255,255,255,.75);
+}
+
 .addMain{
   min-height: calc(100vh - 76px);
 }
