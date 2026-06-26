@@ -8,18 +8,18 @@
   scrollbar-width: none;
 }
 
-body.bcm-page {
+.bcm-page {
   background: radial-gradient(circle at 20% 10%, rgba(255, 255, 255, .95) 0, rgba(255, 255, 255, 0) 30%), radial-gradient(circle at 80% 20%, rgba(245, 237, 225, .9) 0, rgba(245, 237, 225, 0) 32%), linear-gradient(180deg, #fefaf4 0%, #fbf6ef 100%);
 }
 
-main.bcmMain {
+.bcmMain {
   position: relative;
   min-height: calc(100vh - 146px);
   padding: 42px 24px 110px;
 }
 
-main.bcmMain::before,
-body.bcm-page main.bcmMain::after {
+.bcmMain::before,
+.bcm-page .bcmMain::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -211,6 +211,7 @@ body.bcm-page .bcmBoard {
 
 .pill {
   width: fit-content;
+  margin-bottom: 8px;
   padding: 5px 11px;
   border-radius: 999px;
   background: rgba(3, 22, 50, .08);
@@ -250,7 +251,8 @@ body.bcm-page .cardId {
   display: inline-flex;
   width: 36px;
   height: 36px;
-  align-items: center;
+  /* align-items: center; */
+  line-height: 32px;
   justify-content: center;
   border-radius: 12px;
   background: rgba(3, 22, 50, .08);
@@ -260,7 +262,7 @@ body.bcm-page .cardId {
 
 .monogram {
   position: absolute;
-  top: 22px;
+  top: 10px;
   left: 22px;
   display: inline-flex;
   width: 38px;

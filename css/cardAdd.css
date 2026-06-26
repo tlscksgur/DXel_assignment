@@ -123,13 +123,13 @@
   width: 34px;
   height: 34px;
   display: flex;
-  align-items: center;
+  /* align-items: center; */
   justify-content: center;
+  line-height: 28px;
   border-radius: 50%;
   background: var(--primary);
   color: #fff;
   font-size: 24px;
-  line-height: 1;
 }
 
 .uploadBox strong{

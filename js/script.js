@@ -99,4 +99,5 @@ window.addEventListener("resize", () => {
   renderCards(contacts);
 });
 
+
 renderCards(contacts);
