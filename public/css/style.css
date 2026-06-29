@@ -327,6 +327,9 @@ footer {
   animation: none;
 }
 
+.csvExport:hover{color: #565656;}
+.csvExport{transition: .3s;}
+
 @keyframes pulse {
   0% {
     opacity: .3;
