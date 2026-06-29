@@ -1,0 +1,23 @@
+{
+  "name": "dxel_assignment",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tlscksgur/DXel_assignment.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tlscksgur/DXel_assignment/issues"
+  },
+  "homepage": "https://github.com/tlscksgur/DXel_assignment#readme",
+  "description": "",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
