@@ -298,18 +298,33 @@ footer {
   padding-bottom: 4px;
 }
 
-.sync {
+.sync,
+.serviceStatus {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.sync i {
+.serviceStatus i {
   width: 8px;
   height: 8px;
+  flex-shrink: 0;
   border-radius: 50%;
+  background: #B8B3AA;
+}
+
+.serviceStatusOn {
+  color: #565656 !important;
+}
+
+.serviceStatusOn i {
   background: #5E5F5C;
   animation: pulse 1.5s infinite;
+}
+
+.serviceStatusOff i {
+  background: #D2CEC6;
+  animation: none;
 }
 
 @keyframes pulse {
