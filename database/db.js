@@ -1,10 +1,10 @@
 const sqlite3 = require('sqlite3').verbose(); 
 
 const db = new sqlite3.Database("./database/businesscard.db", (err) => {
-  if(err) {
-    console.error("DB 연결 실패:", err.message);
-  } else {
-    console.log("SQLite DB 연결 성공");
+  if(err){
+    console.error(err.message);
+  }else{
+    console.log("SQLite connected");
   }
 });
 
@@ -17,9 +17,11 @@ db.run(`
     position TEXT,
     mobile TEXT,
     phone TEXT,
+    fax TEXT,
     email TEXT,
     address TEXT,
     website TEXT,
+    other_text TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);

@@ -47,17 +47,79 @@ app.get("/api/status", async (req, res) => {
   });
 });
 
+
+app.post("/api/cards", (req, res) => {
+  const {
+    name,
+    company,
+    department,
+    position,
+    mobile,
+    phone,
+    fax,
+    email,
+    address,
+    website,
+    other_text
+  } = req.body;
+
+  const sql = `
+    INSERT INTO business_cards (
+      name, company, department, position, mobile, phone, fax, email, address, website, other_text
+    )
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  
+  db.run(
+    sql,
+    [
+      name || "",
+      company || "",
+      department || "",
+      position || "",
+      mobile || "",
+      phone || "",
+      fax || "",
+      email || "",
+      address || "",
+      website || "",
+      other_text || ""
+    ],
+    function (err) {
+      if(err){
+        console.error(err.message)
+
+        return res.status(500).json({
+          success: false,
+          message: "명함 저장 실패"
+        });
+
+        res.status(201).json({
+          success: true,
+          message: "명함 저장 완료",
+          id: this.lastID
+        });
+        
+      }
+    }
+  )
+  
+})
+
+
 app.use(express.static("public"));
 
-app.get("/", (req, res) => {
-  res.send("Business Card Backend Server");
-})
 
 app.listen(PORT, (err) => {
   if (err) {
     console.error(`Server failed: ${err.message}`);
     return;
   }
-
+  
   console.log(`Server running at http://localhost:${PORT}`);
 })
+
+
+// app.get("/", (req, res) => {
+//   res.send("Business Card Backend Server");
+// })
