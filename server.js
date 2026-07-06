@@ -48,7 +48,7 @@ app.get("/api/status", async (req, res) => {
 });
 
 
-app.post("/api/cards", (req, res) => {
+app.post("/api/cardStorage", (req, res) => {
   const {
     name,
     company,
@@ -71,8 +71,7 @@ app.post("/api/cards", (req, res) => {
   `;
   
   db.run(
-    sql,
-    [
+    sql, [
       name || "",
       company || "",
       department || "",
@@ -106,6 +105,27 @@ app.post("/api/cards", (req, res) => {
   
 })
 
+app.get("/api/cardSelect", (req, res) => {
+  const sql = "select * from businness_cards order by created_at desc";
+
+  db.all(sql, (err, rows) => {
+    if(err) {
+      console.error(err.message);
+
+      return res.status(500).json({
+        success: false,
+        message: "명함 목록 조회 실패"
+      });
+
+      res.json({
+        success: true,
+        cards: rows
+      })
+      
+    }
+  })
+  
+})
 
 app.use(express.static("public"));
 
