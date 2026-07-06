@@ -37,6 +37,46 @@ async function checkLocalAi() {
   }
 }
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/")
+  },
+
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+
+    const filename = Date.now() + ext;
+
+    cb(null, filename);
+  }
+})
+
+const uploads = multer({
+  storage: storage
+});
+
+app.post("/api/cards/extract", uploads.single("image"), (req, res) => {
+  if(!req.file){
+    return res.status(400).json({
+      success: false,
+      message: "이미지 파일이 없습니다."
+    });
+  }
+
+  res.json({
+    success: true,
+    message: "이미지 업로드 성공",
+
+    file: {
+      originalName: req.file.originalname,
+      filename: req.file.filename,
+      path: req.file.path,
+      size: req.file.size
+    }
+  });
+
+});
+
 app.get("/api/status", async (req, res) => {
   const [sqlite, localAi] = await Promise.all([
     checkSqlite(),
