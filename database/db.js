@@ -17,12 +17,10 @@ db.run(`
     position TEXT,
     mobile TEXT,
     phone TEXT,
-    fax TEXT,
     email TEXT,
     address TEXT,
     website TEXT,
     image_path TEXT,
-    other_text TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
@@ -34,7 +32,7 @@ db.all("PRAGMA table_info(business_cards)", (err, columns) => {
   }
 
   const columnNames = columns.map((column) => column.name);
-  const requiredColumns = ["fax", "image_path", "other_text"];
+  const requiredColumns = ["image_path"];
 
   requiredColumns.forEach((column) => {
     if (!columnNames.includes(column)) {

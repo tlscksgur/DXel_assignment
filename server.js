@@ -67,12 +67,10 @@ function makeCard(body) {
     position: String(body.position || "").trim(),
     mobile: normalizePhone(body.mobile),
     phone: normalizePhone(body.phone),
-    fax: normalizePhone(body.fax),
     email: String(body.email || "").trim().toLowerCase(),
     address: String(body.address || "").trim(),
     website: normalizeWebsite(body.website),
-    image_path: String(body.image_path || body.imagePath || "").trim(),
-    other_text: String(body.other_text || body.otherText || "").trim()
+    image_path: String(body.image_path || body.imagePath || "").trim()
   };
 }
 
@@ -181,11 +179,9 @@ app.post("/api/cards/extract", upload.single("image"), (req, res) => {
       position: "",
       mobile: "",
       phone: "",
-      fax: "",
       email: "",
       address: "",
-      website: "",
-      other_text: ""
+      website: ""
     }
   });
 });
@@ -219,10 +215,10 @@ function saveCard(req, res) {
 
     const sql = `
       INSERT INTO business_cards (
-        name, company, department, position, mobile, phone, fax,
-        email, address, website, image_path, other_text
+        name, company, department, position, mobile, phone,
+        email, address, website, image_path
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.run(sql, [
@@ -232,12 +228,10 @@ function saveCard(req, res) {
       card.position,
       card.mobile,
       card.phone,
-      card.fax,
       card.email,
       card.address,
       card.website,
-      card.image_path,
-      card.other_text
+      card.image_path
     ], function (err) {
       if (err) {
         return res.status(500).json({
@@ -275,7 +269,7 @@ app.get("/api/cards/export/csv", (req, res) => {
 
     const headers = [
       "id", "name", "company", "department", "position", "mobile", "phone",
-      "fax", "email", "address", "website", "image_path", "other_text", "created_at"
+      "email", "address", "website", "image_path", "created_at"
     ];
 
     const csvRows = rows.map((row) => {
@@ -414,12 +408,10 @@ app.put("/api/cards/:id", (req, res) => {
           position = ?,
           mobile = ?,
           phone = ?,
-          fax = ?,
           email = ?,
           address = ?,
           website = ?,
-          image_path = ?,
-          other_text = ?
+          image_path = ?
       WHERE id = ?
     `;
 
@@ -430,12 +422,10 @@ app.put("/api/cards/:id", (req, res) => {
       card.position,
       card.mobile,
       card.phone,
-      card.fax,
       card.email,
       card.address,
       card.website,
       card.image_path,
-      card.other_text,
       req.params.id
     ], function (err) {
       if (err) {
@@ -484,12 +474,10 @@ app.post("/api/cards/:id/merge", (req, res) => {
       position: newCard.position || oldCard.position || "",
       mobile: newCard.mobile || oldCard.mobile || "",
       phone: newCard.phone || oldCard.phone || "",
-      fax: newCard.fax || oldCard.fax || "",
       email: newCard.email || oldCard.email || "",
       address: newCard.address || oldCard.address || "",
       website: newCard.website || oldCard.website || "",
-      image_path: newCard.image_path || oldCard.image_path || "",
-      other_text: newCard.other_text || oldCard.other_text || ""
+      image_path: newCard.image_path || oldCard.image_path || ""
     };
 
     const sql = `
@@ -500,12 +488,10 @@ app.post("/api/cards/:id/merge", (req, res) => {
           position = ?,
           mobile = ?,
           phone = ?,
-          fax = ?,
           email = ?,
           address = ?,
           website = ?,
-          image_path = ?,
-          other_text = ?
+          image_path = ?
       WHERE id = ?
     `;
 
@@ -516,12 +502,10 @@ app.post("/api/cards/:id/merge", (req, res) => {
       mergedCard.position,
       mergedCard.mobile,
       mergedCard.phone,
-      mergedCard.fax,
       mergedCard.email,
       mergedCard.address,
       mergedCard.website,
       mergedCard.image_path,
-      mergedCard.other_text,
       req.params.id
     ], (err) => {
       if (err) {
