@@ -12,7 +12,7 @@ const UPLOAD_DIR = path.join(__dirname, "uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use(express.json());
 
-async function extarctBusinessCard(imageDataUrl) {
+async function extractBusinessCard(imageDataUrl) {
   const response = await fetch(process.env.LM_STUDIO_ENDPOINT, {
     method: "POST",
     headers: {
@@ -173,19 +173,27 @@ function csvValue(value) {
   return `"${String(value || "").replace(/"/g, '""')}"`;
 }
 
-function imageToDataUrl() {
+function imageToDataUrl(file) {
   const base64 = fs.readFileSync(file.path).toString("base64");
-  return `data:${file.mimetype};base64,${base64}`
+  return `data:${file.mimetype};base64,${base64}`;
 }
 
 function parseModelJson(content) {
-  const cleaned = String(content || "")
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/, "")
-    .replace(/\s*```$/, "")
-    .trim();
+  const text = String(content || "").trim();
+  const fencedJson = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
 
-  return JSON.parse(cleaned);
+  if (fencedJson) {
+    return JSON.parse(fencedJson[1].trim());
+  }
+
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+
+  if (firstBrace === -1 || lastBrace < firstBrace) {
+    throw new Error("모델 응답에서 JSON 객체를 찾을 수 없습니다.");
+  }
+
+  return JSON.parse(text.slice(firstBrace, lastBrace + 1));
 }
 
 function sanitizeExtractedCard(value = {}) {

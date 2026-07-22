@@ -141,7 +141,7 @@
   display: flex;
   /* align-items: center; */
   justify-content: center;
-  line-height: 28px;
+  line-height: 37px;
   border-radius: 50%;
   background: var(--primary);
   color: #fff;
@@ -179,7 +179,7 @@
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 18px 35px rgba(3,22,50,.22);
-  transform: rotate(-4deg);
+  /* transform: rotate(-4deg); */
 }
 
 .emptyPreview{
