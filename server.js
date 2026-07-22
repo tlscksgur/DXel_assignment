@@ -10,8 +10,62 @@ const PORT = process.env.PORT || 3000;
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
 app.use(express.json());
+
+async function extarctBusinessCard(imageDataUrl) {
+  const response = await fetch(process.env.LM_STUDIO_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: process.env.LM_STUDIO_MODEL,
+      temperature: 0,
+      messages: [
+        {
+          role: "system",
+          content: `
+            명함 이미지에서 정보를 추출하세요.
+            이미지에 없는 정보는 추측하지 말고 빈 문자열로 반환하세요.
+            설명이나 마크다운 없이 JSON 객체만 반환하세요.
+            
+            반환 방식:
+            {
+              "name": "",
+              "company": "",
+              "department": "",
+              "position": "",
+              "mobile": "",
+              "phone": "",
+              "email": "",
+              "address": "",
+              "website": ""
+            }
+          `.trim()
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "이 이미지가 명함이라면 정보를 추출하세요."
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageDataUrl
+              }
+            }
+          ]
+        }
+      ]
+    })
+  });
+  if(!response.ok) {
+    throw new Error(`LM Studio 요청 실패: ${response.status}`);
+  }
+  return response.json();
+}
 
 function normalizePhone(value) {
   if (!value) return "";
@@ -119,6 +173,35 @@ function csvValue(value) {
   return `"${String(value || "").replace(/"/g, '""')}"`;
 }
 
+function imageToDataUrl() {
+  const base64 = fs.readFileSync(file.path).toString("base64");
+  return `data:${file.mimetype};base64,${base64}`
+}
+
+function parseModelJson(content) {
+  const cleaned = String(content || "")
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  return JSON.parse(cleaned);
+}
+
+function sanitizeExtractedCard(value = {}) {
+  return {
+    name: String(value.name || "").trim(),
+    company: String(value.company || "").trim(),
+    department: String(value.department || "").trim(),
+    position: String(value.position || "").trim(),
+    mobile: normalizePhone(value.mobile),
+    phone: normalizePhone(value.phone),
+    email: String(value.email || "").trim().toLowerCase(),
+    address: String(value.address || "").trim(),
+    website: normalizeWebsite(value.website)
+  };
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, UPLOAD_DIR);
@@ -156,7 +239,7 @@ app.get("/api/status", (req, res) => {
   });
 });
 
-app.post("/api/cards/extract", upload.single("image"), (req, res) => {
+app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
       success: false,
@@ -164,27 +247,37 @@ app.post("/api/cards/extract", upload.single("image"), (req, res) => {
     });
   }
 
-  res.json({
-    success: true,
-    message: "이미지 업로드 완료",
-    file: {
-      originalName: req.file.originalname,
-      filename: req.file.filename,
-      path: `/uploads/${req.file.filename}`,
-      size: req.file.size
-    },
-    extracted: {
-      name: "",
-      company: "",
-      department: "",
-      position: "",
-      mobile: "",
-      phone: "",
-      email: "",
-      address: "",
-      website: ""
+  try {
+    const imageDataUrl = imageToDataUrl(req.file);
+    const modelResponse = await extractBusinessCard(imageDataUrl);
+    const content = modelResponse.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("모델 응답에 추출 결과가 없습니다.");
     }
-  });
+
+    const parsed = parseModelJson(content);
+    const extracted = sanitizeExtractedCard(parsed);
+
+    res.json({
+      success: true,
+      message: "명함 분석 완료",
+      file: {
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        path: `/uploads/${req.file.filename}`,
+        size: req.file.size
+      },
+      extracted
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(502).json({
+      success: false,
+      message: "명함 이미지 분석에 실패했습니다."
+    });
+  }
 });
 
 function saveCard(req, res) {

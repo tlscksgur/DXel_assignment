@@ -35,3 +35,23 @@ cardImageInput.addEventListener("change", async (event) => {
   }
   
 })
+
+let uploadImagePath = "";
+uploadImagePath = result.file.path;
+
+const fieldIds = [
+  "name",
+  "company",
+  "department",
+  "position",
+  "mobile",
+  "phone",
+  "email",
+  "address"
+];
+
+fieldIds.forEach((field) => {
+  document.querySelector(`#${field}`).value = result.extracted[field] || "";
+});
+
+document.querySelector("#homepage").value = result.extracted.website || "";
