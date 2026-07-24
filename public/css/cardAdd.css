@@ -241,35 +241,62 @@
   color: rgba(255,255,255,.7);
 }
 
+.queueList{
+  max-height: 240px;
+  overflow-y: auto;
+  display: grid;
+  gap: 6px;
+}
+
 .queueItem{
+  width: 100%;
   min-height: 38px;
-  padding: 0 4px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
   color: rgba(255,255,255,.62);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .queueItem.current{
+  border-color: rgba(255,255,255,.2);
+  background: rgba(255,255,255,.12);
   color: #fff;
 }
 
 .queueItem span{
-  width: 28px;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.queueItem p{
   flex: 1;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.queueItem span strong{
+  margin-right: 8px;
+  color: rgba(255,255,255,.48);
 }
 
 .queueItem b{
   flex-shrink: 0;
   font-size: 12px;
+}
+
+.queueItem-saved b{
+  color: #9FD39B;
+}
+
+.queueItem-skipped b{
+  color: #D7C79E;
+}
+
+.queueItem-error b{
+  color: #FF9C91;
 }
 
 .emptyQueue{
@@ -397,6 +424,11 @@
   font-weight: 700;
   letter-spacing: .4px;
   cursor: pointer;
+}
+
+.actionDock button:disabled{
+  opacity: .45;
+  cursor: not-allowed;
 }
 
 .ghostAction{

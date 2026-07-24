@@ -123,61 +123,233 @@ ${JSON.stringify({
   }
 });
 
-test("업로드 응답을 입력 필드와 처리 상태에 반영한다", async () => {
+function namedImage(name) {
+  const image = new Blob([Buffer.from(name)], { type: "image/png" });
+  Object.defineProperty(image, "name", { value: name });
+  return image;
+}
+
+function createCardAddBrowser(fetchImplementation) {
   const elements = new Map();
-  let changeHandler;
+  const handlers = new Map();
+  const alerts = [];
 
   function element(selector) {
     if (!elements.has(selector)) {
-      elements.set(selector, { value: "", textContent: "", innerHTML: "" });
+      const classNames = new Set();
+      elements.set(selector, {
+        value: "",
+        textContent: "",
+        innerHTML: "",
+        disabled: false,
+        addEventListener(event, handler) {
+          handlers.set(`${selector}:${event}`, handler);
+        },
+        classList: {
+          add(name) { classNames.add(name); },
+          remove(name) { classNames.delete(name); },
+          toggle(name, enabled) {
+            if (enabled) classNames.add(name);
+            else classNames.delete(name);
+          }
+        }
+      });
     }
     return elements.get(selector);
   }
-
-  element("#cardImage").addEventListener = (event, handler) => {
-    if (event === "change") changeHandler = handler;
-  };
-  element(".mainAction").addEventListener = () => {};
 
   const context = {
     console,
     Blob,
     FormData,
-    URL: { createObjectURL: () => "blob:preview" },
-    alert: () => {},
+    crypto: { randomUUID: () => `queue-${Math.random()}` },
+    URL: {
+      createObjectURL: (file) => `blob:${file.name}`,
+      revokeObjectURL: () => {}
+    },
+    alert: (message) => alerts.push(message),
+    confirm: () => true,
     document: { querySelector: element },
-    fetch: async () => ({
-      ok: true,
-      json: async () => ({
-        file: { path: "/uploads/card.png" },
-        extracted: {
-          name: "홍길동",
-          company: "예시회사",
-          department: "개발팀",
-          position: "대리",
-          mobile: "010-1234-5678",
-          phone: "02-123-4567",
-          email: "hong@example.com",
-          address: "서울",
-          website: "https://example.com"
-        }
-      })
-    })
+    fetch: fetchImplementation
   };
 
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardAdd.js"), "utf8");
   vm.runInNewContext(source, context);
 
+  return {
+    alerts,
+    element,
+    handler(selector, event) {
+      return handlers.get(`${selector}:${event}`);
+    }
+  };
+}
+
+test("여러 이미지를 큐에 추가하고 첫 번째 이미지만 순차 분석한다", async () => {
+  let extractRequests = 0;
+  const browser = createCardAddBrowser(async (url) => {
+    assert.equal(url, "/api/cards/extract");
+    extractRequests += 1;
+
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: `/uploads/card-${extractRequests}.png` },
+        extracted: {
+          name: `명함 ${extractRequests}`,
+          company: "예시회사",
+          department: "",
+          position: "",
+          mobile: "",
+          phone: "",
+          email: "",
+          address: "",
+          website: ""
+        }
+      })
+    };
+  });
+
+  const changeHandler = browser.handler("#cardImage", "change");
   assert.equal(typeof changeHandler, "function");
+
   await changeHandler({
     target: {
-      files: [new Blob([Buffer.from("image")], { type: "image/png" })]
+      files: [namedImage("first.png"), namedImage("second.png")],
+      value: "selected"
     }
   });
 
-  assert.equal(element("#name").value, "홍길동");
-  assert.equal(element("#homepage").value, "https://example.com");
-  assert.equal(element(".runningBadge").textContent, "분석 완료");
+  assert.equal(extractRequests, 1);
+  assert.match(browser.element(".queueBox").innerHTML, /first\.png/);
+  assert.match(browser.element(".queueBox").innerHTML, /second\.png/);
+  assert.equal(browser.element("#name").value, "명함 1");
+  assert.equal(browser.element(".runningBadge").textContent, "분석 완료");
+});
+
+test("현재 명함을 저장하면 다음 대기 명함을 자동 분석한다", async () => {
+  let extractRequests = 0;
+  let saveRequests = 0;
+  const browser = createCardAddBrowser(async (url) => {
+    if (url === "/api/cards/extract") {
+      extractRequests += 1;
+      return {
+        ok: true,
+        json: async () => ({
+          file: { path: `/uploads/card-${extractRequests}.png` },
+          extracted: {
+            name: `명함 ${extractRequests}`,
+            company: "예시회사",
+            department: "",
+            position: "",
+            mobile: "",
+            phone: "",
+            email: "",
+            address: "",
+            website: ""
+          }
+        })
+      };
+    }
+
+    if (url === "/api/cards") {
+      saveRequests += 1;
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({ success: true, id: saveRequests })
+      };
+    }
+
+    throw new Error(`예상하지 않은 요청: ${url}`);
+  });
+
+  await browser.handler("#cardImage", "change")({
+    target: {
+      files: [namedImage("first.png"), namedImage("second.png")],
+      value: "selected"
+    }
+  });
+
+  await browser.handler(".mainAction", "click")();
+
+  assert.equal(saveRequests, 1);
+  assert.equal(extractRequests, 2);
+  assert.equal(browser.element("#name").value, "명함 2");
+  assert.match(browser.element(".queueBox").innerHTML, /저장 완료/);
+});
+
+test("다음 명함 버튼은 현재 항목을 건너뛰고 다음 이미지를 분석한다", async () => {
+  let extractRequests = 0;
+  const browser = createCardAddBrowser(async () => {
+    extractRequests += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: `/uploads/card-${extractRequests}.png` },
+        extracted: {
+          name: `명함 ${extractRequests}`,
+          company: "",
+          department: "",
+          position: "",
+          mobile: "",
+          phone: "",
+          email: "",
+          address: "",
+          website: ""
+        }
+      })
+    };
+  });
+
+  await browser.handler("#cardImage", "change")({
+    target: {
+      files: [namedImage("first.png"), namedImage("second.png")],
+      value: "selected"
+    }
+  });
+  await browser.handler(".subAction", "click")();
+
+  assert.equal(extractRequests, 2);
+  assert.equal(browser.element("#name").value, "명함 2");
+  assert.match(browser.element(".queueBox").innerHTML, /건너뜀/);
+});
+
+test("취소 버튼은 현재 항목을 제거하고 다음 이미지를 분석한다", async () => {
+  let extractRequests = 0;
+  const browser = createCardAddBrowser(async () => {
+    extractRequests += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: `/uploads/card-${extractRequests}.png` },
+        extracted: {
+          name: `명함 ${extractRequests}`,
+          company: "",
+          department: "",
+          position: "",
+          mobile: "",
+          phone: "",
+          email: "",
+          address: "",
+          website: ""
+        }
+      })
+    };
+  });
+
+  await browser.handler("#cardImage", "change")({
+    target: {
+      files: [namedImage("first.png"), namedImage("second.png")],
+      value: "selected"
+    }
+  });
+  await browser.handler(".ghostAction", "click")();
+
+  assert.equal(extractRequests, 2);
+  assert.equal(browser.element("#name").value, "명함 2");
+  assert.doesNotMatch(browser.element(".queueBox").innerHTML, /first\.png/);
+  assert.match(browser.element(".queueBox").innerHTML, /second\.png/);
 });
 
 test("상태 API가 LM Studio 연결 상태를 반환한다", async () => {
@@ -226,4 +398,12 @@ test("명함 등록 화면에 검증 및 중복 안내 블록을 표시하지 �
   assert.doesNotMatch(html, /DUPLICATE CHECK/);
   assert.doesNotMatch(html, /기존 항목 보기/);
   assert.doesNotMatch(html, /별도 등록/);
+});
+
+test("연속 업로드 큐는 스크롤과 현재 항목 강조 스타일을 제공한다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/cardAdd.css"), "utf8");
+
+  assert.match(css, /\.queueList\s*\{[^}]*max-height:\s*240px;[^}]*overflow-y:\s*auto;/);
+  assert.match(css, /\.queueItem\.current\s*\{[^}]*background:/);
+  assert.match(css, /\.queueItem-error\s+b\s*\{[^}]*color:/);
 });
