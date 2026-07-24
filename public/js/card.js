@@ -1,31 +1,83 @@
-const contacts = [
-  {name: "신찬혁", position: "Frontend Developer", company: "DXel Corp.", mobile: "010-1234-5678", email: "sin@dxel.com", date: "2026.06.18"},
-  {name: "김민수", position: "Backend Developer", company: "Archive Lab", mobile: "010-2222-3333", email: "minsu@archive.com", date: "2026.06.18"},
-  {name: "이서연", position: "AI Engineer", company: "Local OCR Studio", mobile: "010-5555-7777", email: "seoyeon@ocr.io", date: "2026.06.18"},
-  {name: "박지훈", position: "Product Designer", company: "Contact Works", mobile: "010-8888-9999", email: "jihun@contact.kr", date: "2026.06.18"},
-  {name: "신찬투", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
-  {name: "신찬쓰리", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
-  {name: "신찬포", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
-  {name: "신찬파이브", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
-  {name: "신찬식스", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
-  {name: "신찬세븐", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
-  {name: "신찬에잇", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
-  {name: "신찬나인", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"},
-  {name: "신찬텐", position: "똥처리반", company: "DXel", mobile: "010-4890-0924", email: "12880924a@gmail.com", date: "2026.07.24"}
-];
-
 const board = document.querySelector(".bcmBoard");
+const searchForm = document.querySelector(".cardSearchForm");
+const searchInput = document.querySelector("#cardSearch");
+const duplicateToggle = document.querySelector(".duplicateToggle");
+const resultSummary = document.querySelector(".resultSummary");
 
-if (board) {
-  renderCards(contacts);
+let visibleCards = [];
+let showDuplicatesOnly = false;
+let searchTimer;
+let requestSequence = 0;
+
+function normalizedPhone(value) {
+  return String(value || "").replace(/\D/g, "");
 }
 
-function renderCards(data) {
-  board.innerHTML = "";
+function normalizedText(value) {
+  return String(value || "").trim().toLocaleLowerCase();
+}
 
-  data.forEach((contact, index) => {
-    board.insertAdjacentHTML("beforeend", createCard(contact, index));
+function areDuplicateCards(first, second) {
+  const firstPhone = normalizedPhone(first.mobile);
+  const secondPhone = normalizedPhone(second.mobile);
+  const samePhone = firstPhone && firstPhone === secondPhone;
+
+  const firstName = normalizedText(first.name);
+  const secondName = normalizedText(second.name);
+  const firstCompany = normalizedText(first.company);
+  const secondCompany = normalizedText(second.company);
+  const sameNameAndCompany =
+    firstName &&
+    firstCompany &&
+    firstName === secondName &&
+    firstCompany === secondCompany;
+
+  return Boolean(samePhone || sameNameAndCompany);
+}
+
+function groupDuplicateCards(cards) {
+  const visited = new Set();
+  const groups = [];
+
+  cards.forEach((card, index) => {
+    if (visited.has(index)) {
+      return;
+    }
+
+    const groupIndexes = [];
+    const queue = [index];
+    visited.add(index);
+
+    while (queue.length > 0) {
+      const currentIndex = queue.shift();
+      groupIndexes.push(currentIndex);
+
+      cards.forEach((candidate, candidateIndex) => {
+        if (
+          !visited.has(candidateIndex) &&
+          areDuplicateCards(cards[currentIndex], candidate)
+        ) {
+          visited.add(candidateIndex);
+          queue.push(candidateIndex);
+        }
+      });
+    }
+
+    if (groupIndexes.length > 1) {
+      groups.push(groupIndexes.map((groupIndex) => cards[groupIndex]));
+    }
   });
+
+  return groups;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function createCard(contact, index) {
@@ -37,90 +89,127 @@ function createCard(contact, index) {
     "card-portrait tilt-right",
     "card-dark-grey tilt-left compact"
   ];
-
   const classes = variants[index % variants.length];
-  const badge = contact.kind ? contact.kind.toUpperCase() : "CARD";
-  const initials = contact.name
-    .split(" ")
-    .map(part => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-  if (classes.includes("card-dark-grey")) {
-    return `
-      <article class="profileCard ${classes}">
-        <div class="monogram">${initials || "A"}</div>
-        <span class="pill pill-outline">Verified</span>
-        <h2>${contact.name}</h2>
-        <p class="role">${contact.position} - ${contact.company}</p>
-        <p class="meta">${contact.mobile}</p>
-        <p class="meta">${contact.email}</p>
-      </article>
-    `;
-  }
-
-  if (classes.includes("card-portrait")) {
-    return `
-      <article class="profileCard ${classes}">
-        <div class="avatar">${initials || "JT"}</div>
-        <h2>${contact.name}</h2>
-        <p class="role">${contact.position}</p>
-        <p class="footerLabel">${contact.company}</p>
-      </article>
-    `;
-  }
-
-  if (classes.includes("card-cream")) {
-    return `
-      <article class="profileCard ${classes}">
-        <h2 class="scriptName">${contact.name}</h2>
-        <p class="role">${contact.position}</p>
-        <p class="summary">${contact.company} / ${contact.email}</p>
-        <div class="smallIcons">
-          <span>${badge.slice(0, 1)}</span>
-          <span>${badge.slice(-1)}</span>
-        </div>
-      </article>
-    `;
-  }
-
-  if (classes.includes("card-framed")) {
-    return `
-      <article class="profileCard ${classes}">
-        <span class="miniIcon">{ }</span>
-        <span class="cardId">ID: ${String(5820 + index).padStart(4, "0")}</span>
-        <h2>${contact.name}</h2>
-        <p class="role">${contact.position} - ${contact.company}</p>
-        <p class="status">
-          <i></i>
-          Active Project: ${badge}
-        </p>
-      </article>
-    `;
-  }
-
-  if (classes.includes("card-dark")) {
-    return `
-      <article class="profileCard ${classes}">
-        <span class="pill pill-dark">Picture</span>
-        <div class="cardStar">*</div>
-        <h2>${contact.name}</h2>
-        <p class="role">${contact.position} - ${contact.company}</p>
-        <p class="meta">${contact.email}</p>
-        <p class="meta strong">${contact.mobile}</p>
-      </article>
-    `;
-  }
+  const name = escapeHtml(contact.name || "이름 없음");
+  const company = escapeHtml(contact.company);
+  const position = escapeHtml(contact.position);
+  const mobile = escapeHtml(contact.mobile);
+  const email = escapeHtml(contact.email);
 
   return `
-    <article class="profileCard ${classes}">
-      <span class="pill">${badge}</span>
-      <div class="cardMenu">...</div>
-      <h2>${contact.name}</h2>
-      <p class="role">${contact.position} - ${contact.company}</p>
-      <p class="meta">${contact.email}</p>
-      <p class="meta">${contact.mobile}</p>
+    <article class="profileCard ${classes}" data-card-id="${Number(contact.id) || 0}">
+      <span class="pill">${company || "BUSINESS CARD"}</span>
+      <span class="cardId">#${Number(contact.id) || "-"}</span>
+      <h2>${name}</h2>
+      <p class="role">${[position, company].filter(Boolean).join(" · ")}</p>
+      ${mobile ? `<p class="meta strong">${mobile}</p>` : ""}
+      ${email ? `<p class="meta">${email}</p>` : ""}
     </article>
   `;
 }
+
+function renderAllCards(cards) {
+  board.classList.remove("duplicateMode");
+  board.innerHTML = "";
+
+  if (cards.length === 0) {
+    board.innerHTML = '<p class="emptyCards">검색 결과가 없습니다.</p>';
+    return;
+  }
+
+  cards.forEach((card, index) => {
+    board.insertAdjacentHTML("beforeend", createCard(card, index));
+  });
+}
+
+function renderDuplicateGroups(groups) {
+  board.classList.add("duplicateMode");
+  board.innerHTML = "";
+
+  if (groups.length === 0) {
+    board.innerHTML = '<p class="emptyCards">중복으로 판단된 명함이 없습니다.</p>';
+    return;
+  }
+
+  groups.forEach((group, groupIndex) => {
+    const cards = group
+      .map((card, cardIndex) => createCard(card, cardIndex))
+      .join("");
+
+    board.insertAdjacentHTML(
+      "beforeend",
+      `
+        <section class="duplicateGroup" aria-label="중복 후보 ${groupIndex + 1}">
+          <div class="duplicateGroupHeader">
+            <strong>중복 후보 ${groupIndex + 1}</strong>
+            <span>${group.length}장</span>
+          </div>
+          <div class="duplicateCards">${cards}</div>
+        </section>
+      `
+    );
+  });
+}
+
+function renderCurrentView() {
+  if (showDuplicatesOnly) {
+    const groups = groupDuplicateCards(visibleCards);
+    renderDuplicateGroups(groups);
+    const duplicateCount = groups.reduce((total, group) => total + group.length, 0);
+    resultSummary.textContent = `중복 후보 ${groups.length}개 그룹 · ${duplicateCount}장`;
+    return;
+  }
+
+  renderAllCards(visibleCards);
+  resultSummary.textContent = `최근 등록순 ${visibleCards.length}장`;
+}
+
+async function loadCards() {
+  const sequence = ++requestSequence;
+  const keyword = searchInput.value.trim();
+  const query = keyword ? `?q=${encodeURIComponent(keyword)}` : "";
+
+  resultSummary.textContent = "명함을 불러오는 중입니다.";
+
+  try {
+    const response = await fetch(`/api/cards${query}`, { cache: "no-store" });
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || "명함 목록을 불러오지 못했습니다.");
+    }
+
+    if (sequence !== requestSequence) {
+      return;
+    }
+
+    visibleCards = result.cards || [];
+    renderCurrentView();
+  } catch (error) {
+    console.error(error);
+    visibleCards = [];
+    board.classList.remove("duplicateMode");
+    board.innerHTML = `<p class="emptyCards">${escapeHtml(error.message)}</p>`;
+    resultSummary.textContent = "목록 조회 실패";
+  }
+}
+
+searchForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  loadCards();
+});
+
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadCards, 250);
+});
+
+duplicateToggle.addEventListener("click", () => {
+  showDuplicatesOnly = !showDuplicatesOnly;
+  duplicateToggle.classList.toggle("active", showDuplicatesOnly);
+  duplicateToggle.setAttribute("aria-pressed", String(showDuplicatesOnly));
+  duplicateToggle.textContent = showDuplicatesOnly ? "전체 명함 보기" : "중복 모아보기";
+  renderCurrentView();
+});
+
+loadCards();

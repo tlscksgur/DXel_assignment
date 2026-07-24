@@ -238,13 +238,35 @@ const upload = multer({
   }
 });
 
-app.get("/api/status", (req, res) => {
-  db.get("SELECT 1 AS ok", (err) => {
-    res.json({
-      sqlite: !err,
-      localAi: false
-    });
+function checkSqliteStatus() {
+  return new Promise((resolve) => {
+    db.get("SELECT 1 AS ok", (err) => resolve(!err));
   });
+}
+
+async function checkLocalAiStatus() {
+  if (!process.env.LM_STUDIO_STATUS_URL) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(process.env.LM_STUDIO_STATUS_URL, {
+      signal: AbortSignal.timeout(2000)
+    });
+
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
+app.get("/api/status", async (req, res) => {
+  const [sqlite, localAi] = await Promise.all([
+    checkSqliteStatus(),
+    checkLocalAiStatus()
+  ]);
+
+  res.json({ sqlite, localAi });
 });
 
 app.post("/api/cards/extract", upload.single("image"), async (req, res) => {

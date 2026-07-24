@@ -370,56 +370,6 @@
   font-weight: 600;
 }
 
-.validationStrip{
-  margin-top: 18px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.validationStrip span{
-  padding: 8px 11px;
-  border-radius: 999px;
-  background: var(--surface);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--secondary);
-}
-
-.duplicateBox{
-  margin-top: 18px;
-  padding: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  border: 1px solid #DED7CC;
-  border-radius: 14px;
-  background: #FFFCF5;
-}
-
-.duplicateBox p{
-  font-size: 15px;
-  color: var(--primary);
-}
-
-.duplicateActions{
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.duplicateActions button{
-  height: 38px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--primary);
-  font-weight: 700;
-  cursor: pointer;
-}
-
 .actionDock{
   grid-area: actions;
   width: 100%;

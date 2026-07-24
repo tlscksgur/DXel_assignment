@@ -23,73 +23,30 @@
     </header>
 
     <main class="bcmMain">
-      <!-- <section class="bcmIntro">
-        <div class="filterBox bcmFilter">
-          <span>THE TRAY:</span>
-          <button class="filter active" type="button">ALL</button>
-          <button class="filter" type="button">Partners</button>
-          <button class="filter" type="button">Clients</button>
-          <button class="filter" type="button">Tech</button>
-        </div>
-      </section> -->
-
-      <section class="bcmBoard" aria-label="Business card gallery">
-        <!-- <article class="profileCard card-light tilt-left">
-          <span class="pill">Designer</span>
-          <div class="cardMenu">...</div>
-          <h2>Elias Thorne</h2>
-          <p class="role">Creative Director - Studio Mono</p>
-          <p class="meta">elias@studiomono.io</p>
-          <p class="meta">+44 (0) 20 7946 0123</p>
-        </article>
-
-        <article class="profileCard card-dark tilt-right featured">
-          <span class="pill pill-dark">Picture</span>
-          <div class="cardStar">*</div>
-          <h2>Sarah Jenkins</h2>
-          <p class="role">Founder - Altair Systems</p>
-          <p class="meta">s.jenkins@altair.tech</p>
-          <p class="meta strong">Palo Alto, CA</p>
-        </article>
-
-        <article class="profileCard card-framed tilt-left">
-          <span class="miniIcon">{ }</span>
-          <span class="cardId">ID: 5820-F</span>
-          <h2>Marcus Wei</h2>
-          <p class="role">Product Lead - CipherLayer</p>
-          <p class="status">
-            <i></i>
-            Active Project: GhostNode
-          </p>
-        </article>
-
-        <article class="profileCard card-cream tilt-right wide">
-          <h2 class="scriptName">Elena Rodriguez</h2>
-          <p class="role">Architectural Lead</p>
-          <p class="summary">Specializes in brutalist digital interiors and modular asset archives.</p>
-          <div class="smallIcons">
-            <span>o</span>
-            <span>o</span>
+      <section class="bcmTools" aria-label="명함 검색 및 중복 필터">
+        <form class="cardSearchForm" role="search">
+          <div class="cardSearchField">
+            <label for="cardSearch">이름 또는 회사 검색</label>
+            <input
+              type="search"
+              id="cardSearch"
+              placeholder="이름 또는 회사로 검색"
+              autocomplete="off"
+            >
+            <button type="submit">검색</button>
           </div>
-        </article>
-
-        <article class="profileCard card-portrait tilt-right">
-          <div class="avatar">JT</div>
-          <h2>Julian Thorne</h2>
-          <p class="role">Acquisitions</p>
-          <p class="footerLabel">Metropolitan Mesh Archive</p>
-        </article>
-
-        <article class="profileCard card-dark-grey tilt-left compact">
-          <div class="monogram">A</div>
-          <span class="pill pill-outline">Verified</span>
-          <h2>Sofia Chen</h2>
-          <p class="role">Hardware Solutions Specialist</p>
-          <p class="meta">Shenzhen - Innovation District</p>
-          <p class="meta">chen.archive@vista.io</p>
-        </article> -->
-        
+          <button
+            class="duplicateToggle"
+            type="button"
+            aria-pressed="false"
+          >
+            중복 모아보기
+          </button>
+        </form>
+        <p class="resultSummary" aria-live="polite">명함을 불러오는 중입니다.</p>
       </section>
+
+      <section class="bcmBoard" aria-label="명함 목록"></section>
     </main>
 
     <footer>

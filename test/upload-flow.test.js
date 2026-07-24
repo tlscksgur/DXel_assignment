@@ -137,6 +137,7 @@ test("업로드 응답을 입력 필드와 처리 상태에 반영한다", async
   element("#cardImage").addEventListener = (event, handler) => {
     if (event === "change") changeHandler = handler;
   };
+  element(".mainAction").addEventListener = () => {};
 
   const context = {
     console,
@@ -177,4 +178,52 @@ test("업로드 응답을 입력 필드와 처리 상태에 반영한다", async
   assert.equal(element("#name").value, "홍길동");
   assert.equal(element("#homepage").value, "https://example.com");
   assert.equal(element(".runningBadge").textContent, "분석 완료");
+});
+
+test("상태 API가 LM Studio 연결 상태를 반환한다", async () => {
+  let statusRequests = 0;
+  const mockLmStudio = http.createServer((req, res) => {
+    statusRequests += 1;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ data: [{ id: "test-vision-model" }] }));
+  });
+
+  const lmPort = await listen(mockLmStudio);
+  const probeServer = http.createServer();
+  const appPort = await listen(probeServer);
+  await close(probeServer);
+
+  const app = spawn(process.execPath, ["server.js"], {
+    cwd: projectRoot,
+    env: {
+      ...process.env,
+      PORT: String(appPort),
+      LM_STUDIO_STATUS_URL: `http://127.0.0.1:${lmPort}/v1/models`
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForServer(app);
+    const response = await fetch(`http://127.0.0.1:${appPort}/api/status`);
+    const status = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(status.sqlite, true);
+    assert.equal(status.localAi, true);
+    assert.equal(statusRequests, 1);
+  } finally {
+    app.kill("SIGTERM");
+    await close(mockLmStudio);
+  }
+});
+
+test("명함 등록 화면에 검증 및 중복 안내 블록을 표시하지 않는다", () => {
+  const html = fs.readFileSync(path.join(projectRoot, "public/cardAdd.html"), "utf8");
+
+  assert.doesNotMatch(html, /validationStrip/);
+  assert.doesNotMatch(html, /duplicateBox/);
+  assert.doesNotMatch(html, /DUPLICATE CHECK/);
+  assert.doesNotMatch(html, /기존 항목 보기/);
+  assert.doesNotMatch(html, /별도 등록/);
 });
