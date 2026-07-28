@@ -101,7 +101,7 @@ body.bcm-page .bcmBoard {
 }
 
 .duplicateToggle {
-  padding: 0 20px;
+  padding: 0 15px;
   border: 1px solid rgba(3, 22, 50, .18);
   border-radius: 16px;
   background: rgba(255, 255, 255, .82);
@@ -133,19 +133,20 @@ body.bcm-page .bcmBoard {
 }
 
 .bcmBoard.duplicateMode {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .duplicateGroup {
-  /* margin-bottom: 32px;
-  padding: 20px; */
+  flex: 0 1 400px;
+  max-width: 100%;
+  min-width: 0;
   padding: 23px;
   border: 1px solid rgba(169, 75, 63, .24);
+  border-radius: 20px;
   background: rgba(255, 255, 255, .52);
   box-shadow: 0 16px 38px rgba(23, 27, 36, .06);
-  width: 400px;
-  margin-bottom: 20px;
-  border-radius: 20px;
 }
 
 .duplicateGroupHeader {

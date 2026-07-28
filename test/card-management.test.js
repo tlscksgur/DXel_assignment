@@ -31,6 +31,19 @@ test("명함 카드 크기를 305x204로 유지한다", () => {
   );
 });
 
+test("중복 후보 그룹은 가운데에서 시작해 최대 3개씩 줄바꿈한다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(
+    css,
+    /\.bcmBoard\.duplicateMode\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-wrap:\s*wrap;[\s\S]*justify-content:\s*center;/
+  );
+  assert.match(
+    css,
+    /\.duplicateGroup\s*\{[\s\S]*flex:\s*0 1 400px;[\s\S]*max-width:\s*100%;/
+  );
+});
+
 test("명함 내용을 참고 이미지처럼 왼쪽 위에서 순서대로 정렬한다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 
