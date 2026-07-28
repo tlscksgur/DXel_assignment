@@ -1,3 +1,5 @@
+/* 연결 상태 관리 */
+
 const serviceLabels = {
   "local-ai": "Local AI",
   sqlite: "SQLite"
@@ -35,3 +37,15 @@ async function updateFooterStatus() {
 
 updateFooterStatus();
 setInterval(updateFooterStatus, 10000);
+
+
+
+/* CSV 다운로드 */
+
+const csvExportBtn = document.querySelector(".csvExport")
+
+if(csvExportBtn) {
+  csvExportBtn.addEventListener("click", () => {
+    window.location.href = "/api/cards/export/csv";
+  })
+}

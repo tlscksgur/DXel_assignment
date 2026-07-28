@@ -137,12 +137,15 @@ body.bcm-page .bcmBoard {
 }
 
 .duplicateGroup {
-  margin-bottom: 32px;
-  padding: 20px;
+  /* margin-bottom: 32px;
+  padding: 20px; */
+  padding: 23px;
   border: 1px solid rgba(169, 75, 63, .24);
-  border-radius: 22px;
   background: rgba(255, 255, 255, .52);
   box-shadow: 0 16px 38px rgba(23, 27, 36, .06);
+  width: 400px;
+  margin-bottom: 20px;
+  border-radius: 20px;
 }
 
 .duplicateGroupHeader {

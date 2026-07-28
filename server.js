@@ -392,8 +392,7 @@ app.get("/api/cards/export/csv", (req, res) => {
     }
 
     const headers = [
-      "id", "name", "company", "department", "position", "mobile", "phone",
-      "email", "address", "website", "image_path", "created_at"
+      "id", "name", "company", "department", "position", "mobile", "phone", "email", "address", "website"
     ];
 
     const csvRows = rows.map((row) => {
