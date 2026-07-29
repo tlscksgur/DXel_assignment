@@ -1,77 +1,28 @@
-const express = require("express");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-const db = require("./database/db");
 require("dotenv").config();
+
+const express = require("express");
+const db = require("./database/db");
+const { UPLOAD_DIR, upload } = require("./upload");
+const {
+  extractBusinessCard,
+  imageToDataUrl,
+  parseModelJson
+} = require("./localAi");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const UPLOAD_DIR = path.join(__dirname, "uploads");
 
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use(express.json());
 
-async function extractBusinessCard(imageDataUrl) {
-  const response = await fetch(process.env.LM_STUDIO_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: process.env.LM_STUDIO_MODEL,
-      temperature: 0,
-      messages: [
-        {
-          role: "system",
-          content: `
-            명함 이미지에서 정보를 추출하세요.
-            이미지에 없는 정보는 추측하지 말고 빈 문자열로 반환하세요.
-            설명이나 마크다운 없이 JSON 객체만 반환하세요.
-            
-            반환 방식:
-            {
-              "name": "",
-              "company": "",
-              "department": "",
-              "position": "",
-              "mobile": "",
-              "phone": "",
-              "email": "",
-              "address": "",
-              "website": ""
-            }
-          `.trim()
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "이 이미지가 명함이라면 정보를 추출하세요."
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: imageDataUrl
-              }
-            }
-          ]
-        }
-      ]
-    })
-  });
-  if(!response.ok) {
-    throw new Error(`LM Studio 요청 실패: ${response.status}`);
-  }
-  return response.json();
+function text(value) {
+  return String(value || "").trim();
 }
 
 function normalizePhone(value) {
   if (!value) return "";
 
-  const digits = String(value)
-    .trim()
+  const original = text(value);
+  const digits = original
     .replace(/^\+82/, "0")
     .replace(/\D/g, "");
 
@@ -95,16 +46,16 @@ function normalizePhone(value) {
     return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
   }
 
-  return String(value).trim();
+  return original;
 }
 
 function normalizeWebsite(value) {
-  if (!value) return "";
-
-  const website = String(value).trim();
+  const website = text(value);
 
   if (!website) return "";
-  if (website.startsWith("http://") || website.startsWith("https://")) return website;
+  if (website.startsWith("http://") || website.startsWith("https://")) {
+    return website;
+  }
 
   return `https://${website}`;
 }
@@ -114,18 +65,18 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function makeCard(body) {
+function makeCard(body = {}) {
   return {
-    name: String(body.name || "").trim(),
-    company: String(body.company || "").trim(),
-    department: String(body.department || "").trim(),
-    position: String(body.position || "").trim(),
+    name: text(body.name),
+    company: text(body.company),
+    department: text(body.department),
+    position: text(body.position),
     mobile: normalizePhone(body.mobile),
     phone: normalizePhone(body.phone),
-    email: String(body.email || "").trim().toLowerCase(),
-    address: String(body.address || "").trim(),
+    email: text(body.email).toLowerCase(),
+    address: text(body.address),
     website: normalizeWebsite(body.website),
-    image_path: String(body.image_path || body.imagePath || "").trim()
+    image_path: text(body.image_path || body.imagePath)
   };
 }
 
@@ -141,8 +92,26 @@ function validateCard(card) {
   return "";
 }
 
-function allowDuplicate(body) {
+function allowDuplicate(body = {}) {
   return body.allowDuplicate === true || body.allowDuplicate === "true";
+}
+
+function csvValue(value) {
+  return `"${String(value || "").replace(/"/g, '""')}"`;
+}
+
+function sanitizeExtractedCard(value = {}) {
+  return {
+    name: text(value.name),
+    company: text(value.company),
+    department: text(value.department),
+    position: text(value.position),
+    mobile: normalizePhone(value.mobile),
+    phone: normalizePhone(value.phone),
+    email: text(value.email).toLowerCase(),
+    address: text(value.address),
+    website: normalizeWebsite(value.website)
+  };
 }
 
 function checkDuplicate(card, excludeId, callback) {
@@ -169,78 +138,9 @@ function checkDuplicate(card, excludeId, callback) {
   ], callback);
 }
 
-function csvValue(value) {
-  return `"${String(value || "").replace(/"/g, '""')}"`;
-}
-
-function imageToDataUrl(file) {
-  const base64 = fs.readFileSync(file.path).toString("base64");
-  return `data:${file.mimetype};base64,${base64}`;
-}
-
-function parseModelJson(content) {
-  const text = String(content || "").trim();
-  const fencedJson = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-
-  if (fencedJson) {
-    return JSON.parse(fencedJson[1].trim());
-  }
-
-  const firstBrace = text.indexOf("{");
-  const lastBrace = text.lastIndexOf("}");
-
-  if (firstBrace === -1 || lastBrace < firstBrace) {
-    throw new Error("모델 응답에서 JSON 객체를 찾을 수 없습니다.");
-  }
-
-  return JSON.parse(text.slice(firstBrace, lastBrace + 1));
-}
-
-function sanitizeExtractedCard(value = {}) {
-  return {
-    name: String(value.name || "").trim(),
-    company: String(value.company || "").trim(),
-    department: String(value.department || "").trim(),
-    position: String(value.position || "").trim(),
-    mobile: normalizePhone(value.mobile),
-    phone: normalizePhone(value.phone),
-    email: String(value.email || "").trim().toLowerCase(),
-    address: String(value.address || "").trim(),
-    website: normalizeWebsite(value.website)
-  };
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR);
-  },
-
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
-
-    cb(null, filename);
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
-      cb(null, true);
-      return;
-    }
-
-    cb(new Error("이미지 파일만 업로드할 수 있습니다."));
-  }
-});
-
 function checkSqliteStatus() {
   return new Promise((resolve) => {
-    db.get("SELECT 1 AS ok", (err) => resolve(!err));
+    db.get("SELECT 1 AS ok", (error) => resolve(!error));
   });
 }
 
@@ -253,7 +153,6 @@ async function checkLocalAiStatus() {
     const response = await fetch(process.env.LM_STUDIO_STATUS_URL, {
       signal: AbortSignal.timeout(2000)
     });
-
     return response.ok;
   } catch (error) {
     return false;
@@ -302,7 +201,6 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-
     res.status(502).json({
       success: false,
       message: "명함 이미지 분석에 실패했습니다."
@@ -321,8 +219,8 @@ function saveCard(req, res) {
     });
   }
 
-  checkDuplicate(card, 0, (err, duplicates) => {
-    if (err) {
+  checkDuplicate(card, 0, (error, duplicates) => {
+    if (error) {
       return res.status(500).json({
         success: false,
         message: "중복 확인 실패"
@@ -333,7 +231,7 @@ function saveCard(req, res) {
       return res.status(409).json({
         success: false,
         message: "중복 가능성이 있는 명함이 있습니다.",
-        duplicates: duplicates
+        duplicates
       });
     }
 
@@ -356,8 +254,8 @@ function saveCard(req, res) {
       card.address,
       card.website,
       card.image_path
-    ], function (err) {
-      if (err) {
+    ], function (error) {
+      if (error) {
         return res.status(500).json({
           success: false,
           message: "명함 저장 실패"
@@ -383,8 +281,8 @@ app.get("/api/cards/export/csv", (req, res) => {
     ORDER BY created_at DESC
   `;
 
-  db.all(sql, (err, rows) => {
-    if (err) {
+  db.all(sql, (error, rows) => {
+    if (error) {
       return res.status(500).json({
         success: false,
         message: "CSV 생성 실패"
@@ -392,13 +290,20 @@ app.get("/api/cards/export/csv", (req, res) => {
     }
 
     const headers = [
-      "id", "name", "company", "department", "position", "mobile", "phone", "email", "address", "website"
+      "id",
+      "name",
+      "company",
+      "department",
+      "position",
+      "mobile",
+      "phone",
+      "email",
+      "address",
+      "website"
     ];
-
     const csvRows = rows.map((row) => {
       return headers.map((header) => csvValue(row[header])).join(",");
     });
-
     const csv = [headers.join(","), ...csvRows].join("\r\n");
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -411,8 +316,8 @@ app.get("/api/cards/duplicates", (req, res) => {
   const card = makeCard(req.query);
   const excludeId = Number(req.query.excludeId || 0);
 
-  checkDuplicate(card, excludeId, (err, duplicates) => {
-    if (err) {
+  checkDuplicate(card, excludeId, (error, duplicates) => {
+    if (error) {
       return res.status(500).json({
         success: false,
         message: "중복 확인 실패"
@@ -421,18 +326,14 @@ app.get("/api/cards/duplicates", (req, res) => {
 
     res.json({
       success: true,
-      duplicates: duplicates
+      duplicates
     });
   });
 });
 
 app.get("/api/cards", (req, res) => {
   const keyword = String(req.query.q || req.query.keyword || "").trim();
-
-  let sql = `
-    SELECT *
-    FROM business_cards
-  `;
+  let sql = "SELECT * FROM business_cards";
   const params = [];
 
   if (keyword) {
@@ -442,8 +343,8 @@ app.get("/api/cards", (req, res) => {
 
   sql += " ORDER BY created_at DESC";
 
-  db.all(sql, params, (err, rows) => {
-    if (err) {
+  db.all(sql, params, (error, rows) => {
+    if (error) {
       return res.status(500).json({
         success: false,
         message: "명함 목록 조회 실패"
@@ -458,8 +359,8 @@ app.get("/api/cards", (req, res) => {
 });
 
 app.get("/api/cardSelect", (req, res) => {
-  db.all("SELECT * FROM business_cards ORDER BY created_at DESC", (err, rows) => {
-    if (err) {
+  db.all("SELECT * FROM business_cards ORDER BY created_at DESC", (error, rows) => {
+    if (error) {
       return res.status(500).json({
         success: false,
         message: "명함 목록 조회 실패"
@@ -474,8 +375,8 @@ app.get("/api/cardSelect", (req, res) => {
 });
 
 app.get("/api/cards/:id", (req, res) => {
-  db.get("SELECT * FROM business_cards WHERE id = ?", [req.params.id], (err, row) => {
-    if (err) {
+  db.get("SELECT * FROM business_cards WHERE id = ?", [req.params.id], (error, row) => {
+    if (error) {
       return res.status(500).json({
         success: false,
         message: "명함 조회 실패"
@@ -507,8 +408,8 @@ app.put("/api/cards/:id", (req, res) => {
     });
   }
 
-  checkDuplicate(card, Number(req.params.id), (err, duplicates) => {
-    if (err) {
+  checkDuplicate(card, Number(req.params.id), (error, duplicates) => {
+    if (error) {
       return res.status(500).json({
         success: false,
         message: "중복 확인 실패"
@@ -519,7 +420,7 @@ app.put("/api/cards/:id", (req, res) => {
       return res.status(409).json({
         success: false,
         message: "중복 가능성이 있는 명함이 있습니다.",
-        duplicates: duplicates
+        duplicates
       });
     }
 
@@ -550,8 +451,8 @@ app.put("/api/cards/:id", (req, res) => {
       card.website,
       card.image_path,
       req.params.id
-    ], function (err) {
-      if (err) {
+    ], function (error) {
+      if (error) {
         return res.status(500).json({
           success: false,
           message: "명함 수정 실패"
@@ -574,8 +475,8 @@ app.put("/api/cards/:id", (req, res) => {
 });
 
 app.post("/api/cards/:id/merge", (req, res) => {
-  db.get("SELECT * FROM business_cards WHERE id = ?", [req.params.id], (err, oldCard) => {
-    if (err) {
+  db.get("SELECT * FROM business_cards WHERE id = ?", [req.params.id], (error, oldCard) => {
+    if (error) {
       return res.status(500).json({
         success: false,
         message: "명함 조회 실패"
@@ -602,7 +503,6 @@ app.post("/api/cards/:id/merge", (req, res) => {
       website: newCard.website || oldCard.website || "",
       image_path: newCard.image_path || oldCard.image_path || ""
     };
-
     const sql = `
       UPDATE business_cards
       SET name = ?,
@@ -630,8 +530,8 @@ app.post("/api/cards/:id/merge", (req, res) => {
       mergedCard.website,
       mergedCard.image_path,
       req.params.id
-    ], (err) => {
-      if (err) {
+    ], (updateError) => {
+      if (updateError) {
         return res.status(500).json({
           success: false,
           message: "명함 병합 실패"
@@ -647,8 +547,8 @@ app.post("/api/cards/:id/merge", (req, res) => {
 });
 
 app.delete("/api/cards/:id", (req, res) => {
-  db.run("DELETE FROM business_cards WHERE id = ?", [req.params.id], function (err) {
-    if (err) {
+  db.run("DELETE FROM business_cards WHERE id = ?", [req.params.id], function (error) {
+    if (error) {
       return res.status(500).json({
         success: false,
         message: "명함 삭제 실패"
@@ -672,12 +572,11 @@ app.delete("/api/cards/:id", (req, res) => {
 app.use("/uploads", express.static(UPLOAD_DIR));
 app.use(express.static("public"));
 
-app.use((err, req, res, next) => {
-  console.error(err.message);
-
+app.use((error, req, res, next) => {
+  console.error(error.message);
   res.status(500).json({
     success: false,
-    message: err.message || "서버 오류가 발생했습니다."
+    message: error.message || "서버 오류가 발생했습니다."
   });
 });
 
@@ -685,6 +584,6 @@ const server = app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
 
-server.on("error", (err) => {
-  console.error(`Server failed: ${err.message}`);
+server.on("error", (error) => {
+  console.error(`Server failed: ${error.message}`);
 });

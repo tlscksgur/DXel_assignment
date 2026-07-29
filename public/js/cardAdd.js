@@ -80,7 +80,7 @@ function renderQueue() {
   }
 
   const queueItems = uploadQueue.map((item, index) => {
-    const currentClass = index === currentQueueIndex ? "current" : "";
+  const currentClass = index === currentQueueIndex ? "current" : "";
 
     return `
       <button
@@ -197,7 +197,7 @@ async function analyzeCurrentCard() {
     alert(error.message);
   } finally {
     isAnalyzing = false;
-    
+
     renderQueue();
     updateActionState();
   }

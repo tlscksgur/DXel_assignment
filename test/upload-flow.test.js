@@ -390,6 +390,42 @@ test("상태 API가 LM Studio 연결 상태를 반환한다", async () => {
   }
 });
 
+test("명함 목록, CSV, 단건 조회 API 경로를 유지한다", async () => {
+  const probeServer = http.createServer();
+  const appPort = await listen(probeServer);
+  await close(probeServer);
+
+  const app = spawn(process.execPath, ["server.js"], {
+    cwd: projectRoot,
+    env: {
+      ...process.env,
+      PORT: String(appPort)
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForServer(app);
+
+    const listResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards`);
+    const listResult = await listResponse.json();
+    assert.equal(listResponse.status, 200);
+    assert.equal(listResult.success, true);
+    assert.equal(Array.isArray(listResult.cards), true);
+
+    const csvResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards/export/csv`);
+    assert.equal(csvResponse.status, 200);
+    assert.match(csvResponse.headers.get("content-type"), /^text\/csv/);
+
+    const missingResponse = await fetch(
+      `http://127.0.0.1:${appPort}/api/cards/not-a-number`
+    );
+    assert.equal(missingResponse.status, 404);
+  } finally {
+    app.kill("SIGTERM");
+  }
+});
+
 test("명함 등록 화면에 검증 및 중복 안내 블록을 표시하지 않는다", () => {
   const html = fs.readFileSync(path.join(projectRoot, "public/cardAdd.html"), "utf8");
 
