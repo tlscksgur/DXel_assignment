@@ -427,18 +427,60 @@ body.bcm-page .cardId {
 
 @media (max-width: 680px) {
   .bcmMain {
-    padding: 28px 16px 100px;
+    padding: 28px 16px 48px;
+  }
+
+  .bcmTools {
+    margin-bottom: 28px;
   }
 
   .cardSearchForm {
     grid-template-columns: 1fr;
   }
 
+  .cardSearchField {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .cardSearchField input {
+    padding: 0 14px;
+    font-size: 16px;
+  }
+
+  .cardSearchField button {
+    padding: 0 15px;
+  }
+
   .duplicateToggle {
     width: 100%;
   }
 
+  .bcmBoard {
+    grid-template-columns: 305px;
+    gap: 22px;
+  }
+
   .duplicateGroup {
     padding: 14px;
+  }
+
+  .duplicateGroupHeader {
+    padding: 0 4px;
+  }
+}
+
+@media (max-width: 360px) {
+  .bcmMain {
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  .duplicateGroup {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .duplicateGroupHeader {
+    padding: 0 12px;
   }
 }

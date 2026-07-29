@@ -450,3 +450,115 @@
   color: #fff;
   box-shadow: 0 6px 16px rgba(3,22,50,.12);
 }
+
+@media (max-width: 900px) {
+  .card-add-page main {
+    padding: 44px 24px 80px;
+  }
+
+  .addTitle {
+    margin-bottom: 26px;
+  }
+
+  .addTitle h1 {
+    font-size: 46px;
+  }
+
+  .reviewBoard {
+    max-width: 760px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "upload"
+      "extract"
+      "actions";
+    gap: 18px;
+  }
+
+  .actionButtons {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .card-add-page main {
+    padding: 32px 16px 48px;
+  }
+
+  .addTitle {
+    margin-bottom: 22px;
+  }
+
+  .addTitle h1 {
+    font-size: 36px;
+  }
+
+  .addTitle p {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .uploadPanel {
+    padding: 14px;
+  }
+
+  .uploadBox,
+  .uploadBox label {
+    min-height: 104px;
+  }
+
+  .previewFrame {
+    margin-top: 14px;
+    padding: 12px;
+  }
+
+  .emptyPreview {
+    min-height: 200px;
+  }
+
+  .queueBox {
+    margin-top: 14px;
+    padding: 14px;
+  }
+
+  .extractPanel {
+    padding: 18px;
+  }
+
+  .panelHeader {
+    margin-bottom: 18px;
+    gap: 10px;
+  }
+
+  .panelHeader h2 {
+    font-size: 27px;
+  }
+
+  .runningBadge {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 10px;
+  }
+
+  .extractForm {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .fieldGroup.wide {
+    grid-column: span 1;
+  }
+
+  .fieldGroup input,
+  .fieldGroup textarea {
+    font-size: 16px;
+  }
+
+  .identity input {
+    height: 54px;
+    font-size: 21px;
+  }
+
+  .actionButtons {
+    padding: 10px;
+  }
+}

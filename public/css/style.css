@@ -348,3 +348,202 @@ footer {
 .status {
   color: #6E706B;
 }
+
+@media (max-width: 900px) {
+  header {
+    padding: 0 24px;
+  }
+
+  .headerBox1 {
+    gap: 36px;
+  }
+
+  .headerBox1 ul {
+    gap: 24px;
+  }
+
+  main {
+    padding-top: 60px;
+  }
+
+  .mainTitle {
+    width: calc(100% - 48px);
+    margin-bottom: 48px;
+  }
+
+  footer {
+    padding: 0 24px;
+  }
+
+  .footerRight {
+    gap: 18px;
+  }
+}
+
+@media (max-width: 680px) {
+  .container {
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    height: auto;
+    min-height: 76px;
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .headerBox1 {
+    flex: 1 1 auto;
+    gap: 18px;
+  }
+
+  .logo {
+    font-size: 22px;
+    white-space: nowrap;
+  }
+
+  .headerBox1 ul {
+    gap: 14px;
+  }
+
+  .headerBox1 ul li a {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .headerBox2 {
+    margin-left: auto;
+  }
+
+  .cardAdd {
+    height: 38px;
+    padding: 0 14px;
+    font-size: 12px;
+  }
+
+  main {
+    flex: 1;
+    padding-top: 42px;
+  }
+
+  .mainTitle {
+    width: calc(100% - 32px);
+    margin-bottom: 30px;
+  }
+
+  .mainTitle h1 {
+    font-size: 34px;
+  }
+
+  .mainTitle p {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .searchBox {
+    width: 100%;
+  }
+
+  .searchBox input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cardArea {
+    padding: 12px 0 48px;
+  }
+
+  .cardTrack {
+    gap: 14px;
+    padding-left: 16px;
+  }
+
+  .contactCard {
+    width: calc(100vw - 32px);
+    height: auto;
+    min-height: 168px;
+    padding: 12px;
+  }
+
+  .cardImage {
+    width: 76px;
+    height: 120px;
+    font-size: 22px;
+  }
+
+  .cardInfo {
+    min-width: 0;
+    padding: 0 12px;
+  }
+
+  .date {
+    font-size: 10px;
+  }
+
+  .cardInfo h2 {
+    max-width: calc(100% - 52px);
+    overflow: hidden;
+    font-size: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cardInfo p,
+  .cardContact {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+  }
+
+  .cardContact {
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  footer {
+    position: static;
+    margin-top: auto;
+    height: auto;
+    min-height: 0;
+    padding: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .footerLeft {
+    font-size: 10px;
+    letter-spacing: 1.4px;
+  }
+
+  .footerRight {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+  }
+
+  .footerRight span {
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  .sync,
+  .serviceStatus {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 380px) {
+  .headerBox1 {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .headerBox2,
+  .cardAdd {
+    width: 100%;
+  }
+}
