@@ -117,15 +117,15 @@
   overflow: hidden;
 }
 
-.uploadBox input{
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
+.uploadFileInput{
+  display: none;
 }
 
-.uploadBox label{
+.uploadTrigger{
+  width: 100%;
   min-height: 118px;
+  border: 0;
+  background: transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -133,6 +133,8 @@
   gap: 7px;
   text-align: center;
   cursor: pointer;
+  color: var(--primary);
+  font-family: inherit;
 }
 
 .uploadIcon{
@@ -156,6 +158,80 @@
 .uploadBox em{
   font-style: normal;
   font-size: 13px;
+  color: var(--secondary);
+}
+
+.uploadSourceSheet{
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  align-items: end;
+}
+
+.uploadSourceSheet[hidden]{
+  display: none;
+}
+
+.uploadSourceBackdrop{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: rgba(3,22,50,.46);
+}
+
+.uploadSourcePanel{
+  position: relative;
+  width: min(100%, 460px);
+  margin: 0 auto;
+  padding: 24px 18px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  background: #fff;
+  box-shadow: 0 -18px 45px rgba(3,22,50,.18);
+}
+
+.uploadSourcePanel h2{
+  font-size: 22px;
+  color: var(--primary);
+}
+
+.uploadSourcePanel p{
+  margin: 6px 0 18px;
+  font-size: 14px;
+  color: var(--secondary);
+}
+
+.uploadSourcePanel button{
+  width: 100%;
+  min-height: 52px;
+  border-radius: 13px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.uploadSourceCamera,
+.uploadSourceGallery{
+  margin-bottom: 10px;
+  border: 1px solid var(--primary);
+}
+
+.uploadSourceCamera{
+  background: var(--primary);
+  color: #fff;
+}
+
+.uploadSourceGallery{
+  background: #fff;
+  color: var(--primary);
+}
+
+.uploadSourceCancel{
+  border: 0;
+  background: var(--surface);
   color: var(--secondary);
 }
 
@@ -502,7 +578,7 @@
   }
 
   .uploadBox,
-  .uploadBox label {
+  .uploadTrigger {
     min-height: 104px;
   }
 

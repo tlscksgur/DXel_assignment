@@ -39,12 +39,13 @@
       <section class="reviewBoard" aria-label="명함 추출 결과 확인">
         <aside class="uploadPanel">
           <div class="uploadBox">
-            <input type="file" id="cardImage" accept="image/*" capture="environment" multiple>
-            <label for="cardImage">
+            <button class="uploadTrigger" type="button">
               <span class="uploadIcon">+</span>
               <strong>명함 사진 업로드</strong>
               <em>휴대폰 촬영 또는 파일 선택</em>
-            </label>
+            </button>
+            <input class="uploadFileInput" type="file" id="cardCameraInput" accept="image/*" capture="environment">
+            <input class="uploadFileInput" type="file" id="cardGalleryInput" accept="image/*" multiple>
           </div>
 
           <div class="previewFrame">
@@ -150,6 +151,27 @@
       </div>
     </footer>
   </div>
+
+  <div class="uploadSourceSheet" hidden>
+    <button
+      class="uploadSourceBackdrop"
+      type="button"
+      aria-label="업로드 선택창 닫기"
+    ></button>
+    <section
+      class="uploadSourcePanel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="uploadSourceTitle"
+    >
+      <h2 id="uploadSourceTitle">명함 사진 추가</h2>
+      <p>사진을 가져올 방법을 선택하세요.</p>
+      <button class="uploadSourceCamera" type="button">사진 촬영</button>
+      <button class="uploadSourceGallery" type="button">사진 선택</button>
+      <button class="uploadSourceCancel" type="button">취소</button>
+    </section>
+  </div>
+
   <script src="./js/footerStatus.js"></script>
   <script src="./js/cardAdd.js"></script>
 </body>

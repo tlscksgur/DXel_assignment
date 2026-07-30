@@ -1,4 +1,11 @@
-const cardImageInput = document.querySelector("#cardImage");
+const uploadTrigger = document.querySelector(".uploadTrigger");
+const cameraInput = document.querySelector("#cardCameraInput");
+const galleryInput = document.querySelector("#cardGalleryInput");
+const uploadSourceSheet = document.querySelector(".uploadSourceSheet");
+const uploadSourceCamera = document.querySelector(".uploadSourceCamera");
+const uploadSourceGallery = document.querySelector(".uploadSourceGallery");
+const uploadSourceCancel = document.querySelector(".uploadSourceCancel");
+const uploadSourceBackdrop = document.querySelector(".uploadSourceBackdrop");
 const runningBadge = document.querySelector(".runningBadge");
 const saveButton = document.querySelector(".mainAction");
 const nextButton = document.querySelector(".subAction");
@@ -16,6 +23,9 @@ const fieldIds = [
   "email",
   "address"
 ];
+
+const MAX_ANALYSIS_IMAGE_EDGE = 1600;
+const IMAGE_RESIZE_THRESHOLD = 1024 * 1024;
 
 const queueStatusLabels = {
   waiting: "분석 대기",
@@ -140,6 +150,58 @@ function updateActionState() {
   cancelButton.disabled = !currentItem || isAnalyzing;
 }
 
+async function prepareImageForAnalysis(file) {
+  if (
+    file.size <= IMAGE_RESIZE_THRESHOLD ||
+    typeof createImageBitmap !== "function"
+  ) {
+    return {
+      blob: file,
+      filename: file.name
+    };
+  }
+
+  const image = await createImageBitmap(file);
+
+  try {
+    const longestEdge = Math.max(image.width, image.height);
+
+    if (longestEdge <= MAX_ANALYSIS_IMAGE_EDGE) {
+      return {
+        blob: file,
+        filename: file.name
+      };
+    }
+
+    const scale = MAX_ANALYSIS_IMAGE_EDGE / longestEdge;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(image.width * scale);
+    canvas.height = Math.round(image.height * scale);
+
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (result) {
+          resolve(result);
+          return;
+        }
+
+        reject(new Error("이미지 크기를 줄이지 못했습니다."));
+      }, "image/jpeg", 0.85);
+    });
+    const nameWithoutExtension = file.name.replace(/\.[^.]+$/, "");
+
+    return {
+      blob,
+      filename: `${nameWithoutExtension}.jpg`
+    };
+  } finally {
+    image.close();
+  }
+}
+
 async function analyzeCurrentCard() {
   const item = uploadQueue[currentQueueIndex];
 
@@ -166,10 +228,17 @@ async function analyzeCurrentCard() {
   renderQueue();
   updateActionState();
 
-  const formData = new FormData();
-  formData.append("image", item.file);
-
   try {
+    runningBadge.textContent = "이미지 최적화 중";
+    const preparedImage = await prepareImageForAnalysis(item.file);
+    const formData = new FormData();
+    formData.append(
+      "image",
+      preparedImage.blob,
+      preparedImage.filename
+    );
+    runningBadge.textContent = "이미지 분석 중";
+
     const response = await fetch("/api/cards/extract", {
       method: "POST",
       body: formData
@@ -244,7 +313,20 @@ async function moveToNextCard() {
   await activateQueueItem(nextIndex);
 }
 
-cardImageInput.addEventListener("change", async (event) => {
+function openUploadSourceSheet() {
+  uploadSourceSheet.hidden = false;
+}
+
+function closeUploadSourceSheet() {
+  uploadSourceSheet.hidden = true;
+}
+
+function openFilePicker(input) {
+  input.value = "";
+  input.click();
+}
+
+async function handleSelectedFiles(event) {
   const files = [...event.target.files];
 
   if (files.length === 0) {
@@ -264,7 +346,33 @@ cardImageInput.addEventListener("change", async (event) => {
       await activateQueueItem(firstPendingIndex);
     }
   }
+}
+
+uploadTrigger.addEventListener("click", () => {
+  const isMobile = matchMedia("(max-width: 680px)").matches;
+
+  if (isMobile) {
+    openUploadSourceSheet();
+    return;
+  }
+
+  openFilePicker(galleryInput);
 });
+
+uploadSourceCamera.addEventListener("click", () => {
+  closeUploadSourceSheet();
+  openFilePicker(cameraInput);
+});
+
+uploadSourceGallery.addEventListener("click", () => {
+  closeUploadSourceSheet();
+  openFilePicker(galleryInput);
+});
+
+uploadSourceCancel.addEventListener("click", closeUploadSourceSheet);
+uploadSourceBackdrop.addEventListener("click", closeUploadSourceSheet);
+cameraInput.addEventListener("change", handleSelectedFiles);
+galleryInput.addEventListener("change", handleSelectedFiles);
 
 function getCardFormData() {
   const currentItem = uploadQueue[currentQueueIndex];

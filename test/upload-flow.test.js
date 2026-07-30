@@ -129,10 +129,17 @@ function namedImage(name) {
   return image;
 }
 
-function createCardAddBrowser(fetchImplementation) {
+function createCardAddBrowser(
+  fetchImplementation,
+  { mobile = true, imageDimensions = null } = {}
+) {
   const elements = new Map();
   const handlers = new Map();
   const alerts = [];
+  const canvasState = {
+    width: 0,
+    height: 0
+  };
 
   function element(selector) {
     if (!elements.has(selector)) {
@@ -142,6 +149,11 @@ function createCardAddBrowser(fetchImplementation) {
         textContent: "",
         innerHTML: "",
         disabled: false,
+        hidden: selector === ".uploadSourceSheet",
+        clickCount: 0,
+        click() {
+          this.clickCount += 1;
+        },
         addEventListener(event, handler) {
           handlers.set(`${selector}:${event}`, handler);
         },
@@ -169,8 +181,41 @@ function createCardAddBrowser(fetchImplementation) {
     },
     alert: (message) => alerts.push(message),
     confirm: () => true,
-    document: { querySelector: element },
-    fetch: fetchImplementation
+    document: {
+      querySelector: element,
+      createElement(tagName) {
+        assert.equal(tagName, "canvas");
+
+        return {
+          get width() {
+            return canvasState.width;
+          },
+          set width(value) {
+            canvasState.width = value;
+          },
+          get height() {
+            return canvasState.height;
+          },
+          set height(value) {
+            canvasState.height = value;
+          },
+          getContext: () => ({ drawImage() {} }),
+          toBlob: (callback) => {
+            callback(new Blob([Buffer.alloc(500 * 1024)], {
+              type: "image/jpeg"
+            }));
+          }
+        };
+      }
+    },
+    fetch: fetchImplementation,
+    matchMedia: () => ({ matches: mobile }),
+    createImageBitmap: imageDimensions
+      ? async () => ({
+        ...imageDimensions,
+        close() {}
+      })
+      : undefined
   };
 
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardAdd.js"), "utf8");
@@ -178,12 +223,119 @@ function createCardAddBrowser(fetchImplementation) {
 
   return {
     alerts,
+    canvasState,
     element,
     handler(selector, event) {
       return handlers.get(`${selector}:${event}`);
     }
   };
 }
+
+test("고해상도 휴대폰 사진은 긴 변 1600px로 줄여 분석 요청한다", async () => {
+  let uploadedImage;
+  const browser = createCardAddBrowser(async (url, options) => {
+    assert.equal(url, "/api/cards/extract");
+    uploadedImage = options.body.get("image");
+
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: "/uploads/mobile-card.jpg" },
+        extracted: {
+          name: "홍길동",
+          company: "",
+          department: "",
+          position: "",
+          mobile: "",
+          phone: "",
+          email: "",
+          address: "",
+          website: ""
+        }
+      })
+    };
+  }, {
+    imageDimensions: { width: 4032, height: 3024 }
+  });
+  const largeImage = new Blob([Buffer.alloc(3 * 1024 * 1024)], {
+    type: "image/jpeg"
+  });
+  Object.defineProperty(largeImage, "name", { value: "mobile-card.jpg" });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: {
+      files: [largeImage],
+      value: "selected"
+    }
+  });
+
+  assert.equal(browser.canvasState.width, 1600);
+  assert.equal(browser.canvasState.height, 1200);
+  assert.equal(uploadedImage.size, 500 * 1024);
+  assert.equal(uploadedImage.type, "image/jpeg");
+});
+
+test("모바일 업로드 선택창에 촬영용과 여러 장 선택용 입력을 분리한다", () => {
+  const html = fs.readFileSync(
+    path.join(projectRoot, "public/cardAdd.html"),
+    "utf8"
+  );
+
+  assert.match(html, /class="uploadTrigger"/);
+  assert.match(
+    html,
+    /id="cardCameraInput"[^>]*accept="image\/\*"[^>]*capture="environment"/
+  );
+  assert.match(
+    html,
+    /id="cardGalleryInput"[^>]*accept="image\/\*"[^>]*multiple/
+  );
+  assert.match(html, /class="uploadSourceSheet"[^>]*hidden/);
+  assert.match(html, /class="uploadSourceCamera"[^>]*>[\s\S]*사진 촬영/);
+  assert.match(html, /class="uploadSourceGallery"[^>]*>[\s\S]*사진 선택/);
+  assert.match(html, /class="uploadSourceCancel"[^>]*>[\s\S]*취소/);
+});
+
+test("모바일 업로드 버튼에서 촬영 또는 사진 선택을 고를 수 있다", () => {
+  const browser = createCardAddBrowser(async () => {
+    throw new Error("파일을 고르기 전에는 요청하지 않아야 합니다.");
+  });
+  const sheet = browser.element(".uploadSourceSheet");
+
+  browser.handler(".uploadTrigger", "click")();
+  assert.equal(sheet.hidden, false);
+
+  browser.handler(".uploadSourceCamera", "click")();
+  assert.equal(sheet.hidden, true);
+  assert.equal(browser.element("#cardCameraInput").clickCount, 1);
+
+  browser.handler(".uploadTrigger", "click")();
+  browser.handler(".uploadSourceGallery", "click")();
+  assert.equal(sheet.hidden, true);
+  assert.equal(browser.element("#cardGalleryInput").clickCount, 1);
+});
+
+test("데스크톱 업로드 버튼은 여러 장 파일 선택창을 바로 연다", () => {
+  const browser = createCardAddBrowser(async () => {}, { mobile: false });
+
+  browser.handler(".uploadTrigger", "click")();
+
+  assert.equal(browser.element(".uploadSourceSheet").hidden, true);
+  assert.equal(browser.element("#cardGalleryInput").clickCount, 1);
+});
+
+test("모바일 업로드 선택창은 취소와 배경 터치로 닫힌다", () => {
+  const browser = createCardAddBrowser(async () => {});
+  const sheet = browser.element(".uploadSourceSheet");
+
+  browser.handler(".uploadTrigger", "click")();
+  browser.handler(".uploadSourceCancel", "click")();
+  assert.equal(sheet.hidden, true);
+
+  browser.handler(".uploadTrigger", "click")();
+  browser.handler(".uploadSourceBackdrop", "click")();
+  assert.equal(sheet.hidden, true);
+});
 
 test("여러 이미지를 큐에 추가하고 첫 번째 이미지만 순차 분석한다", async () => {
   let extractRequests = 0;
@@ -210,7 +362,7 @@ test("여러 이미지를 큐에 추가하고 첫 번째 이미지만 순차 분
     };
   });
 
-  const changeHandler = browser.handler("#cardImage", "change");
+  const changeHandler = browser.handler("#cardGalleryInput", "change");
   assert.equal(typeof changeHandler, "function");
 
   await changeHandler({
@@ -264,7 +416,7 @@ test("현재 명함을 저장하면 다음 대기 명함을 자동 분석한다"
     throw new Error(`예상하지 않은 요청: ${url}`);
   });
 
-  await browser.handler("#cardImage", "change")({
+  await browser.handler("#cardGalleryInput", "change")({
     target: {
       files: [namedImage("first.png"), namedImage("second.png")],
       value: "selected"
@@ -302,7 +454,7 @@ test("다음 명함 버튼은 현재 항목을 건너뛰고 다음 이미지를 
     };
   });
 
-  await browser.handler("#cardImage", "change")({
+  await browser.handler("#cardGalleryInput", "change")({
     target: {
       files: [namedImage("first.png"), namedImage("second.png")],
       value: "selected"
@@ -338,7 +490,7 @@ test("취소 버튼은 현재 항목을 제거하고 다음 이미지를 분석�
     };
   });
 
-  await browser.handler("#cardImage", "change")({
+  await browser.handler("#cardGalleryInput", "change")({
     target: {
       files: [namedImage("first.png"), namedImage("second.png")],
       value: "selected"
