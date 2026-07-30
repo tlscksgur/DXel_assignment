@@ -80,7 +80,7 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-function createCard(contact, index) {
+function createCard(contact) {
   const variants = [
     "card-light tilt-left",
     "card-dark tilt-right featured",
@@ -89,7 +89,11 @@ function createCard(contact, index) {
     "card-portrait tilt-right",
     "card-dark-grey tilt-left compact"
   ];
-  const classes = variants[index % variants.length];
+  const cardId = Number(contact.id);
+  const variantIndex = Number.isInteger(cardId) && cardId > 0
+    ? (cardId - 1) % variants.length
+    : 0;
+  const classes = variants[variantIndex];
   const name = escapeHtml(contact.name || "이름 없음");
   const company = escapeHtml(contact.company);
   const position = escapeHtml(contact.position);
@@ -117,8 +121,8 @@ function renderAllCards(cards) {
     return;
   }
 
-  cards.forEach((card, index) => {
-    board.insertAdjacentHTML("beforeend", createCard(card, index));
+  cards.forEach((card) => {
+    board.insertAdjacentHTML("beforeend", createCard(card));
   });
 }
 
@@ -133,7 +137,7 @@ function renderDuplicateGroups(groups) {
 
   groups.forEach((group, groupIndex) => {
     const cards = group
-      .map((card, cardIndex) => createCard(card, cardIndex))
+      .map((card) => createCard(card))
       .join("");
 
     board.insertAdjacentHTML(

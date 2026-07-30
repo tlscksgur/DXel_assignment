@@ -106,3 +106,42 @@ test("전화번호 또는 이름과 회사가 같은 명함을 인접 그룹으�
     [3, 2, 1]
   );
 });
+
+test("명함 디자인은 목록 순서가 바뀌어도 카드 ID별로 유지된다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    insertAdjacentHTML() {},
+    setAttribute() {}
+  };
+  const context = {
+    console,
+    document: { querySelector: () => inertElement },
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({ success: true, cards: [] })
+    }),
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+
+  const contact = {
+    id: 7,
+    name: "디자인 유지",
+    company: "예시회사"
+  };
+  const firstClass = context.createCard(contact, 0)
+    .match(/<article class="profileCard ([^"]+)"/)[1];
+  const movedClass = context.createCard(contact, 5)
+    .match(/<article class="profileCard ([^"]+)"/)[1];
+  const otherClass = context.createCard({ ...contact, id: 8 }, 0)
+    .match(/<article class="profileCard ([^"]+)"/)[1];
+
+  assert.equal(firstClass, movedClass);
+  assert.notEqual(firstClass, otherClass);
+});
