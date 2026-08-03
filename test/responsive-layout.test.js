@@ -95,7 +95,7 @@ test("일반 모니터 구간에서 세 화면이 중간 크기로 확대된다"
   );
   assert.match(
     bcmCss,
-    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*320px;[\s\S]*height:\s*214px;/
+    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*323px;[\s\S]*height:\s*224px;[\s\S]*min-height:\s*224px;/
   );
   assert.match(
     addCss,
@@ -121,11 +121,11 @@ test("대형 명함관리 화면에서 검색 도구와 명함 카드가 확대�
 
   assert.match(
     css,
-    /@media\s*\(min-width:\s*1600px\)\s*\{[\s\S]*\.bcmTools\s*\{[\s\S]*width:\s*min\(900px,\s*100%\);[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*345px;[\s\S]*height:\s*231px;/
+    /@media\s*\(min-width:\s*1600px\)\s*\{[\s\S]*\.bcmTools\s*\{[\s\S]*width:\s*min\(900px,\s*100%\);[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*348px;[\s\S]*height:\s*242px;[\s\S]*min-height:\s*242px;/
   );
   assert.match(
     css,
-    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*390px;[\s\S]*height:\s*261px;/
+    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*393px;[\s\S]*height:\s*273px;[\s\S]*min-height:\s*273px;/
   );
 });
 
