@@ -550,20 +550,20 @@ footer {
 
 @media (min-width: 1200px) and (max-width: 1599px) {
   header {
-    height: 84px;
-    padding: 0 50px;
+    height: 80px;
+    padding: 0 46px;
   }
 
   .headerBox1 {
-    gap: 98px;
+    gap: 92px;
   }
 
   .logo {
-    font-size: 33px;
+    font-size: 32px;
   }
 
   .headerBox1 ul {
-    gap: 50px;
+    gap: 46px;
   }
 
   .headerBox1 ul li a {
@@ -571,25 +571,25 @@ footer {
   }
 
   .cardAdd {
-    height: 46px;
-    padding: 0 30px;
-    font-size: 15px;
+    height: 44px;
+    padding: 0 28px;
+    font-size: 14px;
   }
 
   main {
-    padding-top: 100px;
+    padding-top: 94px;
   }
 
   .mainTitle {
-    margin-bottom: 90px;
+    margin-bottom: 84px;
   }
 
   .mainTitle h1 {
-    font-size: 48px;
+    font-size: 46px;
   }
 
   .mainTitle p {
-    font-size: 19px;
+    font-size: 18px;
   }
 
   .cardTrack {
@@ -597,29 +597,29 @@ footer {
   }
 
   .contactCard {
-    width: 570px;
-    height: 176px;
-    padding: 15px;
+    width: 550px;
+    height: 170px;
+    padding: 14px;
     border-radius: 18px;
   }
 
   .cardImage {
-    width: 122px;
-    height: 146px;
-    font-size: 30px;
+    width: 118px;
+    height: 142px;
+    font-size: 29px;
   }
 
   .cardInfo {
-    padding: 0 20px;
+    padding: 0 19px;
   }
 
   .cardInfo h2 {
     margin-top: 15px;
-    font-size: 29px;
+    font-size: 28px;
   }
 
   .cardInfo p {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .cardContact {
@@ -628,122 +628,122 @@ footer {
   }
 
   footer {
-    height: 76px;
-    padding: 0 50px;
+    height: 74px;
+    padding: 0 46px;
+  }
+
+  .footerLeft,
+  .footerRight span {
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1600px) {
+  header {
+    height: 86px;
+    padding: 0 56px;
+  }
+
+  .headerBox1 {
+    gap: 100px;
+  }
+
+  .logo {
+    font-size: 34px;
+  }
+
+  .headerBox1 ul {
+    gap: 52px;
+  }
+
+  .headerBox1 ul li a {
+    font-size: 15px;
+  }
+
+  .cardAdd {
+    height: 48px;
+    padding: 0 32px;
+    font-size: 15px;
+  }
+
+  main {
+    padding-top: 100px;
+  }
+
+  .mainTitle {
+    width: 90%;
+    max-width: 1800px;
+    margin-bottom: 90px;
+  }
+
+  .mainTitle h1 {
+    font-size: 52px;
+  }
+
+  .mainTitle p {
+    margin-top: 10px;
+    font-size: 20px;
+  }
+
+  .cardArea {
+    padding: 24px 0 100px;
+  }
+
+  .cardTrack {
+    gap: 28px;
+    padding-left: 5%;
+  }
+
+  .contactCard {
+    width: 600px;
+    height: 184px;
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .cardImage {
+    width: 128px;
+    height: 152px;
+    border-radius: 14px;
+    font-size: 31px;
+  }
+
+  .cardInfo {
+    padding: 0 21px;
+  }
+
+  .date {
+    font-size: 14px;
+  }
+
+  .cardInfo h2 {
+    margin-top: 16px;
+    font-size: 31px;
+  }
+
+  .cardInfo p {
+    margin-top: 6px;
+    font-size: 16px;
+  }
+
+  .cardContact {
+    margin-top: 12px;
+    gap: 20px;
+    font-size: 15px;
+  }
+
+  footer {
+    height: 80px;
+    padding: 0 56px;
   }
 
   .footerLeft,
   .footerRight span {
     font-size: 14px;
   }
-}
-
-@media (min-width: 1600px) {
-  header {
-    height: 96px;
-    padding: 0 64px;
-  }
-
-  .headerBox1 {
-    gap: 110px;
-  }
-
-  .logo {
-    font-size: 38px;
-  }
-
-  .headerBox1 ul {
-    gap: 58px;
-  }
-
-  .headerBox1 ul li a {
-    font-size: 16px;
-  }
-
-  .cardAdd {
-    height: 54px;
-    padding: 0 36px;
-    font-size: 17px;
-  }
-
-  main {
-    padding-top: 110px;
-  }
-
-  .mainTitle {
-    width: 88%;
-    max-width: 1900px;
-    margin-bottom: 100px;
-  }
-
-  .mainTitle h1 {
-    font-size: 58px;
-  }
-
-  .mainTitle p {
-    margin-top: 12px;
-    font-size: 22px;
-  }
-
-  .cardArea {
-    padding: 28px 0 110px;
-  }
-
-  .cardTrack {
-    gap: 30px;
-    padding-left: 6%;
-  }
-
-  .contactCard {
-    width: 650px;
-    height: 200px;
-    padding: 18px;
-    border-radius: 20px;
-  }
-
-  .cardImage {
-    width: 140px;
-    height: 164px;
-    border-radius: 15px;
-    font-size: 34px;
-  }
-
-  .cardInfo {
-    padding: 0 24px;
-  }
-
-  .date {
-    font-size: 15px;
-  }
-
-  .cardInfo h2 {
-    margin-top: 17px;
-    font-size: 34px;
-  }
-
-  .cardInfo p {
-    margin-top: 6px;
-    font-size: 17px;
-  }
-
-  .cardContact {
-    margin-top: 13px;
-    gap: 22px;
-    font-size: 16px;
-  }
-
-  footer {
-    height: 86px;
-    padding: 0 64px;
-  }
-
-  .footerLeft,
-  .footerRight span {
-    font-size: 15px;
-  }
 
   .footerRight {
-    gap: 52px;
+    gap: 46px;
   }
 
   .serviceStatus i {
@@ -754,103 +754,103 @@ footer {
 
 @media (min-width: 2200px) {
   header {
-    height: 120px;
-    padding: 0 96px;
+    height: 100px;
+    padding: 0 72px;
   }
 
   .headerBox1 {
-    gap: 140px;
+    gap: 116px;
   }
 
   .logo {
-    font-size: 48px;
+    font-size: 40px;
   }
 
   .headerBox1 ul {
-    gap: 72px;
+    gap: 60px;
   }
 
   .headerBox1 ul li a {
-    font-size: 20px;
+    font-size: 17px;
   }
 
   .cardAdd {
-    height: 66px;
-    padding: 0 46px;
-    font-size: 21px;
+    height: 54px;
+    padding: 0 38px;
+    font-size: 17px;
   }
 
   main {
-    padding-top: 140px;
+    padding-top: 116px;
   }
 
   .mainTitle {
     max-width: 2200px;
-    margin-bottom: 126px;
+    margin-bottom: 105px;
   }
 
   .mainTitle h1 {
-    font-size: 76px;
+    font-size: 64px;
   }
 
   .mainTitle p {
-    margin-top: 16px;
-    font-size: 28px;
+    margin-top: 13px;
+    font-size: 24px;
   }
 
   .cardTrack {
-    gap: 40px;
+    gap: 32px;
   }
 
   .contactCard {
-    width: 820px;
-    height: 250px;
-    padding: 22px;
-    border-radius: 26px;
+    width: 690px;
+    height: 212px;
+    padding: 18px;
+    border-radius: 22px;
   }
 
   .cardImage {
-    width: 180px;
-    height: 206px;
-    border-radius: 18px;
-    font-size: 44px;
+    width: 148px;
+    height: 176px;
+    border-radius: 16px;
+    font-size: 36px;
   }
 
   .cardInfo {
-    padding: 0 30px;
+    padding: 0 24px;
   }
 
   .date {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .cardInfo h2 {
-    margin-top: 22px;
-    font-size: 44px;
+    margin-top: 18px;
+    font-size: 35px;
   }
 
   .cardInfo p {
-    margin-top: 8px;
-    font-size: 22px;
+    margin-top: 6px;
+    font-size: 18px;
   }
 
   .cardContact {
-    margin-top: 18px;
-    gap: 28px;
-    font-size: 20px;
+    margin-top: 14px;
+    gap: 24px;
+    font-size: 17px;
   }
 
   footer {
-    height: 105px;
-    padding: 0 96px;
+    height: 90px;
+    padding: 0 72px;
   }
 
   .footerLeft,
   .footerRight span {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .footerRight {
-    gap: 68px;
+    gap: 56px;
   }
 }

@@ -91,15 +91,15 @@ test("일반 모니터 구간에서 세 화면이 중간 크기로 확대된다"
   assert.match(commonCss, monitorMedia);
   assert.match(
     commonCss,
-    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.contactCard\s*\{[\s\S]*width:\s*570px;[\s\S]*height:\s*176px;/
+    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.contactCard\s*\{[\s\S]*width:\s*550px;[\s\S]*height:\s*170px;/
   );
   assert.match(
     bcmCss,
-    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*335px;[\s\S]*height:\s*224px;/
+    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*320px;[\s\S]*height:\s*214px;/
   );
   assert.match(
     addCss,
-    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.reviewBoard\s*\{[\s\S]*max-width:\s*1480px;[\s\S]*\.fieldGroup input\s*\{[\s\S]*height:\s*54px;/
+    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.reviewBoard\s*\{[\s\S]*max-width:\s*1480px;[\s\S]*\.fieldGroup input\s*\{[\s\S]*height:\s*52px;/
   );
 });
 
@@ -108,11 +108,11 @@ test("대형 화면에서 공통 헤더와 홈 명함이 단계적으로 확대�
 
   assert.match(
     css,
-    /@media\s*\(min-width:\s*1600px\)\s*\{[\s\S]*header\s*\{[\s\S]*height:\s*96px;[\s\S]*\.contactCard\s*\{[\s\S]*width:\s*650px;[\s\S]*height:\s*200px;/
+    /@media\s*\(min-width:\s*1600px\)\s*\{[\s\S]*header\s*\{[\s\S]*height:\s*86px;[\s\S]*\.contactCard\s*\{[\s\S]*width:\s*600px;[\s\S]*height:\s*184px;/
   );
   assert.match(
     css,
-    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.mainTitle h1\s*\{[\s\S]*font-size:\s*76px;[\s\S]*\.contactCard\s*\{[\s\S]*width:\s*820px;[\s\S]*height:\s*250px;/
+    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.mainTitle h1\s*\{[\s\S]*font-size:\s*64px;[\s\S]*\.contactCard\s*\{[\s\S]*width:\s*690px;[\s\S]*height:\s*212px;/
   );
 });
 
@@ -121,11 +121,11 @@ test("대형 명함관리 화면에서 검색 도구와 명함 카드가 확대�
 
   assert.match(
     css,
-    /@media\s*\(min-width:\s*1600px\)\s*\{[\s\S]*\.bcmTools\s*\{[\s\S]*width:\s*min\(980px,\s*100%\);[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*380px;[\s\S]*height:\s*254px;/
+    /@media\s*\(min-width:\s*1600px\)\s*\{[\s\S]*\.bcmTools\s*\{[\s\S]*width:\s*min\(900px,\s*100%\);[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*345px;[\s\S]*height:\s*231px;/
   );
   assert.match(
     css,
-    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*460px;[\s\S]*height:\s*308px;/
+    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*390px;[\s\S]*height:\s*261px;/
   );
 });
 
@@ -134,10 +134,10 @@ test("대형 명함등록 화면에서 업로드 영역과 입력 폼이 확대�
 
   assert.match(
     css,
-    /@media\s*\(min-width:\s*1600px\)\s*\{[\s\S]*\.reviewBoard\s*\{[\s\S]*max-width:\s*1680px;[\s\S]*\.fieldGroup input\s*\{[\s\S]*height:\s*62px;/
+    /@media\s*\(min-width:\s*1600px\)\s*\{[\s\S]*\.reviewBoard\s*\{[\s\S]*max-width:\s*1680px;[\s\S]*\.fieldGroup input\s*\{[\s\S]*height:\s*56px;/
   );
   assert.match(
     css,
-    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.reviewBoard\s*\{[\s\S]*max-width:\s*2100px;[\s\S]*\.fieldGroup input\s*\{[\s\S]*height:\s*74px;/
+    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.reviewBoard\s*\{[\s\S]*max-width:\s*2100px;[\s\S]*\.fieldGroup input\s*\{[\s\S]*height:\s*62px;/
   );
 });
