@@ -638,3 +638,396 @@
     padding: 10px;
   }
 }
+
+@media (min-width: 1200px) and (max-width: 1599px) {
+  .card-add-page main {
+    padding: 74px 5% 170px;
+  }
+
+  .addMain {
+    min-height: calc(100vh - 84px);
+  }
+
+  .addTitle,
+  .reviewBoard {
+    max-width: 1480px;
+  }
+
+  .addTitle {
+    margin-bottom: 38px;
+  }
+
+  .addTitle h1 {
+    font-size: 60px;
+  }
+
+  .addTitle p {
+    font-size: 19px;
+  }
+
+  .reviewBoard {
+    grid-template-columns: minmax(400px, .9fr) minmax(580px, 1.1fr);
+    column-gap: 36px;
+    row-gap: 20px;
+  }
+
+  .uploadPanel {
+    padding: 24px;
+  }
+
+  .uploadBox,
+  .uploadTrigger {
+    min-height: 132px;
+  }
+
+  .previewFrame {
+    margin-top: 20px;
+    padding: 26px;
+  }
+
+  .emptyPreview {
+    min-height: 285px;
+  }
+
+  .queueBox {
+    margin-top: 20px;
+    padding: 18px;
+  }
+
+  .extractPanel {
+    padding: 34px;
+  }
+
+  .panelHeader h2 {
+    font-size: 38px;
+  }
+
+  .extractForm {
+    gap: 18px;
+  }
+
+  .fieldGroup label {
+    font-size: 13px;
+  }
+
+  .fieldGroup input,
+  .fieldGroup textarea {
+    font-size: 16px;
+  }
+
+  .fieldGroup input {
+    height: 54px;
+    padding: 0 17px;
+  }
+
+  .identity input {
+    height: 64px;
+    font-size: 27px;
+  }
+
+  .actionDock button {
+    height: 50px;
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .card-add-page main {
+    padding: 86px 6% 190px;
+  }
+
+  .addMain {
+    min-height: calc(100vh - 96px);
+  }
+
+  .addTitle,
+  .reviewBoard {
+    max-width: 1680px;
+  }
+
+  .addTitle {
+    margin-bottom: 44px;
+  }
+
+  .eyebrow {
+    margin-bottom: 13px;
+    font-size: 15px;
+    letter-spacing: 3.2px;
+  }
+
+  .addTitle h1 {
+    font-size: 68px;
+  }
+
+  .addTitle p {
+    margin-top: 11px;
+    font-size: 22px;
+  }
+
+  .reviewBoard {
+    grid-template-columns: minmax(460px, .9fr) minmax(660px, 1.1fr);
+    column-gap: 42px;
+    row-gap: 24px;
+  }
+
+  .uploadPanel {
+    padding: 28px;
+    border-radius: 22px;
+  }
+
+  .uploadBox,
+  .uploadTrigger {
+    min-height: 150px;
+  }
+
+  .uploadIcon {
+    width: 44px;
+    height: 44px;
+    line-height: 47px;
+    font-size: 30px;
+  }
+
+  .uploadBox strong {
+    font-size: 22px;
+  }
+
+  .uploadBox em {
+    font-size: 16px;
+  }
+
+  .previewFrame {
+    margin-top: 24px;
+    padding: 30px;
+  }
+
+  .emptyPreview {
+    min-height: 320px;
+  }
+
+  .queueBox {
+    margin-top: 24px;
+    padding: 20px;
+  }
+
+  .queueHeader span,
+  .queueHeader b,
+  .queueItem span {
+    font-size: 16px;
+  }
+
+  .queueItem {
+    min-height: 48px;
+    padding: 10px 13px;
+  }
+
+  .queueItem b {
+    font-size: 14px;
+  }
+
+  .extractPanel {
+    padding: 38px;
+    border-radius: 22px;
+  }
+
+  .panelHeader {
+    margin-bottom: 28px;
+  }
+
+  .panelHeader h2 {
+    font-size: 42px;
+  }
+
+  .runningBadge {
+    height: 42px;
+    padding: 0 18px;
+    font-size: 14px;
+  }
+
+  .extractForm {
+    gap: 20px;
+  }
+
+  .fieldGroup label {
+    margin-bottom: 9px;
+    font-size: 14px;
+  }
+
+  .fieldGroup input,
+  .fieldGroup textarea {
+    font-size: 18px;
+  }
+
+  .fieldGroup input {
+    height: 62px;
+    padding: 0 19px;
+  }
+
+  .fieldGroup textarea {
+    padding: 17px 19px;
+  }
+
+  .identity input {
+    height: 72px;
+    font-size: 30px;
+  }
+
+  .actionButtons {
+    padding: 16px;
+    gap: 13px;
+  }
+
+  .actionDock button {
+    height: 56px;
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 2200px) {
+  .card-add-page main {
+    padding: 110px 7% 230px;
+  }
+
+  .addMain {
+    min-height: calc(100vh - 120px);
+  }
+
+  .addTitle,
+  .reviewBoard {
+    max-width: 2100px;
+  }
+
+  .addTitle {
+    margin-bottom: 56px;
+  }
+
+  .eyebrow {
+    margin-bottom: 17px;
+    font-size: 18px;
+  }
+
+  .addTitle h1 {
+    font-size: 86px;
+  }
+
+  .addTitle p {
+    margin-top: 14px;
+    font-size: 28px;
+  }
+
+  .reviewBoard {
+    grid-template-columns: minmax(620px, .9fr) minmax(820px, 1.1fr);
+    column-gap: 56px;
+    row-gap: 30px;
+  }
+
+  .uploadPanel {
+    padding: 36px;
+    border-radius: 28px;
+  }
+
+  .uploadBox,
+  .uploadTrigger {
+    min-height: 180px;
+  }
+
+  .uploadIcon {
+    width: 56px;
+    height: 56px;
+    line-height: 59px;
+    font-size: 38px;
+  }
+
+  .uploadBox strong {
+    font-size: 28px;
+  }
+
+  .uploadBox em {
+    font-size: 20px;
+  }
+
+  .previewFrame {
+    margin-top: 30px;
+    padding: 38px;
+  }
+
+  .emptyPreview {
+    min-height: 400px;
+  }
+
+  .queueBox {
+    margin-top: 30px;
+    padding: 26px;
+  }
+
+  .queueHeader span,
+  .queueHeader b,
+  .queueItem span {
+    font-size: 20px;
+  }
+
+  .queueItem {
+    min-height: 60px;
+    padding: 13px 16px;
+  }
+
+  .queueItem b {
+    font-size: 18px;
+  }
+
+  .extractPanel {
+    padding: 50px;
+    border-radius: 28px;
+  }
+
+  .panelHeader {
+    margin-bottom: 36px;
+  }
+
+  .panelHeader h2 {
+    font-size: 54px;
+  }
+
+  .runningBadge {
+    height: 52px;
+    padding: 0 22px;
+    font-size: 18px;
+  }
+
+  .extractForm {
+    gap: 26px;
+  }
+
+  .fieldGroup label {
+    margin-bottom: 12px;
+    font-size: 17px;
+  }
+
+  .fieldGroup input,
+  .fieldGroup textarea {
+    font-size: 22px;
+  }
+
+  .fieldGroup input {
+    height: 74px;
+    padding: 0 24px;
+  }
+
+  .fieldGroup textarea {
+    padding: 21px 24px;
+  }
+
+  .identity input {
+    height: 86px;
+    font-size: 38px;
+  }
+
+  .actionButtons {
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .actionDock button {
+    height: 68px;
+    font-size: 20px;
+  }
+}

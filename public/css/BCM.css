@@ -484,3 +484,269 @@ body.bcm-page .cardId {
     padding: 0 12px;
   }
 }
+
+@media (min-width: 1200px) and (max-width: 1599px) {
+  .bcmMain {
+    min-height: calc(100vh - 160px);
+    padding: 50px 32px 120px;
+  }
+
+  .bcmTools {
+    width: min(840px, 100%);
+    margin-bottom: 48px;
+  }
+
+  .cardSearchField input,
+  .cardSearchField button,
+  .duplicateToggle {
+    height: 56px;
+    font-size: 14px;
+  }
+
+  .resultSummary {
+    margin-top: 14px;
+    font-size: 14px;
+  }
+
+  .bcmBoard {
+    width: min(1440px, 100%);
+    grid-template-columns: repeat(auto-fill, 335px);
+    gap: 30px;
+  }
+
+  .duplicateGroup {
+    flex: 0 1 440px;
+    padding: 25px;
+  }
+
+  .duplicateGroupHeader {
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+
+  .duplicateCards {
+    grid-template-columns: repeat(auto-fill, 335px);
+    gap: 22px;
+  }
+
+  .profileCard {
+    width: 335px;
+    height: 224px;
+    min-height: 224px;
+    padding: 24px 26px;
+  }
+
+  .profileCard h2 {
+    margin-top: 20px;
+    font-size: 33px;
+  }
+
+  .profileCard .role {
+    font-size: 12px;
+    letter-spacing: 2.4px;
+  }
+
+  .profileCard .meta {
+    margin-top: 8px;
+    font-size: 15px;
+  }
+
+  .pill {
+    max-width: 225px;
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  body.bcm-page .cardId {
+    top: 20px;
+    right: 20px;
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .bcmMain {
+    min-height: calc(100vh - 182px);
+    padding: 64px 48px 140px;
+  }
+
+  .bcmTools {
+    width: min(980px, 100%);
+    margin-bottom: 56px;
+  }
+
+  .cardSearchForm {
+    gap: 16px;
+  }
+
+  .cardSearchField,
+  .duplicateToggle {
+    border-radius: 20px;
+  }
+
+  .cardSearchField input,
+  .cardSearchField button,
+  .duplicateToggle {
+    height: 64px;
+    font-size: 16px;
+  }
+
+  .cardSearchField input {
+    padding: 0 24px;
+  }
+
+  .cardSearchField button {
+    padding: 0 28px;
+  }
+
+  .duplicateToggle {
+    padding: 0 22px;
+  }
+
+  .resultSummary {
+    min-height: 22px;
+    margin-top: 16px;
+    font-size: 16px;
+  }
+
+  .bcmBoard {
+    width: min(1680px, 100%);
+    grid-template-columns: repeat(auto-fill, 380px);
+    gap: 36px;
+  }
+
+  .duplicateGroup {
+    flex: 0 1 490px;
+    padding: 28px;
+    border-radius: 24px;
+  }
+
+  .duplicateGroupHeader {
+    margin-bottom: 22px;
+    font-size: 16px;
+  }
+
+  .duplicateCards {
+    grid-template-columns: repeat(auto-fill, 380px);
+    gap: 26px;
+  }
+
+  .profileCard {
+    width: 380px;
+    height: 254px;
+    min-height: 254px;
+    padding: 28px 30px;
+  }
+
+  .profileCard h2 {
+    margin-top: 22px;
+    font-size: 37px;
+  }
+
+  .profileCard .role {
+    margin-top: 10px;
+    font-size: 14px;
+    letter-spacing: 2.6px;
+  }
+
+  .profileCard .meta {
+    margin-top: 9px;
+    font-size: 17px;
+  }
+
+  .pill {
+    max-width: 255px;
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+
+  body.bcm-page .cardId {
+    top: 22px;
+    right: 22px;
+    font-size: 20px;
+  }
+}
+
+@media (min-width: 2200px) {
+  .bcmMain {
+    min-height: calc(100vh - 225px);
+    padding: 82px 64px 174px;
+  }
+
+  .bcmTools {
+    width: min(1200px, 100%);
+    margin-bottom: 72px;
+  }
+
+  .cardSearchForm {
+    gap: 20px;
+  }
+
+  .cardSearchField input,
+  .cardSearchField button,
+  .duplicateToggle {
+    height: 76px;
+    font-size: 20px;
+  }
+
+  .resultSummary {
+    margin-top: 20px;
+    font-size: 19px;
+  }
+
+  .bcmBoard {
+    width: min(2200px, 100%);
+    grid-template-columns: repeat(auto-fill, 460px);
+    gap: 44px;
+  }
+
+  .duplicateGroup {
+    flex-basis: 590px;
+    padding: 34px;
+  }
+
+  .duplicateGroupHeader {
+    margin-bottom: 28px;
+    font-size: 20px;
+  }
+
+  .duplicateCards {
+    grid-template-columns: repeat(auto-fill, 460px);
+    gap: 32px;
+  }
+
+  .profileCard {
+    width: 460px;
+    height: 308px;
+    min-height: 308px;
+    padding: 34px 38px;
+  }
+
+  .profileCard h2 {
+    margin-top: 28px;
+    font-size: 46px;
+  }
+
+  .profileCard .role {
+    margin-top: 13px;
+    font-size: 17px;
+    letter-spacing: 3px;
+  }
+
+  .profileCard .meta {
+    margin-top: 11px;
+    font-size: 21px;
+  }
+
+  .pill {
+    max-width: 315px;
+    padding: 8px 17px;
+    font-size: 15px;
+  }
+
+  body.bcm-page .cardId {
+    top: 28px;
+    right: 28px;
+    font-size: 24px;
+  }
+}

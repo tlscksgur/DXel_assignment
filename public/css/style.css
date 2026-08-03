@@ -547,3 +547,310 @@ footer {
     width: 100%;
   }
 }
+
+@media (min-width: 1200px) and (max-width: 1599px) {
+  header {
+    height: 84px;
+    padding: 0 50px;
+  }
+
+  .headerBox1 {
+    gap: 98px;
+  }
+
+  .logo {
+    font-size: 33px;
+  }
+
+  .headerBox1 ul {
+    gap: 50px;
+  }
+
+  .headerBox1 ul li a {
+    font-size: 14px;
+  }
+
+  .cardAdd {
+    height: 46px;
+    padding: 0 30px;
+    font-size: 15px;
+  }
+
+  main {
+    padding-top: 100px;
+  }
+
+  .mainTitle {
+    margin-bottom: 90px;
+  }
+
+  .mainTitle h1 {
+    font-size: 48px;
+  }
+
+  .mainTitle p {
+    font-size: 19px;
+  }
+
+  .cardTrack {
+    gap: 26px;
+  }
+
+  .contactCard {
+    width: 570px;
+    height: 176px;
+    padding: 15px;
+    border-radius: 18px;
+  }
+
+  .cardImage {
+    width: 122px;
+    height: 146px;
+    font-size: 30px;
+  }
+
+  .cardInfo {
+    padding: 0 20px;
+  }
+
+  .cardInfo h2 {
+    margin-top: 15px;
+    font-size: 29px;
+  }
+
+  .cardInfo p {
+    font-size: 15px;
+  }
+
+  .cardContact {
+    margin-top: 11px;
+    font-size: 14px;
+  }
+
+  footer {
+    height: 76px;
+    padding: 0 50px;
+  }
+
+  .footerLeft,
+  .footerRight span {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1600px) {
+  header {
+    height: 96px;
+    padding: 0 64px;
+  }
+
+  .headerBox1 {
+    gap: 110px;
+  }
+
+  .logo {
+    font-size: 38px;
+  }
+
+  .headerBox1 ul {
+    gap: 58px;
+  }
+
+  .headerBox1 ul li a {
+    font-size: 16px;
+  }
+
+  .cardAdd {
+    height: 54px;
+    padding: 0 36px;
+    font-size: 17px;
+  }
+
+  main {
+    padding-top: 110px;
+  }
+
+  .mainTitle {
+    width: 88%;
+    max-width: 1900px;
+    margin-bottom: 100px;
+  }
+
+  .mainTitle h1 {
+    font-size: 58px;
+  }
+
+  .mainTitle p {
+    margin-top: 12px;
+    font-size: 22px;
+  }
+
+  .cardArea {
+    padding: 28px 0 110px;
+  }
+
+  .cardTrack {
+    gap: 30px;
+    padding-left: 6%;
+  }
+
+  .contactCard {
+    width: 650px;
+    height: 200px;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .cardImage {
+    width: 140px;
+    height: 164px;
+    border-radius: 15px;
+    font-size: 34px;
+  }
+
+  .cardInfo {
+    padding: 0 24px;
+  }
+
+  .date {
+    font-size: 15px;
+  }
+
+  .cardInfo h2 {
+    margin-top: 17px;
+    font-size: 34px;
+  }
+
+  .cardInfo p {
+    margin-top: 6px;
+    font-size: 17px;
+  }
+
+  .cardContact {
+    margin-top: 13px;
+    gap: 22px;
+    font-size: 16px;
+  }
+
+  footer {
+    height: 86px;
+    padding: 0 64px;
+  }
+
+  .footerLeft,
+  .footerRight span {
+    font-size: 15px;
+  }
+
+  .footerRight {
+    gap: 52px;
+  }
+
+  .serviceStatus i {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+@media (min-width: 2200px) {
+  header {
+    height: 120px;
+    padding: 0 96px;
+  }
+
+  .headerBox1 {
+    gap: 140px;
+  }
+
+  .logo {
+    font-size: 48px;
+  }
+
+  .headerBox1 ul {
+    gap: 72px;
+  }
+
+  .headerBox1 ul li a {
+    font-size: 20px;
+  }
+
+  .cardAdd {
+    height: 66px;
+    padding: 0 46px;
+    font-size: 21px;
+  }
+
+  main {
+    padding-top: 140px;
+  }
+
+  .mainTitle {
+    max-width: 2200px;
+    margin-bottom: 126px;
+  }
+
+  .mainTitle h1 {
+    font-size: 76px;
+  }
+
+  .mainTitle p {
+    margin-top: 16px;
+    font-size: 28px;
+  }
+
+  .cardTrack {
+    gap: 40px;
+  }
+
+  .contactCard {
+    width: 820px;
+    height: 250px;
+    padding: 22px;
+    border-radius: 26px;
+  }
+
+  .cardImage {
+    width: 180px;
+    height: 206px;
+    border-radius: 18px;
+    font-size: 44px;
+  }
+
+  .cardInfo {
+    padding: 0 30px;
+  }
+
+  .date {
+    font-size: 18px;
+  }
+
+  .cardInfo h2 {
+    margin-top: 22px;
+    font-size: 44px;
+  }
+
+  .cardInfo p {
+    margin-top: 8px;
+    font-size: 22px;
+  }
+
+  .cardContact {
+    margin-top: 18px;
+    gap: 28px;
+    font-size: 20px;
+  }
+
+  footer {
+    height: 105px;
+    padding: 0 96px;
+  }
+
+  .footerLeft,
+  .footerRight span {
+    font-size: 18px;
+  }
+
+  .footerRight {
+    gap: 68px;
+  }
+}
