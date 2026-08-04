@@ -644,3 +644,13 @@ test("연속 업로드 큐는 스크롤과 현재 항목 강조 스타일을 제
   assert.match(css, /\.queueItem\.current\s*\{[^}]*background:/);
   assert.match(css, /\.queueItem-error\s+b\s*\{[^}]*color:/);
 });
+
+test("회전된 명함 미리보기는 프레임 너비에 맞춰 크게 표시된다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/cardAdd.css"), "utf8");
+
+  assert.match(css, /\.previewFrame\s*\{[^}]*container-type:\s*inline-size;/);
+  assert.match(
+    css,
+    /\.previewFrame img\s*\{[^}]*width:\s*auto;[^}]*height:\s*90cqw;[^}]*max-width:\s*none;[^}]*max-height:\s*none;[^}]*object-fit:\s*contain;/
+  );
+});
