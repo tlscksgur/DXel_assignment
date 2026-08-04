@@ -278,9 +278,17 @@ async function activateQueueItem(index) {
   }
 
   currentQueueIndex = index;
+  const item = uploadQueue[currentQueueIndex];
+
+  if (item.status === "skipped") {
+    item.status = "waiting";
+    item.imagePath = "";
+    item.extracted = null;
+    item.error = "";
+  }
+
   renderQueue();
 
-  const item = uploadQueue[currentQueueIndex];
   if (item.status === "ready") {
     showQueueItem(item);
     runningBadge.textContent = "분석 완료";
@@ -517,7 +525,7 @@ queueBox.addEventListener("click", async (event) => {
   const index = Number(queueItem.dataset.queueIndex);
   const item = uploadQueue[index];
 
-  if (!item || item.status === "saved" || item.status === "skipped") {
+  if (!item || item.status === "saved") {
     return;
   }
 

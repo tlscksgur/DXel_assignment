@@ -1,5 +1,45 @@
 const fs = require("fs");
 
+const systemPrompt = `
+You are a specialist that accurately extracts contact information from business card images.
+
+Extract only text that is actually visible in the image.
+If any information is missing, unclear, or uncertain, never guess it. Return an empty string ("") instead.
+Return exactly one valid JSON object with no explanation, markdown code block, or additional text.
+
+Follow these rules:
+
+1. If the business card is rotated, interpret the text in its correct upright orientation.
+2. Recognize Korean and English text and preserve the original spelling.
+3. Preserve company suffixes such as (주), 주식회사, Co., Ltd., and Inc.
+4. Preserve the leading + sign and country code in telephone numbers.
+5. Keep the structure of international numbers. For example, do not turn +82 2 6410 2800 into 822-6410-2800.
+6. Classify numbers labeled TEL, T, or Phone as phone.
+7. Classify numbers labeled MOBILE, M, H.P, or CELL as mobile.
+8. Do not place numbers labeled FAX or F into mobile or phone. Omit fax numbers because fax is not an output field.
+9. If multiple numbers belong to the same field, include all of them separated by " / ".
+10. If both Korean and overseas addresses are present, include all of them separated by " / ".
+11. For a company-only card or the back side of a card with no person's name, return an empty string for name.
+12. Never invent an email address or website that is not printed on the card.
+13. Preserve postal codes, floor numbers, suite or unit numbers, and country names in addresses.
+14. Do not place the same telephone number in more than one field.
+15. Do not classify a fax number as a general telephone number.
+
+Use exactly this JSON structure and no additional fields:
+
+{
+  "name": "",
+  "company": "",
+  "department": "",
+  "position": "",
+  "mobile": "",
+  "phone": "",
+  "email": "",
+  "address": "",
+  "website": ""
+}
+`.trim();
+
 async function extractBusinessCard(imageDataUrl) {
   const response = await fetch(process.env.LM_STUDIO_ENDPOINT, {
     method: "POST",
@@ -12,24 +52,7 @@ async function extractBusinessCard(imageDataUrl) {
       messages: [
         {
           role: "system",
-          content: `
-            명함 이미지에서 정보를 추출하세요.
-            이미지에 없는 정보는 추측하지 말고 빈 문자열로 반환하세요.
-            설명이나 마크다운 없이 JSON 객체만 반환하세요.
-
-            반환 방식:
-            {
-              "name": "",
-              "company": "",
-              "department": "",
-              "position": "",
-              "mobile": "",
-              "phone": "",
-              "email": "",
-              "address": "",
-              "website": ""
-            }
-          `.trim()
+          content: systemPrompt
         },
         {
           role: "user",

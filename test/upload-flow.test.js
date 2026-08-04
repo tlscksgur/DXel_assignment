@@ -45,12 +45,14 @@ function waitForServer(child) {
 
 test("업로드한 이미지를 LM Studio에 전달하고 정규화된 필드를 반환한다", async () => {
   let uploadedFilePath = "";
+  let receivedLmRequest;
   const mockLmStudio = http.createServer((req, res) => {
     let body = "";
     req.setEncoding("utf8");
     req.on("data", (chunk) => { body += chunk; });
     req.on("end", () => {
       const request = JSON.parse(body);
+      receivedLmRequest = request;
       const imageUrl = request.messages[1].content[1].image_url.url;
 
       assert.match(imageUrl, /^data:image\/png;base64,/);
@@ -113,6 +115,12 @@ ${JSON.stringify({
     assert.equal(result.extracted.email, "hong@example.com");
     assert.equal(result.extracted.website, "https://example.com");
     assert.match(result.file.path, /^\/uploads\//);
+    const systemPrompt = receivedLmRequest.messages[0].content;
+    assert.match(systemPrompt, /only text that is actually visible/i);
+    assert.match(systemPrompt, /never guess/i);
+    assert.match(systemPrompt, /valid JSON object/i);
+    assert.doesNotMatch(systemPrompt, /"fax":/);
+    assert.doesNotMatch(systemPrompt, /"other_text":/);
     uploadedFilePath = path.join(projectRoot, result.file.path);
   } finally {
     app.kill("SIGTERM");
@@ -467,6 +475,47 @@ test("다음 명함 버튼은 현재 항목을 건너뛰고 다음 이미지를 
   assert.match(browser.element(".queueBox").innerHTML, /건너뜀/);
 });
 
+test("건너뛴 명함을 누르면 해당 이미지를 다시 분석한다", async () => {
+  let extractRequests = 0;
+  const browser = createCardAddBrowser(async () => {
+    extractRequests += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: `/uploads/card-${extractRequests}.png` },
+        extracted: {
+          name: `명함 ${extractRequests}`,
+          company: "",
+          department: "",
+          position: "",
+          mobile: "",
+          phone: "",
+          email: "",
+          address: "",
+          website: ""
+        }
+      })
+    };
+  });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: {
+      files: [namedImage("first.png"), namedImage("second.png")],
+      value: "selected"
+    }
+  });
+  await browser.handler(".subAction", "click")();
+  await browser.handler(".queueBox", "click")({
+    target: {
+      closest: () => ({ dataset: { queueIndex: "0" } })
+    }
+  });
+
+  assert.equal(extractRequests, 3);
+  assert.equal(browser.element("#name").value, "명함 3");
+  assert.doesNotMatch(browser.element(".queueBox").innerHTML, /queueItem-skipped current/);
+});
+
 test("취소 버튼은 현재 항목을 제거하고 다음 이미지를 분석한다", async () => {
   let extractRequests = 0;
   const browser = createCardAddBrowser(async () => {
@@ -591,7 +640,7 @@ test("명함 등록 화면에 검증 및 중복 안내 블록을 표시하지 �
 test("연속 업로드 큐는 스크롤과 현재 항목 강조 스타일을 제공한다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/cardAdd.css"), "utf8");
 
-  assert.match(css, /\.queueList\s*\{[^}]*max-height:\s*240px;[^}]*overflow-y:\s*auto;/);
+  assert.match(css, /\.queueList\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(210px,\s*1fr\)\);[^}]*max-height:\s*240px;[^}]*overflow-y:\s*auto;/);
   assert.match(css, /\.queueItem\.current\s*\{[^}]*background:/);
   assert.match(css, /\.queueItem-error\s+b\s*\{[^}]*color:/);
 });
