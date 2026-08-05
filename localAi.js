@@ -87,20 +87,61 @@ function imageToDataUrl(file) {
 
 function parseModelJson(content) {
   const text = String(content || "").trim();
-  const fencedJson = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const parsedObjects = [];
+  let objectStart = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
 
-  if (fencedJson) {
-    return JSON.parse(fencedJson[1].trim());
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (character === '"' && depth > 0) {
+      inString = true;
+      continue;
+    }
+
+    if (character === "{") {
+      if (depth === 0) {
+        objectStart = index;
+      }
+      depth += 1;
+      continue;
+    }
+
+    if (character !== "}" || depth === 0) {
+      continue;
+    }
+
+    depth -= 1;
+    if (depth !== 0 || objectStart === -1) {
+      continue;
+    }
+
+    try {
+      parsedObjects.push(JSON.parse(text.slice(objectStart, index + 1)));
+    } catch {
+      // 설명 속 불완전한 JSON 예시는 건너뛰고 다음 객체를 확인합니다.
+    }
+    objectStart = -1;
   }
 
-  const firstBrace = text.indexOf("{");
-  const lastBrace = text.lastIndexOf("}");
-
-  if (firstBrace === -1 || lastBrace < firstBrace) {
+  if (parsedObjects.length === 0) {
     throw new Error("모델 응답에서 JSON 객체를 찾을 수 없습니다.");
   }
 
-  return JSON.parse(text.slice(firstBrace, lastBrace + 1));
+  return parsedObjects[parsedObjects.length - 1];
 }
 
 module.exports = {

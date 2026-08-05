@@ -5,6 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { spawn } = require("node:child_process");
 const { test } = require("node:test");
+const { parseModelJson } = require("../localAi");
 
 const projectRoot = path.join(__dirname, "..");
 
@@ -42,6 +43,28 @@ function waitForServer(child) {
     });
   });
 }
+
+test("긴 설명에 잘못된 JSON 예시가 있어도 마지막 유효 객체를 추출한다", () => {
+  const expected = {
+    name: "정노응",
+    company: "디엑셀(주)",
+    department: "",
+    position: "사원",
+    mobile: "010. 6300. 0203",
+    phone: "02. 2088. 2959",
+    email: "nejeong@dxel.co.kr",
+    address: "서울특별시 영등포구 신유로 114 / 양평자이비즈타워 907호",
+    website: "www.dxel.co.kr"
+  };
+  const content = `
+    JSON만 반환해야 합니다. 예: \`\`\`json ... \`\`\`
+    중간 형식: {"name":"", "company":""}
+    </think>
+    ${JSON.stringify(expected)}
+  `;
+
+  assert.deepEqual(parseModelJson(content), expected);
+});
 
 test("업로드한 이미지를 LM Studio에 전달하고 정규화된 필드를 반환한다", async () => {
   let uploadedFilePath = "";
@@ -384,7 +407,7 @@ test("여러 이미지를 큐에 추가하고 첫 번째 이미지만 순차 분
   assert.match(browser.element(".queueBox").innerHTML, /first\.png/);
   assert.match(browser.element(".queueBox").innerHTML, /second\.png/);
   assert.equal(browser.element("#name").value, "명함 1");
-  assert.equal(browser.element(".runningBadge").textContent, "분석 완료");
+  assert.match(browser.element(".runningBadge").textContent, /^분석 완료 · \d+\.\d초$/);
 });
 
 test("현재 명함을 저장하면 다음 대기 명함을 자동 분석한다", async () => {

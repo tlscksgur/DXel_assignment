@@ -101,6 +101,10 @@ test("일반 모니터 구간에서 세 화면이 중간 크기로 확대된다"
     addCss,
     /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.reviewBoard\s*\{[\s\S]*max-width:\s*1480px;[\s\S]*\.fieldGroup input\s*\{[\s\S]*height:\s*52px;/
   );
+  assert.match(
+    addCss,
+    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.extractPanel\s*\{[\s\S]*width:\s*min\(728px,\s*100%\);[\s\S]*min-height:\s*705px;[\s\S]*height:\s*max-content;/
+  );
 });
 
 test("대형 화면에서 공통 헤더와 홈 명함이 단계적으로 확대된다", () => {

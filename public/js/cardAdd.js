@@ -65,8 +65,17 @@ function createQueueItem(file) {
     status: "waiting",
     imagePath: "",
     extracted: null,
+    analysisDurationMs: null,
     error: ""
   };
+}
+
+function completedAnalysisLabel(item) {
+  if (!Number.isFinite(item?.analysisDurationMs)) {
+    return "분석 완료";
+  }
+
+  return `분석 완료 · ${(item.analysisDurationMs / 1000).toFixed(1)}초`;
 }
 
 function remainingQueueCount() {
@@ -211,7 +220,7 @@ async function analyzeCurrentCard() {
 
   if (item.status === "ready") {
     showQueueItem(item);
-    runningBadge.textContent = "분석 완료";
+    runningBadge.textContent = completedAnalysisLabel(item);
     updateActionState();
     return;
   }
@@ -221,6 +230,7 @@ async function analyzeCurrentCard() {
   }
 
   isAnalyzing = true;
+  const analysisStartedAt = Date.now();
   item.status = "processing";
   item.error = "";
   showQueueItem(item);
@@ -252,16 +262,18 @@ async function analyzeCurrentCard() {
     item.status = "ready";
     item.imagePath = result.file.path;
     item.extracted = result.extracted;
+    item.analysisDurationMs = Date.now() - analysisStartedAt;
 
     showQueueItem(item);
-    
-    runningBadge.textContent = "분석 완료";
+
+    runningBadge.textContent = completedAnalysisLabel(item);
   } catch (error) {
     console.error(error);
 
     item.status = "error";
+    item.analysisDurationMs = Date.now() - analysisStartedAt;
     item.error = error.message;
-    runningBadge.textContent = "분석 실패";
+    runningBadge.textContent = `분석 실패 · ${(item.analysisDurationMs / 1000).toFixed(1)}초`;
 
     alert(error.message);
   } finally {
@@ -284,6 +296,7 @@ async function activateQueueItem(index) {
     item.status = "waiting";
     item.imagePath = "";
     item.extracted = null;
+    item.analysisDurationMs = null;
     item.error = "";
   }
 
@@ -291,7 +304,7 @@ async function activateQueueItem(index) {
 
   if (item.status === "ready") {
     showQueueItem(item);
-    runningBadge.textContent = "분석 완료";
+    runningBadge.textContent = completedAnalysisLabel(item);
     updateActionState();
     return;
   }
