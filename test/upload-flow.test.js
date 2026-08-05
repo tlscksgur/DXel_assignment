@@ -142,8 +142,34 @@ ${JSON.stringify({
     assert.match(systemPrompt, /only text that is actually visible/i);
     assert.match(systemPrompt, /never guess/i);
     assert.match(systemPrompt, /valid JSON object/i);
+    assert.match(systemPrompt, /same physical address[\s\S]*single space/i);
+    assert.match(systemPrompt, /use " \/ " only between distinct address blocks/i);
+    assert.match(systemPrompt, /person'?s name[\s\S]*character by character/i);
+    assert.match(systemPrompt, /uncertain[\s\S]*empty string/i);
     assert.doesNotMatch(systemPrompt, /"fax":/);
     assert.doesNotMatch(systemPrompt, /"other_text":/);
+    assert.equal(receivedLmRequest.reasoning_effort, "none");
+    assert.equal(receivedLmRequest.max_tokens, 512);
+    assert.equal(receivedLmRequest.response_format.type, "json_schema");
+    assert.equal(receivedLmRequest.response_format.json_schema.strict, true);
+    assert.deepEqual(
+      Object.keys(receivedLmRequest.response_format.json_schema.schema.properties),
+      [
+        "name",
+        "company",
+        "department",
+        "position",
+        "mobile",
+        "phone",
+        "email",
+        "address",
+        "website"
+      ]
+    );
+    assert.equal(
+      receivedLmRequest.response_format.json_schema.schema.additionalProperties,
+      false
+    );
     uploadedFilePath = path.join(projectRoot, result.file.path);
   } finally {
     app.kill("SIGTERM");

@@ -10,20 +10,22 @@ Return exactly one valid JSON object with no explanation, markdown code block, o
 Follow these rules:
 
 1. If the business card is rotated, interpret the text in its correct upright orientation.
-2. Recognize Korean and English text and preserve the original spelling.
-3. Preserve company suffixes such as (주), 주식회사, Co., Ltd., and Inc.
-4. Preserve the leading + sign and country code in telephone numbers.
-5. Keep the structure of international numbers. For example, do not turn +82 2 6410 2800 into 822-6410-2800.
-6. Classify numbers labeled TEL, T, or Phone as phone.
-7. Classify numbers labeled MOBILE, M, H.P, or CELL as mobile.
-8. Do not place numbers labeled FAX or F into mobile or phone. Omit fax numbers because fax is not an output field.
-9. If multiple numbers belong to the same field, include all of them separated by " / ".
-10. If both Korean and overseas addresses are present, include all of them separated by " / ".
-11. For a company-only card or the back side of a card with no person's name, return an empty string for name.
-12. Never invent an email address or website that is not printed on the card.
-13. Preserve postal codes, floor numbers, suite or unit numbers, and country names in addresses.
-14. Do not place the same telephone number in more than one field.
-15. Do not classify a fax number as a general telephone number.
+2. Recognize Korean and English text and preserve every character exactly as printed.
+3. Read the person's name character by character. Pay special attention to visually similar Hangul syllables and final consonants. Do not infer or correct a name from the email address, common names, or context. If even one name character is uncertain, return an empty string for name instead of substituting a similar-looking character.
+4. Preserve company suffixes such as (주), 주식회사, Co., Ltd., and Inc.
+5. Preserve the leading + sign and country code in telephone numbers.
+6. Keep the structure of international numbers. For example, do not turn +82 2 6410 2800 into 822-6410-2800.
+7. Classify numbers labeled TEL, T, or Phone as phone.
+8. Classify numbers labeled MOBILE, M, H.P, or CELL as mobile.
+9. Do not place numbers labeled FAX or F into mobile or phone. Omit fax numbers because fax is not an output field.
+10. If multiple numbers belong to the same field, include all of them separated by " / ".
+11. Lines belonging to the same physical address are one address. Treat a line break as visual formatting and concatenate those lines with a single space. Do not insert " / " between a street address and its building, floor, suite, or unit line.
+12. Use " / " only between distinct address blocks that refer to different physical locations, such as separately labeled headquarters, factory, branch, Korean office, or overseas office addresses.
+13. For a company-only card or the back side of a card with no person's name, return an empty string for name.
+14. Never invent an email address or website that is not printed on the card.
+15. Preserve postal codes, floor numbers, suite or unit numbers, and country names in addresses.
+16. Do not place the same telephone number in more than one field.
+17. Do not classify a fax number as a general telephone number.
 
 Use exactly this JSON structure and no additional fields:
 
@@ -40,6 +42,40 @@ Use exactly this JSON structure and no additional fields:
 }
 `.trim();
 
+const businessCardResponseFormat = {
+  type: "json_schema",
+  json_schema: {
+    name: "business_card_contact",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        company: { type: "string" },
+        department: { type: "string" },
+        position: { type: "string" },
+        mobile: { type: "string" },
+        phone: { type: "string" },
+        email: { type: "string" },
+        address: { type: "string" },
+        website: { type: "string" }
+      },
+      required: [
+        "name",
+        "company",
+        "department",
+        "position",
+        "mobile",
+        "phone",
+        "email",
+        "address",
+        "website"
+      ],
+      additionalProperties: false
+    }
+  }
+};
+
 async function extractBusinessCard(imageDataUrl) {
   const response = await fetch(process.env.LM_STUDIO_ENDPOINT, {
     method: "POST",
@@ -49,6 +85,9 @@ async function extractBusinessCard(imageDataUrl) {
     body: JSON.stringify({
       model: process.env.LM_STUDIO_MODEL,
       temperature: 0,
+      reasoning_effort: "none",
+      max_tokens: 512,
+      response_format: businessCardResponseFormat,
       messages: [
         {
           role: "system",
