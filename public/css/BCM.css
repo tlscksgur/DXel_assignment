@@ -544,6 +544,102 @@ body.detailOpen {
   grid-column: 1 / -1;
 }
 
+.cardDetailEditForm .cardDetailField {
+  display: block;
+}
+
+.cardDetailEditForm .cardDetailField > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  opacity: .72;
+}
+
+.cardDetailInput {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid rgba(3, 22, 50, .18);
+  border-radius: 10px;
+  outline: none;
+  background: rgba(255, 255, 255, .92);
+  color: #031632;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+textarea.cardDetailInput {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.cardDetailInput:focus {
+  border-color: #031632;
+  box-shadow: 0 0 0 3px rgba(3, 22, 50, .12);
+}
+
+.cardDetailActions {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.cardDetailStatus {
+  flex: 1 1 240px;
+  min-height: 20px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cardDetailActions button {
+  min-width: 92px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid #031632;
+  border-radius: 12px;
+  background: #031632;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cardDetailActions button[data-action="cancel"],
+.cardDetailActions button.danger {
+  background: rgba(255, 255, 255, .82);
+  color: #031632;
+}
+
+.cardDetailCard.card-dark .cardDetailActions button:not(.danger),
+.cardDetailCard.card-dark-grey .cardDetailActions button:not(.danger) {
+  border-color: rgba(255, 255, 255, .7);
+}
+
+.cardDetailActions button.danger {
+  border-color: #a94b3f;
+  color: #8d3027;
+}
+
+.cardDetailActions button:hover,
+.cardDetailActions button:focus-visible {
+  transform: translateY(-1px);
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.cardDetailActions button:disabled,
+.cardDetailInput:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
 .status i {
   width: 7px;
   height: 7px;
@@ -705,6 +801,18 @@ body.detailOpen {
 
   .cardDetailField dd {
     font-size: 15px;
+  }
+
+  .cardDetailActions {
+    margin-top: 18px;
+  }
+
+  .cardDetailStatus {
+    flex-basis: 100%;
+  }
+
+  .cardDetailActions button {
+    flex: 1 1 120px;
   }
 }
 

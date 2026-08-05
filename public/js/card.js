@@ -11,6 +11,7 @@ let visibleCards = [];
 let showDuplicatesOnly = false;
 let searchTimer;
 let requestSequence = 0;
+let activeCardId = null;
 
 function normalizedPhone(value) {
   return String(value || "").replace(/\D/g, "");
@@ -167,8 +168,203 @@ function createCardDetail(contact) {
         <h2 id="cardDetailTitle">${escapeHtml(contact.name || "이름 없음")}</h2>
       </div>
       <dl class="cardDetailGrid">${details}</dl>
+      <div class="cardDetailActions">
+        <p class="cardDetailStatus" aria-live="polite"></p>
+        <button type="button" data-action="edit">수정</button>
+        <button type="button" class="danger" data-action="delete">삭제</button>
+      </div>
     </article>
   `;
+}
+
+function createCardEditor(contact, statusMessage = "") {
+  const classes = getCardVariant(contact);
+  const fields = [
+    ["name", "이름", contact.name],
+    ["company", "회사", contact.company],
+    ["department", "부서", contact.department],
+    ["position", "직책", contact.position],
+    ["mobile", "휴대폰", contact.mobile],
+    ["phone", "유선전화", contact.phone],
+    ["email", "이메일", contact.email],
+    ["website", "홈페이지", contact.website],
+    ["address", "주소", contact.address]
+  ];
+  const inputs = fields.map(([name, label, value]) => {
+    const safeValue = escapeHtml(value);
+    const input = name === "address"
+      ? `<textarea class="cardDetailInput" name="${name}" rows="2">${safeValue}</textarea>`
+      : `<input class="cardDetailInput" name="${name}" value="${safeValue}">`;
+
+    return `
+      <label class="cardDetailField${name === "address" ? " cardDetailAddress" : ""}">
+        <span>${label}</span>
+        ${input}
+      </label>
+    `;
+  }).join("");
+
+  return `
+    <article class="cardDetailCard ${classes}">
+      <form class="cardDetailEditForm" data-card-id="${Number(contact.id) || 0}">
+        <div class="cardDetailHeader">
+          <div class="cardDetailCompanyLine">
+            <span class="pill">${escapeHtml(contact.company) || "BUSINESS CARD"}</span>
+            <span class="cardDetailId">#${Number(contact.id) || "-"}</span>
+          </div>
+          <p class="cardDetailEyebrow">BUSINESS CARD EDIT</p>
+          <h2 id="cardDetailTitle">명함 정보 수정</h2>
+        </div>
+        <div class="cardDetailGrid">${inputs}</div>
+        <div class="cardDetailActions">
+          <p class="cardDetailStatus" aria-live="polite">${escapeHtml(statusMessage)}</p>
+          <button type="submit" data-action="save">저장</button>
+          <button type="button" data-action="cancel">취소</button>
+        </div>
+      </form>
+    </article>
+  `;
+}
+
+async function requestCardUpdate(cardId, card, allowDuplicate = false) {
+  const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(allowDuplicate ? { ...card, allowDuplicate: true } : card)
+  });
+  const result = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(result.message || "명함을 수정하지 못했습니다.");
+    error.status = response.status;
+    error.result = result;
+    throw error;
+  }
+
+  return result;
+}
+
+async function requestCardDelete(cardId) {
+  const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+    method: "DELETE"
+  });
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "명함을 삭제하지 못했습니다.");
+  }
+
+  return result;
+}
+
+function getActiveCard() {
+  return visibleCards.find((card) => Number(card.id) === Number(activeCardId));
+}
+
+function showCardEditor() {
+  const contact = getActiveCard();
+  if (!contact) {
+    return;
+  }
+
+  detailContent.innerHTML = createCardEditor(contact);
+  const firstInput = detailContent.querySelector('[name="name"]');
+  if (firstInput) {
+    firstInput.focus();
+  }
+}
+
+function showCardDetail() {
+  const contact = getActiveCard();
+  if (contact) {
+    detailContent.innerHTML = createCardDetail(contact);
+  }
+}
+
+function setEditorBusy(form, isBusy, message = "") {
+  form.querySelectorAll("button, input, textarea").forEach((element) => {
+    element.disabled = isBusy;
+  });
+  const status = form.querySelector(".cardDetailStatus");
+  if (status) {
+    status.textContent = message;
+  }
+}
+
+function setDetailStatus(message) {
+  const status = detailContent.querySelector(".cardDetailStatus");
+  if (status) {
+    status.textContent = message;
+  }
+}
+
+async function saveCardEdits(form) {
+  const contact = getActiveCard();
+  if (!contact) {
+    return;
+  }
+
+  const formData = new FormData(form);
+  const payload = {
+    name: String(formData.get("name") || "").trim(),
+    company: String(formData.get("company") || "").trim(),
+    department: String(formData.get("department") || "").trim(),
+    position: String(formData.get("position") || "").trim(),
+    mobile: String(formData.get("mobile") || "").trim(),
+    phone: String(formData.get("phone") || "").trim(),
+    email: String(formData.get("email") || "").trim(),
+    website: String(formData.get("website") || "").trim(),
+    address: String(formData.get("address") || "").trim(),
+    image_path: contact.image_path || ""
+  };
+
+  setEditorBusy(form, true, "저장 중입니다.");
+
+  try {
+    try {
+      await requestCardUpdate(activeCardId, payload);
+    } catch (error) {
+      if (
+        error.status !== 409 ||
+        !window.confirm("중복 가능성이 있는 명함입니다. 그래도 수정 내용을 저장할까요?")
+      ) {
+        throw error;
+      }
+      await requestCardUpdate(activeCardId, payload, true);
+    }
+
+    const savedCardId = activeCardId;
+    await loadCards();
+    activeCardId = savedCardId;
+    if (getActiveCard()) {
+      showCardDetail();
+    } else {
+      closeCardDetail();
+    }
+  } catch (error) {
+    console.error(error);
+    setEditorBusy(form, false, error.message || "명함을 수정하지 못했습니다.");
+  }
+}
+
+async function deleteCurrentCard() {
+  const contact = getActiveCard();
+  if (!contact || !window.confirm(`'${contact.name || "이름 없음"}' 명함을 삭제할까요?`)) {
+    return;
+  }
+
+  setDetailStatus("삭제 중입니다.");
+
+  try {
+    await requestCardDelete(activeCardId);
+    closeCardDetail();
+    await loadCards();
+  } catch (error) {
+    console.error(error);
+    setDetailStatus(error.message || "명함을 삭제하지 못했습니다.");
+  }
 }
 
 function openCardDetail(cardId) {
@@ -177,6 +373,7 @@ function openCardDetail(cardId) {
     return;
   }
 
+  activeCardId = Number(cardId);
   detailContent.innerHTML = createCardDetail(contact);
   document.body.classList.add("detailOpen");
   if (typeof detailModal.showModal === "function") {
@@ -194,6 +391,7 @@ function closeCardDetail() {
     detailModal.removeAttribute("open");
   }
   document.body.classList.remove("detailOpen");
+  activeCardId = null;
 }
 
 function renderAllCards(cards) {
@@ -320,6 +518,28 @@ board.addEventListener("keydown", (event) => {
 });
 
 detailClose.addEventListener("click", closeCardDetail);
+detailContent.addEventListener("click", (event) => {
+  const actionButton = event.target.closest("[data-action]");
+  if (!actionButton) {
+    return;
+  }
+
+  const action = actionButton.dataset.action;
+  if (action === "edit") {
+    showCardEditor();
+  } else if (action === "cancel") {
+    showCardDetail();
+  } else if (action === "delete") {
+    deleteCurrentCard();
+  }
+});
+detailContent.addEventListener("submit", (event) => {
+  if (!event.target.matches(".cardDetailEditForm")) {
+    return;
+  }
+  event.preventDefault();
+  saveCardEdits(event.target);
+});
 detailModal.addEventListener("click", (event) => {
   if (event.target === detailModal) {
     closeCardDetail();

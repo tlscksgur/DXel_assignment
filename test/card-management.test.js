@@ -297,3 +297,202 @@ test("상세 명함 홈페이지는 안전한 새 탭 링크로 표시한다", (
   assert.doesNotMatch(unsafeLink, /<a /);
   assert.match(css, /\.cardDetailWebsiteLink\s*\{[\s\S]*text-decoration:\s*underline;/);
 });
+
+test("명함 상세 편집 화면은 저장하는 9개 필드와 저장·취소 버튼을 제공한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    open: false,
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    insertAdjacentHTML() {},
+    setAttribute() {},
+    removeAttribute() {},
+    showModal() {},
+    close() {},
+    focus() {}
+  };
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector: () => inertElement
+    },
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({ success: true, cards: [] })
+    }),
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+
+  const editor = context.createCardEditor({
+    id: 18,
+    name: "권준",
+    company: "(주)더비엔",
+    department: "편집국",
+    position: "상무이사",
+    mobile: "010-4264-7376",
+    phone: "070-5031-5329",
+    email: "editor@boannews.com",
+    website: "https://www.boannews.com",
+    address: "서울시 마포구"
+  });
+
+  for (const field of [
+    "name",
+    "company",
+    "department",
+    "position",
+    "mobile",
+    "phone",
+    "email",
+    "website",
+    "address"
+  ]) {
+    assert.match(editor, new RegExp(`name="${field}"`));
+  }
+  assert.match(editor, /class="cardDetailEditForm"/);
+  assert.match(editor, /data-action="save"/);
+  assert.match(editor, /data-action="cancel"/);
+});
+
+test("명함 수정과 삭제 요청은 선택한 명함 API에 올바른 메서드로 전송한다", async () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    open: false,
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    insertAdjacentHTML() {},
+    setAttribute() {},
+    removeAttribute() {},
+    showModal() {},
+    close() {},
+    focus() {}
+  };
+  const requests = [];
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector: () => inertElement
+    },
+    fetch: async (url, options = {}) => {
+      requests.push({ url, options });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, cards: [] })
+      };
+    },
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+  requests.length = 0;
+
+  const payload = {
+    name: "수정 이름",
+    company: "수정 회사",
+    department: "개발팀",
+    position: "팀장",
+    mobile: "010-1111-2222",
+    phone: "02-111-2222",
+    email: "edit@example.com",
+    website: "https://example.com",
+    address: "서울시",
+    image_path: "/uploads/card.jpg"
+  };
+
+  await context.requestCardUpdate(18, payload);
+  await context.requestCardDelete(18);
+
+  assert.equal(requests[0].url, "/api/cards/18");
+  assert.equal(requests[0].options.method, "PUT");
+  assert.equal(requests[0].options.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(requests[0].options.body), payload);
+  assert.equal(requests[1].url, "/api/cards/18");
+  assert.equal(requests[1].options.method, "DELETE");
+});
+
+test("명함 상세 모달은 읽기 상태에서 수정과 삭제 동작을 제공한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    open: false,
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    insertAdjacentHTML() {},
+    setAttribute() {},
+    removeAttribute() {},
+    showModal() {},
+    close() {},
+    focus() {}
+  };
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector: () => inertElement
+    },
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({ success: true, cards: [] })
+    }),
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+  const detail = context.createCardDetail({
+    id: 3,
+    name: "홍길동",
+    company: "예시회사"
+  });
+
+  assert.match(detail, /class="cardDetailActions"/);
+  assert.match(detail, /data-action="edit"/);
+  assert.match(detail, /data-action="delete"/);
+  assert.match(source, /function showCardEditor/);
+  assert.match(source, /function saveCardEdits/);
+  assert.match(source, /function deleteCurrentCard/);
+  assert.match(source, /detailContent\.addEventListener\("click"/);
+  assert.match(source, /detailContent\.addEventListener\("submit"/);
+});
+
+test("명함 상세 수정 입력과 작업 버튼은 데스크톱과 모바일에 맞게 배치된다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(
+    css,
+    /\.cardDetailInput\s*\{[\s\S]*width:\s*100%;[\s\S]*font:\s*inherit;/
+  );
+  assert.match(
+    css,
+    /\.cardDetailActions\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-wrap:\s*wrap;/
+  );
+  assert.match(
+    css,
+    /\.cardDetailActions button\s*\{[\s\S]*cursor:\s*pointer;/
+  );
+  assert.match(
+    css,
+    /@media \(max-width:\s*680px\)[\s\S]*\.cardDetailActions button\s*\{[\s\S]*flex:\s*1 1 120px;/
+  );
+});
+
+test("어두운 상세 명함에서도 수정 버튼의 테두리가 배경과 구분된다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(
+    css,
+    /\.cardDetailCard\.card-dark \.cardDetailActions button:not\(\.danger\),[\s\S]*\.cardDetailCard\.card-dark-grey \.cardDetailActions button:not\(\.danger\)\s*\{[\s\S]*border-color:\s*rgba\(255,\s*255,\s*255,\s*\.7\);/
+  );
+});
