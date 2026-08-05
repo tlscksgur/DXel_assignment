@@ -5,6 +5,7 @@ const db = require("./database/db");
 const { UPLOAD_DIR, upload } = require("./upload");
 const {
   extractBusinessCard,
+  verifyCriticalFields,
   imageToDataUrl,
   parseModelJson
 } = require("./localAi");
@@ -18,10 +19,111 @@ function text(value) {
   return String(value || "").trim();
 }
 
+function singleLineText(value) {
+  return text(value).replace(/\s+/g, " ");
+}
+
+function normalizeAddress(value) {
+  const address = singleLineText(value);
+  const headOfficeMarker = /(?:^|\s)(?:본사|본점|headquarters|head office|hq)\s*[:：.]?\s*/i;
+  const headOfficeMatch = headOfficeMarker.exec(address);
+
+  if (!headOfficeMatch) {
+    return address;
+  }
+
+  const headOfficeStart = headOfficeMatch.index + headOfficeMatch[0].length;
+  const afterHeadOffice = address.slice(headOfficeStart);
+  const otherOfficeMarker = /(?:\s*[\/|]\s*|\s+)(?:지사|지점|branch(?: office)?)\s*[:：.]?\s*/i;
+  const otherOfficeMatch = otherOfficeMarker.exec(afterHeadOffice);
+  const headOfficeAddress = otherOfficeMatch
+    ? afterHeadOffice.slice(0, otherOfficeMatch.index)
+    : afterHeadOffice;
+
+  return headOfficeAddress.trim();
+}
+
+const JOB_TITLES = new Set([
+  "사원",
+  "주임",
+  "책임",
+  "선임",
+  "수석",
+  "대리",
+  "과장",
+  "차장",
+  "부장",
+  "이사",
+  "상무",
+  "전무",
+  "대표",
+  "팀장",
+  "실장",
+  "본부장"
+]);
+
+function normalizeDepartmentAndPosition(departmentValue, positionValue) {
+  const department = text(departmentValue);
+  const position = text(positionValue);
+
+  if (position || !/[\/|]/.test(department)) {
+    return { department, position };
+  }
+
+  const parts = department
+    .split(/\s*[\/|]\s*/)
+    .map(text)
+    .filter(Boolean);
+  const titleIndex = parts.findIndex((part) => JOB_TITLES.has(part));
+
+  if (titleIndex === -1 || parts.length < 2) {
+    return { department, position };
+  }
+
+  const departmentParts = parts.filter((_, index) => index !== titleIndex);
+
+  return {
+    department: departmentParts.join(" / "),
+    position: parts[titleIndex]
+  };
+}
+
+function comparableOrganization(value) {
+  return text(value)
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/^(?:\(주\)|주식회사)\s*/, "")
+    .replace(/\s*(?:주식회사|co\.?[,]?\s*ltd\.?|inc\.?)$/, "")
+    .replace(/[\s·.,]/g, "");
+}
+
+function clearDuplicateDepartment(card) {
+  const company = comparableOrganization(card.company);
+  const department = comparableOrganization(card.department);
+  const position = comparableOrganization(card.position);
+
+  if (
+    department
+    && (
+      (company && company === department)
+      || (position && position === department)
+    )
+  ) {
+    card.department = "";
+  }
+
+  return card;
+}
+
 function normalizePhone(value) {
   if (!value) return "";
 
   const original = text(value);
+
+  if (original.startsWith("+") && !original.startsWith("+82")) {
+    return original.replace(/\s+/g, " ");
+  }
+
   const digits = original
     .replace(/^\+82/, "0")
     .replace(/\D/g, "");
@@ -49,6 +151,39 @@ function normalizePhone(value) {
   return original;
 }
 
+function isKoreanMobile(value) {
+  const digits = text(value)
+    .replace(/^\+82/, "0")
+    .replace(/\D/g, "");
+
+  return /^010\d{8}$/.test(digits);
+}
+
+function normalizePhoneFields(mobileValue, phoneValue) {
+  const mobileNumbers = text(mobileValue)
+    .split(/\s*\/\s*/)
+    .map(normalizePhone)
+    .filter(Boolean);
+  const phoneNumbers = text(phoneValue)
+    .split(/\s*\/\s*/)
+    .map(normalizePhone)
+    .filter(Boolean);
+  const remainingPhoneNumbers = [];
+
+  phoneNumbers.forEach((phoneNumber) => {
+    if (isKoreanMobile(phoneNumber)) {
+      mobileNumbers.push(phoneNumber);
+    } else {
+      remainingPhoneNumbers.push(phoneNumber);
+    }
+  });
+
+  return {
+    mobile: [...new Set(mobileNumbers)].join(" / "),
+    phone: [...new Set(remainingPhoneNumbers)].join(" / ")
+  };
+}
+
 function normalizeWebsite(value) {
   const website = text(value);
 
@@ -66,18 +201,24 @@ function isValidEmail(email) {
 }
 
 function makeCard(body = {}) {
-  return {
+  const phones = normalizePhoneFields(body.mobile, body.phone);
+  const organization = normalizeDepartmentAndPosition(
+    body.department,
+    body.position
+  );
+
+  return clearDuplicateDepartment({
     name: text(body.name),
     company: text(body.company),
-    department: text(body.department),
-    position: text(body.position),
-    mobile: normalizePhone(body.mobile),
-    phone: normalizePhone(body.phone),
+    department: organization.department,
+    position: organization.position,
+    mobile: phones.mobile,
+    phone: phones.phone,
     email: text(body.email).toLowerCase(),
-    address: text(body.address),
+    address: normalizeAddress(body.address),
     website: normalizeWebsite(body.website),
     image_path: text(body.image_path || body.imagePath)
-  };
+  });
 }
 
 function validateCard(card) {
@@ -101,17 +242,23 @@ function csvValue(value) {
 }
 
 function sanitizeExtractedCard(value = {}) {
-  return {
+  const phones = normalizePhoneFields(value.mobile, value.phone);
+  const organization = normalizeDepartmentAndPosition(
+    value.department,
+    value.position
+  );
+
+  return clearDuplicateDepartment({
     name: text(value.name),
     company: text(value.company),
-    department: text(value.department),
-    position: text(value.position),
-    mobile: normalizePhone(value.mobile),
-    phone: normalizePhone(value.phone),
+    department: organization.department,
+    position: organization.position,
+    mobile: phones.mobile,
+    phone: phones.phone,
     email: text(value.email).toLowerCase(),
-    address: text(value.address),
+    address: normalizeAddress(value.address),
     website: normalizeWebsite(value.website)
-  };
+  });
 }
 
 function checkDuplicate(card, excludeId, callback) {
@@ -187,6 +334,38 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
 
     const parsed = parseModelJson(content);
     const extracted = sanitizeExtractedCard(parsed);
+    const criticalFields = [
+      "name",
+      "department",
+      "position",
+      "email",
+      "address",
+      "website"
+    ];
+
+    if (criticalFields.some((field) => !extracted[field])) {
+      try {
+        const verificationResponse = await verifyCriticalFields(imageDataUrl);
+        const verificationContent = verificationResponse
+          .choices?.[0]?.message?.content;
+
+        if (verificationContent) {
+          const verified = sanitizeExtractedCard(
+            parseModelJson(verificationContent)
+          );
+
+          criticalFields.forEach((field) => {
+            if (verified[field]) {
+              extracted[field] = verified[field];
+            }
+          });
+        }
+      } catch (verificationError) {
+        console.warn("핵심 필드 재확인 실패:", verificationError.message);
+      }
+    }
+
+    clearDuplicateDepartment(extracted);
 
     res.json({
       success: true,

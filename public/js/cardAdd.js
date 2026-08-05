@@ -57,7 +57,7 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-function createQueueItem(file) {
+function createQueueItem(file, shouldRotatePortrait = true) {
   return {
     id: createQueueId(),
     file,
@@ -66,6 +66,7 @@ function createQueueItem(file) {
     imagePath: "",
     extracted: null,
     analysisDurationMs: null,
+    shouldRotatePortrait,
     error: ""
   };
 }
@@ -159,36 +160,56 @@ function updateActionState() {
   cancelButton.disabled = !currentItem || isAnalyzing;
 }
 
-async function prepareImageForAnalysis(file) {
-  if (
-    file.size <= IMAGE_RESIZE_THRESHOLD ||
-    typeof createImageBitmap !== "function"
-  ) {
+async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
+  if (typeof createImageBitmap !== "function") {
     return {
       blob: file,
       filename: file.name
     };
   }
 
-  const image = await createImageBitmap(file);
+  const image = await createImageBitmap(file, {
+    imageOrientation: "from-image"
+  });
 
   try {
-    const longestEdge = Math.max(image.width, image.height);
+    const shouldRotate = shouldRotatePortrait && image.height > image.width;
+    const orientedWidth = shouldRotate ? image.height : image.width;
+    const orientedHeight = shouldRotate ? image.width : image.height;
+    const longestEdge = Math.max(orientedWidth, orientedHeight);
+    const shouldResize = file.size > IMAGE_RESIZE_THRESHOLD &&
+      longestEdge > MAX_ANALYSIS_IMAGE_EDGE;
 
-    if (longestEdge <= MAX_ANALYSIS_IMAGE_EDGE) {
+    if (!shouldRotate && !shouldResize) {
       return {
         blob: file,
         filename: file.name
       };
     }
 
-    const scale = MAX_ANALYSIS_IMAGE_EDGE / longestEdge;
+    const scale = shouldResize
+      ? MAX_ANALYSIS_IMAGE_EDGE / longestEdge
+      : 1;
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(image.width * scale);
-    canvas.height = Math.round(image.height * scale);
+    canvas.width = Math.round(orientedWidth * scale);
+    canvas.height = Math.round(orientedHeight * scale);
 
     const context = canvas.getContext("2d");
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    if (shouldRotate) {
+      const drawWidth = Math.round(image.width * scale);
+      const drawHeight = Math.round(image.height * scale);
+      context.translate(canvas.width / 2, canvas.height / 2);
+      context.rotate(-Math.PI / 2);
+      context.drawImage(
+        image,
+        -drawWidth / 2,
+        -drawHeight / 2,
+        drawWidth,
+        drawHeight
+      );
+    } else {
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    }
 
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob((result) => {
@@ -198,7 +219,7 @@ async function prepareImageForAnalysis(file) {
         }
 
         reject(new Error("이미지 크기를 줄이지 못했습니다."));
-      }, "image/jpeg", 0.85);
+      }, "image/jpeg", 0.92);
     });
     const nameWithoutExtension = file.name.replace(/\.[^.]+$/, "");
 
@@ -240,7 +261,17 @@ async function analyzeCurrentCard() {
 
   try {
     runningBadge.textContent = "이미지 최적화 중";
-    const preparedImage = await prepareImageForAnalysis(item.file);
+    const preparedImage = await prepareImageForAnalysis(
+      item.file,
+      item.shouldRotatePortrait
+    );
+
+    if (preparedImage.blob !== item.file) {
+      URL.revokeObjectURL(item.previewUrl);
+      item.previewUrl = URL.createObjectURL(preparedImage.blob);
+      showQueueItem(item);
+    }
+
     const formData = new FormData();
     formData.append(
       "image",
@@ -347,14 +378,16 @@ function openFilePicker(input) {
   input.click();
 }
 
-async function handleSelectedFiles(event) {
+async function handleSelectedFiles(event, shouldRotatePortrait = true) {
   const files = [...event.target.files];
 
   if (files.length === 0) {
     return;
   }
 
-  uploadQueue.push(...files.map(createQueueItem));
+  uploadQueue.push(...files.map((file) => {
+    return createQueueItem(file, shouldRotatePortrait);
+  }));
   event.target.value = "";
   renderQueue();
 
@@ -392,8 +425,12 @@ uploadSourceGallery.addEventListener("click", () => {
 
 uploadSourceCancel.addEventListener("click", closeUploadSourceSheet);
 uploadSourceBackdrop.addEventListener("click", closeUploadSourceSheet);
-cameraInput.addEventListener("change", handleSelectedFiles);
-galleryInput.addEventListener("change", handleSelectedFiles);
+cameraInput.addEventListener("change", (event) => {
+  return handleSelectedFiles(event, false);
+});
+galleryInput.addEventListener("change", (event) => {
+  return handleSelectedFiles(event, true);
+});
 
 function getCardFormData() {
   const currentItem = uploadQueue[currentQueueIndex];

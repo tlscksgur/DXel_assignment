@@ -67,6 +67,10 @@ test("명함 등록 화면은 태블릿과 모바일에서 한 열로 표시된�
     css,
     /@media\s*\(max-width:\s*680px\)\s*\{[\s\S]*\.fieldGroup\.wide\s*\{[\s\S]*grid-column:\s*span 1;/
   );
+  assert.match(
+    css,
+    /@media\s*\(max-width:\s*900px\)\s*\{[\s\S]*\.uploadPanel\s*\{[\s\S]*height:\s*auto;/
+  );
 });
 
 test("명함관리 도구와 중복 그룹이 모바일 너비에 맞는다", () => {
