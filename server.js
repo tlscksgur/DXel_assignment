@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
+const fs = require("fs");
 const db = require("./database/db");
 const { UPLOAD_DIR, upload } = require("./upload");
 const {
@@ -261,6 +262,30 @@ function sanitizeExtractedCard(value = {}) {
   });
 }
 
+function hasBusinessCardEvidence(card) {
+  const hasIdentity = Boolean(card.name || card.company);
+  const hasContact = Boolean(
+    card.mobile || card.phone || card.email || card.address || card.website
+  );
+
+  return hasIdentity && hasContact;
+}
+
+function rejectNonBusinessCard(req, res) {
+  if (req.file?.path) {
+    fs.unlink(req.file.path, (error) => {
+      if (error && error.code !== "ENOENT") {
+        console.warn("비명함 이미지 삭제 실패:", error.message);
+      }
+    });
+  }
+
+  return res.status(422).json({
+    success: false,
+    message: "명함 사진이 아닙니다. 명함이 화면에 잘 보이도록 다시 촬영해 주세요."
+  });
+}
+
 function checkDuplicate(card, excludeId, callback) {
   const sql = `
     SELECT *
@@ -333,6 +358,11 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
     }
 
     const parsed = parseModelJson(content);
+
+    if (parsed.is_business_card !== true) {
+      return rejectNonBusinessCard(req, res);
+    }
+
     const extracted = sanitizeExtractedCard(parsed);
     const criticalFields = [
       "name",
@@ -366,6 +396,10 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
     }
 
     clearDuplicateDepartment(extracted);
+
+    if (!hasBusinessCardEvidence(extracted)) {
+      return rejectNonBusinessCard(req, res);
+    }
 
     res.json({
       success: true,
@@ -648,6 +682,140 @@ app.put("/api/cards/:id", (req, res) => {
       res.json({
         success: true,
         message: "명함 수정 완료"
+      });
+    });
+  });
+});
+
+app.post("/api/cards/merge-group", (req, res) => {
+  const requestedIds = Array.isArray(req.body.cardIds) ? req.body.cardIds : [];
+  const cardIds = [...new Set(
+    requestedIds
+      .map(Number)
+      .filter((id) => Number.isInteger(id) && id > 0)
+  )];
+
+  if (cardIds.length < 2 || cardIds.length !== requestedIds.length) {
+    return res.status(400).json({
+      success: false,
+      message: "병합할 명함을 두 장 이상 올바르게 선택해 주세요."
+    });
+  }
+
+  const placeholders = cardIds.map(() => "?").join(", ");
+  const selectSql = `
+    SELECT *
+    FROM business_cards
+    WHERE id IN (${placeholders})
+    ORDER BY datetime(created_at) DESC, id DESC
+  `;
+
+  db.all(selectSql, cardIds, (selectError, cards) => {
+    if (selectError) {
+      return res.status(500).json({
+        success: false,
+        message: "병합할 명함 조회에 실패했습니다."
+      });
+    }
+
+    if (cards.length !== cardIds.length) {
+      return res.status(404).json({
+        success: false,
+        message: "병합할 명함 일부를 찾을 수 없습니다."
+      });
+    }
+
+    const representative = cards[0];
+    const duplicateIds = cards.slice(1).map((card) => card.id);
+    const mergeFields = [
+      "name",
+      "company",
+      "department",
+      "position",
+      "mobile",
+      "phone",
+      "email",
+      "address",
+      "website",
+      "image_path"
+    ];
+    const mergedCard = Object.fromEntries(
+      mergeFields.map((field) => {
+        const source = cards.find((card) => text(card[field]));
+        return [field, source ? text(source[field]) : ""];
+      })
+    );
+    const updateSql = `
+      UPDATE business_cards
+      SET name = ?,
+          company = ?,
+          department = ?,
+          position = ?,
+          mobile = ?,
+          phone = ?,
+          email = ?,
+          address = ?,
+          website = ?,
+          image_path = ?
+      WHERE id = ?
+    `;
+    const deletePlaceholders = duplicateIds.map(() => "?").join(", ");
+
+    const rollback = (message) => {
+      db.run("ROLLBACK", () => {
+        res.status(500).json({ success: false, message });
+      });
+    };
+
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION", (beginError) => {
+        if (beginError) {
+          return res.status(500).json({
+            success: false,
+            message: "명함 병합을 시작하지 못했습니다."
+          });
+        }
+
+        db.run(updateSql, [
+          mergedCard.name,
+          mergedCard.company,
+          mergedCard.department,
+          mergedCard.position,
+          mergedCard.mobile,
+          mergedCard.phone,
+          mergedCard.email,
+          mergedCard.address,
+          mergedCard.website,
+          mergedCard.image_path,
+          representative.id
+        ], (updateError) => {
+          if (updateError) {
+            return rollback("대표 명함 갱신에 실패했습니다.");
+          }
+
+          db.run(
+            `DELETE FROM business_cards WHERE id IN (${deletePlaceholders})`,
+            duplicateIds,
+            function (deleteError) {
+              if (deleteError || this.changes !== duplicateIds.length) {
+                return rollback("중복 명함 삭제에 실패했습니다.");
+              }
+
+              db.run("COMMIT", (commitError) => {
+                if (commitError) {
+                  return rollback("명함 병합 완료 처리에 실패했습니다.");
+                }
+
+                res.json({
+                  success: true,
+                  message: "중복 명함 병합 완료",
+                  representativeId: representative.id,
+                  deletedCount: duplicateIds.length
+                });
+              });
+            }
+          );
+        });
       });
     });
   });

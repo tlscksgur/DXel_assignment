@@ -44,6 +44,90 @@ test("중복 후보 그룹은 가운데에서 시작해 최대 3개씩 줄바꿈
   );
 });
 
+test("중복 후보 그룹 병합 API는 트랜잭션으로 갱신과 삭제를 함께 처리한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+
+  assert.match(source, /app\.post\("\/api\/cards\/merge-group"/);
+  assert.match(source, /cardIds[^\n]*length < 2/);
+  assert.match(source, /BEGIN TRANSACTION/);
+  assert.match(source, /COMMIT/);
+  assert.match(source, /ROLLBACK/);
+  assert.match(source, /deletedCount/);
+});
+
+test("중복 후보 그룹은 병합 버튼으로 선택한 명함 ID 전체를 전송한다", async () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const board = {
+    innerHTML: "",
+    classList: { add() {}, remove() {} },
+    addEventListener() {},
+    insertAdjacentHTML(position, html) {
+      this.innerHTML += html;
+    }
+  };
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    setAttribute() {}
+  };
+  const requests = [];
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector(selector) {
+        if (selector === ".bcmBoard") return board;
+        return inertElement;
+      }
+    },
+    fetch: async (url, options = {}) => {
+      requests.push({ url, options });
+      return {
+        ok: true,
+        json: async () => ({ success: true, cards: [] })
+      };
+    },
+    confirm: () => true,
+    alert() {},
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+  requests.length = 0;
+
+  context.renderDuplicateGroups([[
+    { id: 9, name: "최근 명함", company: "회사" },
+    { id: 7, name: "이전 명함", company: "회사" }
+  ]]);
+
+  assert.match(board.innerHTML, /class="duplicateMergeButton"/);
+  assert.match(board.innerHTML, /data-card-ids="9,7"/);
+
+  await context.requestDuplicateMerge([9, 7]);
+
+  assert.equal(requests[0].url, "/api/cards/merge-group");
+  assert.equal(requests[0].options.method, "POST");
+  assert.equal(requests[0].options.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(requests[0].options.body), { cardIds: [9, 7] });
+});
+
+test("중복 병합 버튼은 장수 표시 옆에 배치되고 처리 중 상태를 구분한다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(
+    css,
+    /\.duplicateGroupMeta\s*\{[\s\S]*display:\s*flex;[\s\S]*align-items:\s*center;/
+  );
+  assert.match(
+    css,
+    /\.duplicateMergeButton\s*\{[\s\S]*cursor:\s*pointer;/
+  );
+  assert.match(css, /\.duplicateMergeButton:disabled\s*\{/);
+});
+
 test("명함 내용을 참고 이미지처럼 왼쪽 위에서 순서대로 정렬한다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 

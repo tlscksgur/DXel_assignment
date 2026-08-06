@@ -66,6 +66,101 @@ test("긴 설명에 잘못된 JSON 예시가 있어도 마지막 유효 객체�
   assert.deepEqual(parseModelJson(content), expected);
 });
 
+test("명함 판정값을 구조화 응답에 포함하고 비명함 이미지는 서버에서 차단한다", () => {
+  const localAiSource = fs.readFileSync(path.join(projectRoot, "localAi.js"), "utf8");
+  const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+
+  assert.match(localAiSource, /is_business_card:\s*\{\s*type:\s*"boolean"\s*\}/);
+  assert.match(localAiSource, /required:\s*\[[\s\S]*"is_business_card"/);
+  assert.match(localAiSource, /ordinary photo|non-business-card image/i);
+  assert.match(serverSource, /parsed\.is_business_card !== true/);
+  assert.match(serverSource, /명함 사진이 아닙니다/);
+  assert.match(serverSource, /status\(422\)/);
+});
+
+test("명함이 아닌 사진은 빈 추출 결과 대신 422 오류를 반환한다", async () => {
+  let lmRequestCount = 0;
+  const uploadsBefore = new Set(fs.readdirSync(path.join(projectRoot, "uploads")));
+  const mockLmStudio = http.createServer((req, res) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      lmRequestCount += 1;
+      const request = JSON.parse(body);
+      const isCriticalFieldCheck = request.response_format
+        .json_schema.name === "critical_business_card_fields";
+      const content = isCriticalFieldCheck
+        ? {
+          name: "",
+          department: "",
+          position: "",
+          email: "",
+          address: "",
+          website: ""
+        }
+        : {
+          is_business_card: false,
+          name: "",
+          company: "",
+          department: "",
+          position: "",
+          mobile: "",
+          phone: "",
+          email: "",
+          address: "",
+          website: ""
+        };
+
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(content) } }]
+      }));
+    });
+  });
+
+  const lmPort = await listen(mockLmStudio);
+  const probeServer = http.createServer();
+  const appPort = await listen(probeServer);
+  await close(probeServer);
+  const app = spawn(process.execPath, ["server.js"], {
+    cwd: projectRoot,
+    env: {
+      ...process.env,
+      PORT: String(appPort),
+      LM_STUDIO_ENDPOINT: `http://127.0.0.1:${lmPort}/v1/chat/completions`,
+      LM_STUDIO_MODEL: "test-vision-model"
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForServer(app);
+    const form = new FormData();
+    form.append("image", new Blob([Buffer.from("ordinary-photo")], {
+      type: "image/png"
+    }), "ordinary.png");
+
+    const response = await fetch(`http://127.0.0.1:${appPort}/api/cards/extract`, {
+      method: "POST",
+      body: form
+    });
+    const result = await response.json();
+
+    assert.equal(response.status, 422);
+    assert.equal(result.success, false);
+    assert.match(result.message, /명함 사진이 아닙니다/);
+    assert.equal(lmRequestCount, 1);
+  } finally {
+    app.kill("SIGTERM");
+    await close(mockLmStudio);
+    const uploadsAfter = fs.readdirSync(path.join(projectRoot, "uploads"));
+    uploadsAfter
+      .filter((filename) => !uploadsBefore.has(filename))
+      .forEach((filename) => fs.unlinkSync(path.join(projectRoot, "uploads", filename)));
+  }
+});
+
 test("업로드한 이미지를 LM Studio에 전달하고 정규화된 필드를 반환한다", async () => {
   let uploadedFilePath = "";
   const receivedLmRequests = [];
@@ -97,6 +192,7 @@ test("업로드한 이미지를 LM Studio에 전달하고 정규화된 필드를
 
 \`\`\`json
 ${JSON.stringify({
+  is_business_card: true,
   name: "홍길동",
   company: "예시회사",
   department: "수석/기업부설연구소",
@@ -213,6 +309,7 @@ ${JSON.stringify({
     assert.deepEqual(
       Object.keys(receivedLmRequest.response_format.json_schema.schema.properties),
       [
+        "is_business_card",
         "name",
         "company",
         "department",
@@ -293,6 +390,7 @@ test("회사명이나 직책과 같은 부서명은 빈 값으로 정리한다",
           website: "http://www.ese-tech.com"
         }
         : {
+          is_business_card: true,
           name: "야마나카",
           company: "(주)에쎄테크놀로지",
           department: "(주)에쎄테크놀로지",

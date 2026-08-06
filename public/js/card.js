@@ -421,6 +421,10 @@ function renderDuplicateGroups(groups) {
     const cards = group
       .map((card) => createCard(card))
       .join("");
+    const cardIds = group
+      .map((card) => Number(card.id))
+      .filter((id) => Number.isInteger(id) && id > 0)
+      .join(",");
 
     board.insertAdjacentHTML(
       "beforeend",
@@ -428,13 +432,73 @@ function renderDuplicateGroups(groups) {
         <section class="duplicateGroup" aria-label="중복 후보 ${groupIndex + 1}">
           <div class="duplicateGroupHeader">
             <strong>중복 후보 ${groupIndex + 1}</strong>
-            <span>${group.length}장</span>
+            <div class="duplicateGroupMeta">
+              <span>${group.length}장</span>
+              <button
+                type="button"
+                class="duplicateMergeButton"
+                data-card-ids="${cardIds}"
+              >병합</button>
+            </div>
           </div>
           <div class="duplicateCards">${cards}</div>
         </section>
       `
     );
   });
+}
+
+async function requestDuplicateMerge(cardIds) {
+  const response = await fetch("/api/cards/merge-group", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ cardIds })
+  });
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "중복 명함 병합에 실패했습니다.");
+  }
+
+  return result;
+}
+
+async function mergeDuplicateGroup(button) {
+  const cardIds = String(button.dataset.cardIds || "")
+    .split(",")
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  if (cardIds.length < 2) {
+    alert("병합할 중복 명함이 부족합니다.");
+    return;
+  }
+
+  const approved = confirm(
+    `최근 등록된 명함을 기준으로 ${cardIds.length}장을 병합합니다.\n` +
+    "빈 정보는 이전 명함에서 채우고, 나머지 중복 명함은 삭제합니다."
+  );
+
+  if (!approved) {
+    return;
+  }
+
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "병합 중";
+
+  try {
+    const result = await requestDuplicateMerge(cardIds);
+    alert(`${result.deletedCount}장의 중복 명함을 병합했습니다.`);
+    await loadCards();
+  } catch (error) {
+    console.error(error);
+    alert(error.message);
+    button.disabled = false;
+    button.textContent = originalText;
+  }
 }
 
 function renderCurrentView() {
@@ -499,6 +563,14 @@ duplicateToggle.addEventListener("click", () => {
 });
 
 board.addEventListener("click", (event) => {
+  const mergeButton = event.target.closest(".duplicateMergeButton");
+  if (mergeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    mergeDuplicateGroup(mergeButton);
+    return;
+  }
+
   const card = event.target.closest(".profileCard");
   if (card) {
     openCardDetail(card.dataset.cardId);

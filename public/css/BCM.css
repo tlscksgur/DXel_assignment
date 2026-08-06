@@ -166,6 +166,36 @@ body.bcm-page .bcmBoard {
   background: rgba(169, 75, 63, .1);
 }
 
+.duplicateGroupMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.duplicateMergeButton {
+  min-height: 30px;
+  padding: 5px 12px;
+  border: 1px solid #a94b3f;
+  border-radius: 999px;
+  background: #a94b3f;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease, opacity .2s ease;
+}
+
+.duplicateMergeButton:hover,
+.duplicateMergeButton:focus-visible {
+  background: #7a3028;
+  outline: none;
+}
+
+.duplicateMergeButton:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
 .duplicateCards {
   display: grid;
   grid-template-columns: repeat(auto-fill, 305px);

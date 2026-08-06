@@ -8,6 +8,12 @@ Use an empty string ("") only when a field is absent or genuinely unreadable aft
 Never guess text that cannot actually be read.
 Return exactly one valid JSON object with no explanation, markdown code block, or additional text.
 
+First decide whether the image clearly contains a business card or contact card.
+Set is_business_card to true only when the image shows a card designed to identify a person or company and contains readable contact information such as a phone number, email address, physical address, or website.
+A company-only card without a person's name is still a business card when a company name and contact information are visibly printed.
+Set is_business_card to false for an ordinary photo, scenery, product, receipt, poster, document, screenshot, blank image, or any non-business-card image. Do not classify an image as a business card merely because it contains incidental text.
+When is_business_card is false, return an empty string for every contact field.
+
 Follow these rules:
 
 1. If the business card is rotated, interpret the text in its correct upright orientation.
@@ -44,6 +50,7 @@ Before returning the JSON, perform this final field check:
 Use exactly this JSON structure and no additional fields:
 
 {
+  "is_business_card": true,
   "name": "",
   "company": "",
   "department": "",
@@ -64,6 +71,7 @@ const businessCardResponseFormat = {
     schema: {
       type: "object",
       properties: {
+        is_business_card: { type: "boolean" },
         name: { type: "string" },
         company: { type: "string" },
         department: { type: "string" },
@@ -75,6 +83,7 @@ const businessCardResponseFormat = {
         website: { type: "string" }
       },
       required: [
+        "is_business_card",
         "name",
         "company",
         "department",
@@ -151,7 +160,7 @@ async function extractBusinessCard(imageDataUrl) {
         content: [
           {
             type: "text",
-            text: "이 이미지가 명함이라면 정보를 추출하세요."
+            text: "먼저 이 이미지가 명함인지 판정하세요. 명함이면 보이는 정보만 추출하고, 명함이 아니면 is_business_card를 false로 반환하세요."
           },
           {
             type: "image_url",
