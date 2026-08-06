@@ -49,3 +49,11 @@ if(csvExportBtn) {
     window.location.href = "/api/cards/export/csv";
   })
 }
+
+const vcardExportBtn = document.querySelector(".vcardExport");
+
+if (vcardExportBtn) {
+  vcardExportBtn.addEventListener("click", () => {
+    window.location.href = "/api/cards/export/vcard";
+  });
+}

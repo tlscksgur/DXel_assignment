@@ -242,6 +242,49 @@ function csvValue(value) {
   return `"${String(value || "").replace(/"/g, '""')}"`;
 }
 
+function vcardValue(value) {
+  return String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,");
+}
+
+function vcardPhoneLines(value, type) {
+  return String(value || "")
+    .split(/\s*\/\s*/)
+    .map((phone) => phone.trim())
+    .filter(Boolean)
+    .map((phone) => `TEL;TYPE=${type}:${vcardValue(phone)}`);
+}
+
+function createVcard(row) {
+  const displayName = row.name || row.company || `명함 ${row.id}`;
+  const lines = [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    `FN:${vcardValue(displayName)}`,
+    `N:;${vcardValue(row.name)};;;`
+  ];
+
+  if (row.company || row.department) {
+    lines.push(
+      `ORG:${vcardValue(row.company)};${vcardValue(row.department)}`
+    );
+  }
+  if (row.position) lines.push(`TITLE:${vcardValue(row.position)}`);
+  lines.push(...vcardPhoneLines(row.mobile, "CELL"));
+  lines.push(...vcardPhoneLines(row.phone, "WORK,VOICE"));
+  if (row.email) lines.push(`EMAIL;TYPE=INTERNET:${vcardValue(row.email)}`);
+  if (row.address) {
+    lines.push(`ADR;TYPE=WORK:;;${vcardValue(row.address)};;;;`);
+  }
+  if (row.website) lines.push(`URL:${vcardValue(row.website)}`);
+  lines.push("END:VCARD");
+
+  return lines.join("\r\n");
+}
+
 function sanitizeExtractedCard(value = {}) {
   const phones = normalizePhoneFields(value.mobile, value.phone);
   const organization = normalizeDepartmentAndPosition(
@@ -522,6 +565,29 @@ app.get("/api/cards/export/csv", (req, res) => {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", "attachment; filename=business_cards.csv");
     res.send(`\uFEFF${csv}`);
+  });
+});
+
+app.get("/api/cards/export/vcard", (req, res) => {
+  const sql = `
+    SELECT *
+    FROM business_cards
+    ORDER BY created_at DESC
+  `;
+
+  db.all(sql, (error, rows) => {
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: "vCard 생성 실패"
+      });
+    }
+
+    const vcard = rows.map(createVcard).join("\r\n");
+
+    res.setHeader("Content-Type", "text/vcard; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=business_cards.vcf");
+    res.send(vcard);
   });
 });
 

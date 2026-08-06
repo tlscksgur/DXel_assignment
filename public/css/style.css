@@ -327,8 +327,16 @@ footer {
   animation: none;
 }
 
-.csvExport:hover{color: #565656;}
-.csvExport{transition: .3s;}
+.csvExport:hover,
+.vcardExport:hover {
+  color: #565656;
+}
+
+.csvExport,
+.vcardExport {
+  cursor: pointer;
+  transition: .3s;
+}
 
 @keyframes pulse {
   0% {

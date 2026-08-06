@@ -1011,7 +1011,7 @@ test("상태 API가 LM Studio 연결 상태를 반환한다", async () => {
   }
 });
 
-test("명함 목록, CSV, 단건 조회 API 경로를 유지한다", async () => {
+test("명함 목록, CSV, vCard, 단건 조회 API 경로를 유지한다", async () => {
   const probeServer = http.createServer();
   const appPort = await listen(probeServer);
   await close(probeServer);
@@ -1037,6 +1037,20 @@ test("명함 목록, CSV, 단건 조회 API 경로를 유지한다", async () =>
     const csvResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards/export/csv`);
     assert.equal(csvResponse.status, 200);
     assert.match(csvResponse.headers.get("content-type"), /^text\/csv/);
+
+    const vcardResponse = await fetch(
+      `http://127.0.0.1:${appPort}/api/cards/export/vcard`
+    );
+    const vcard = await vcardResponse.text();
+    assert.equal(vcardResponse.status, 200);
+    assert.match(vcardResponse.headers.get("content-type"), /^text\/vcard/);
+    assert.match(
+      vcardResponse.headers.get("content-disposition"),
+      /filename=business_cards\.vcf/
+    );
+    if (vcard) {
+      assert.match(vcard, /BEGIN:VCARD\r?\nVERSION:3\.0/);
+    }
 
     const missingResponse = await fetch(
       `http://127.0.0.1:${appPort}/api/cards/not-a-number`

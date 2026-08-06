@@ -14,6 +14,37 @@ test("명함관리 화면에 검색창과 중복 모아보기 버튼이 있다",
   assert.match(html, /중복 모아보기/);
 });
 
+test("모든 화면의 CSV 옆에 전체 주소록 vCard 내보내기를 제공한다", () => {
+  for (const page of ["index.html", "BCM.html", "cardAdd.html"]) {
+    const html = fs.readFileSync(path.join(projectRoot, "public", page), "utf8");
+
+    assert.match(
+      html,
+      /class="csvExport"[\s\S]*class="vcardExport"[^>]*>vCard Export</
+    );
+  }
+
+  const footerSource = fs.readFileSync(
+    path.join(projectRoot, "public/js/footerStatus.js"),
+    "utf8"
+  );
+  assert.match(footerSource, /querySelector\("\.vcardExport"\)/);
+  assert.match(footerSource, /\/api\/cards\/export\/vcard/);
+});
+
+test("vCard API는 전체 연락처를 UTF-8 vCard 3.0 파일로 생성한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+
+  assert.match(source, /app\.get\("\/api\/cards\/export\/vcard"/);
+  assert.match(source, /BEGIN:VCARD/);
+  assert.match(source, /VERSION:3\.0/);
+  assert.match(source, /text\/vcard; charset=utf-8/);
+  assert.match(source, /filename=business_cards\.vcf/);
+  assert.match(source, /function vcardValue/);
+  assert.match(source, /vcardPhoneLines\(row\.mobile, "CELL"\)/);
+  assert.match(source, /vcardPhoneLines\(row\.phone, "WORK,VOICE"\)/);
+});
+
 test("명함 카드 크기를 305x204로 유지한다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 
