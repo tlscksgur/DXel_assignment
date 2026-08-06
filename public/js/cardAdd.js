@@ -156,7 +156,7 @@ function showQueueItem(item) {
 function updateActionState() {
   const currentItem = uploadQueue[currentQueueIndex];
   saveButton.disabled = !currentItem || currentItem.status !== "ready" || isAnalyzing;
-  nextButton.disabled = !currentItem || isAnalyzing;
+  nextButton.disabled = !currentItem || remainingQueueCount() <= 1 || isAnalyzing;
   cancelButton.disabled = !currentItem || isAnalyzing;
 }
 
@@ -390,6 +390,7 @@ async function handleSelectedFiles(event, shouldRotatePortrait = true) {
   }));
   event.target.value = "";
   renderQueue();
+  updateActionState();
 
   if (currentQueueIndex === -1) {
     const firstPendingIndex = uploadQueue.findIndex((item) => {

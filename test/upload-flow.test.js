@@ -807,6 +807,44 @@ test("여러 이미지를 큐에 추가하고 첫 번째 이미지만 순차 분
   assert.match(browser.element(".runningBadge").textContent, /^분석 완료 · \d+\.\d초$/);
 });
 
+test("다음 명함 버튼은 한 장만 업로드하면 비활성화되고 여러 장이면 활성화된다", async () => {
+  const browser = createCardAddBrowser(async () => ({
+    ok: true,
+    json: async () => ({
+      file: { path: "/uploads/card.png" },
+      extracted: {
+        name: "테스트 명함",
+        company: "예시회사",
+        department: "",
+        position: "",
+        mobile: "",
+        phone: "",
+        email: "",
+        address: "",
+        website: ""
+      }
+    })
+  }));
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: {
+      files: [namedImage("only.png")],
+      value: "selected"
+    }
+  });
+
+  assert.equal(browser.element(".subAction").disabled, true);
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: {
+      files: [namedImage("second.png")],
+      value: "selected"
+    }
+  });
+
+  assert.equal(browser.element(".subAction").disabled, false);
+});
+
 test("현재 명함을 저장하면 다음 대기 명함을 자동 분석한다", async () => {
   let extractRequests = 0;
   let saveRequests = 0;
