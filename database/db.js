@@ -25,21 +25,4 @@ db.run(`
   )
 `);
 
-// ===== 기존 데이터베이스 컬럼 보완 =====
-db.all("PRAGMA table_info(business_cards)", (err, columns) => {
-  if (err) {
-    console.error(err.message);
-    return;
-  }
-
-  const columnNames = columns.map((column) => column.name);
-  const requiredColumns = ["image_path"];
-
-  requiredColumns.forEach((column) => {
-    if (!columnNames.includes(column)) {
-      db.run(`ALTER TABLE business_cards ADD COLUMN ${column} TEXT`);
-    }
-  });
-});
-
 module.exports = db;
