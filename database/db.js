@@ -25,6 +25,7 @@ db.run(`
   )
 `);
 
+// ===== 기존 데이터베이스 컬럼 보완 =====
 db.all("PRAGMA table_info(business_cards)", (err, columns) => {
   if (err) {
     console.error(err.message);

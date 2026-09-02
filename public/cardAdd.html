@@ -9,6 +9,7 @@
 </head>
 <body class="card-add-page">
   <div class="container">
+    <!-- ===== 공통 헤더 및 페이지 이동 ===== -->
     <header>
       <div class="headerBox1">
         <div class="logo">명함관리</div>
@@ -22,6 +23,7 @@
       </div>
     </header>
 
+    <!-- ===== 명함 업로드 및 추출 결과 확인 ===== -->
     <main class="addMain">
       <section class="addTitle">
         <div>
@@ -37,6 +39,7 @@
       </section>
 
       <section class="reviewBoard" aria-label="명함 추출 결과 확인">
+        <!-- ===== 이미지 업로드·미리보기·연속 업로드 큐 ===== -->
         <aside class="uploadPanel">
           <div class="uploadBox">
             <button class="uploadTrigger" type="button">
@@ -64,6 +67,7 @@
           </div>
         </aside>
 
+        <!-- ===== 저장·다음 명함·취소 버튼 ===== -->
         <section class="actionDock" aria-label="명함 등록 작업">
           <div class="actionButtons">
             <button class="ghostAction" type="button">취소</button>
@@ -72,6 +76,7 @@
           </div>
         </section>
 
+        <!-- ===== Local AI 추출 결과 수정 폼 ===== -->
         <section class="extractPanel">
           <div class="panelHeader">
             <div>
@@ -132,6 +137,7 @@
       </section>
     </main>
 
+    <!-- ===== 서비스 연결 상태 및 내보내기 ===== -->
     <footer>
       <div class="footerLeft">
         (c) 2026 DXEL BUSINESS CARD MANAGER
@@ -153,6 +159,7 @@
     </footer>
   </div>
 
+  <!-- ===== 휴대폰 촬영·사진 선택창 ===== -->
   <div class="uploadSourceSheet" hidden>
     <button
       class="uploadSourceBackdrop"
@@ -173,6 +180,7 @@
     </section>
   </div>
 
+  <!-- ===== 화면 동작 스크립트 ===== -->
   <script src="./js/footerStatus.js"></script>
   <script src="./js/cardAdd.js"></script>
 </body>

@@ -1,11 +1,14 @@
+// ===== 업로드 처리 모듈 =====
 const fs = require("fs");
 const multer = require("multer");
 const path = require("path");
 
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 
+// ===== 업로드 폴더 준비 =====
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
+// ===== 저장 위치 및 파일명 설정 =====
 const storage = multer.diskStorage({
   destination: (req, file, callback) => {
     callback(null, UPLOAD_DIR);
@@ -17,6 +20,7 @@ const storage = multer.diskStorage({
   }
 });
 
+// ===== 이미지 형식 및 최대 용량 검사 =====
 const upload = multer({
   storage,
   limits: {
@@ -32,6 +36,7 @@ const upload = multer({
   }
 });
 
+// ===== 업로드 설정 공개 =====
 module.exports = {
   UPLOAD_DIR,
   upload

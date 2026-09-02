@@ -13,6 +13,7 @@ const cancelButton = document.querySelector(".ghostAction");
 const previewFrame = document.querySelector(".previewFrame");
 const queueBox = document.querySelector(".queueBox");
 
+// ===== 입력 필드 설정 =====
 const fieldIds = [
   "name",
   "company",
@@ -40,6 +41,7 @@ let uploadQueue = [];
 let currentQueueIndex = -1;
 let isAnalyzing = false;
 
+// ===== 업로드 큐 데이터 생성 및 표시 =====
 function createQueueId() {
   if (globalThis.crypto?.randomUUID) {
     return globalThis.crypto.randomUUID();
@@ -126,6 +128,7 @@ function renderQueue() {
   `;
 }
 
+// ===== 명함 미리보기 및 추출 결과 폼 표시 =====
 function clearCardForm(message = "명함 사진을 업로드하면 이곳에 표시됩니다.") {
   fieldIds.forEach((field) => {
     document.querySelector(`#${field}`).value = "";
@@ -160,6 +163,7 @@ function updateActionState() {
   cancelButton.disabled = !currentItem || isAnalyzing;
 }
 
+// ===== 분석 전 이미지 방향 및 크기 최적화 =====
 async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
   if (typeof createImageBitmap !== "function") {
     return {
@@ -232,6 +236,7 @@ async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
   }
 }
 
+// ===== Local AI 분석 및 큐 이동 =====
 async function analyzeCurrentCard() {
   const item = uploadQueue[currentQueueIndex];
 
@@ -365,6 +370,7 @@ async function moveToNextCard() {
   await activateQueueItem(nextIndex);
 }
 
+// ===== 모바일 촬영·사진 선택창 =====
 function openUploadSourceSheet() {
   uploadSourceSheet.hidden = false;
 }
@@ -403,6 +409,7 @@ async function handleSelectedFiles(event, shouldRotatePortrait = true) {
   }
 }
 
+// ===== 업로드 관련 이벤트 =====
 uploadTrigger.addEventListener("click", () => {
   const isMobile = matchMedia("(max-width: 680px)").matches;
 
@@ -433,6 +440,7 @@ galleryInput.addEventListener("change", (event) => {
   return handleSelectedFiles(event, true);
 });
 
+// ===== 수정한 명함 정보 수집 및 SQLite 저장 =====
 function getCardFormData() {
   const currentItem = uploadQueue[currentQueueIndex];
 
@@ -512,6 +520,7 @@ async function submitCard(allowDuplicate = false) {
   }
 }
 
+// ===== 저장·다음 명함·취소 버튼 이벤트 =====
 saveButton.addEventListener("click", async () => {
   const saved = await submitCard(false);
 
@@ -566,6 +575,7 @@ cancelButton.addEventListener("click", async () => {
   await activateQueueItem(nextIndex);
 });
 
+// ===== 업로드 큐 항목 재선택 =====
 queueBox.addEventListener("click", async (event) => {
   const queueItem = event.target.closest("[data-queue-index]");
 
@@ -583,6 +593,7 @@ queueBox.addEventListener("click", async (event) => {
   await activateQueueItem(index);
 });
 
+// ===== 페이지 종료 및 초기 화면 설정 =====
 globalThis.addEventListener?.("beforeunload", () => {
   uploadQueue.forEach((item) => URL.revokeObjectURL(item.previewUrl));
 });

@@ -1,3 +1,4 @@
+// ===== 환경설정 및 외부 모듈 =====
 require("dotenv").config();
 
 const express = require("express");
@@ -16,6 +17,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// ===== 공통 문자열 및 주소 정규화 =====
 function text(value) {
   return String(value || "").trim();
 }
@@ -116,6 +118,7 @@ function clearDuplicateDepartment(card) {
   return card;
 }
 
+// ===== 전화번호 정규화 및 휴대폰·유선전화 분류 =====
 function normalizePhone(value) {
   if (!value) return "";
 
@@ -185,6 +188,7 @@ function normalizePhoneFields(mobileValue, phoneValue) {
   };
 }
 
+// ===== 이메일·홈페이지 정규화 및 명함 데이터 검증 =====
 function normalizeWebsite(value) {
   const website = text(value);
 
@@ -238,6 +242,7 @@ function allowDuplicate(body = {}) {
   return body.allowDuplicate === true || body.allowDuplicate === "true";
 }
 
+// ===== CSV 및 vCard 변환 =====
 function csvValue(value) {
   return `"${String(value || "").replace(/"/g, '""')}"`;
 }
@@ -285,6 +290,7 @@ function createVcard(row) {
   return lines.join("\r\n");
 }
 
+// ===== Local AI 추출 결과 정리 및 비명함 차단 =====
 function sanitizeExtractedCard(value = {}) {
   const phones = normalizePhoneFields(value.mobile, value.phone);
   const organization = normalizeDepartmentAndPosition(
@@ -329,6 +335,7 @@ function rejectNonBusinessCard(req, res) {
   });
 }
 
+// ===== 중복 명함 조회 =====
 function checkDuplicate(card, excludeId, callback) {
   const sql = `
     SELECT *
@@ -353,6 +360,7 @@ function checkDuplicate(card, excludeId, callback) {
   ], callback);
 }
 
+// ===== SQLite 및 Local AI 연결 상태 확인 =====
 function checkSqliteStatus() {
   return new Promise((resolve) => {
     db.get("SELECT 1 AS ok", (error) => resolve(!error));
@@ -383,6 +391,7 @@ app.get("/api/status", async (req, res) => {
   res.json({ sqlite, localAi });
 });
 
+// ===== 명함 이미지 업로드 및 Local AI 분석 API =====
 app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
@@ -464,6 +473,7 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
   }
 });
 
+// ===== 명함 저장 API =====
 function saveCard(req, res) {
   const card = makeCard(req.body);
   const validationMessage = validateCard(card);
@@ -530,6 +540,7 @@ function saveCard(req, res) {
 app.post("/api/cards", saveCard);
 app.post("/api/cardStorage", saveCard);
 
+// ===== 전체 주소록 CSV·vCard 내보내기 API =====
 app.get("/api/cards/export/csv", (req, res) => {
   const sql = `
     SELECT *
@@ -591,6 +602,7 @@ app.get("/api/cards/export/vcard", (req, res) => {
   });
 });
 
+// ===== 중복 후보 조회 API =====
 app.get("/api/cards/duplicates", (req, res) => {
   const card = makeCard(req.query);
   const excludeId = Number(req.query.excludeId || 0);
@@ -610,6 +622,7 @@ app.get("/api/cards/duplicates", (req, res) => {
   });
 });
 
+// ===== 명함 목록 및 검색 API =====
 app.get("/api/cards", (req, res) => {
   const keyword = String(req.query.q || req.query.keyword || "").trim();
   let sql = "SELECT * FROM business_cards";
@@ -653,6 +666,7 @@ app.get("/api/cardSelect", (req, res) => {
   });
 });
 
+// ===== 명함 단건 조회·수정 API =====
 app.get("/api/cards/:id", (req, res) => {
   db.get("SELECT * FROM business_cards WHERE id = ?", [req.params.id], (error, row) => {
     if (error) {
@@ -753,6 +767,7 @@ app.put("/api/cards/:id", (req, res) => {
   });
 });
 
+// ===== 중복 명함 그룹 병합 API =====
 app.post("/api/cards/merge-group", (req, res) => {
   const requestedIds = Array.isArray(req.body.cardIds) ? req.body.cardIds : [];
   const cardIds = [...new Set(
@@ -887,6 +902,7 @@ app.post("/api/cards/merge-group", (req, res) => {
   });
 });
 
+// ===== 명함 단건 병합 및 삭제 API =====
 app.post("/api/cards/:id/merge", (req, res) => {
   db.get("SELECT * FROM business_cards WHERE id = ?", [req.params.id], (error, oldCard) => {
     if (error) {
@@ -982,6 +998,7 @@ app.delete("/api/cards/:id", (req, res) => {
   });
 });
 
+// ===== 정적 파일 제공·오류 처리·서버 실행 =====
 app.use("/uploads", express.static(UPLOAD_DIR));
 app.use(express.static("public"));
 

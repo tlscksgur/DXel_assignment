@@ -2,6 +2,7 @@ const cardTrack = document.querySelector("#cardTrack");
 const searchInput = document.querySelector(".searchBox input");
 const searchBtn = document.querySelector(".searchBox button");
 
+// ===== 최근 명함 목록 렌더링 =====
 function renderCards(data){
   cardTrack.classList.remove("slide");
   cardTrack.innerHTML = "";
@@ -48,6 +49,7 @@ function createCard(contact){
   `;
 }
 
+// ===== 화면 너비에 따른 슬라이드 표시 수 계산 =====
 function checkSlide(data){
   const cardArea = document.querySelector(".cardArea");
   const areaWidth = cardArea.offsetWidth;
@@ -64,6 +66,7 @@ function checkSlide(data){
   }
 }
 
+// ===== SQLite 명함 데이터 불러오기 =====
 async function loadCards() {
   try {
     const response = await fetch("/api/cards", {
@@ -84,7 +87,6 @@ async function loadCards() {
     renderCards(contacts);
   }
 }
-
 
 window.addEventListener("resize", () => {
   renderCards(contacts);

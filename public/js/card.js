@@ -13,6 +13,7 @@ let searchTimer;
 let requestSequence = 0;
 let activeCardId = null;
 
+// ===== 중복 명함 판정 및 그룹화 =====
 function normalizedPhone(value) {
   return String(value || "").replace(/\D/g, "");
 }
@@ -75,6 +76,7 @@ function groupDuplicateCards(cards) {
   return groups;
 }
 
+// ===== 안전한 HTML·홈페이지 링크 처리 =====
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -94,6 +96,7 @@ function createWebsiteLink(value) {
   return `<a class="cardDetailWebsiteLink" href="${safeValue}" target="_blank" rel="noopener noreferrer">${safeValue}</a>`;
 }
 
+// ===== 명함 디자인 선택 및 목록 카드 생성 =====
 const cardVariants = [
   "card-light tilt-left",
   "card-dark tilt-right featured",
@@ -131,6 +134,7 @@ function createCard(contact) {
   `;
 }
 
+// ===== 명함 상세 보기 및 수정 폼 생성 =====
 function createCardDetail(contact) {
   const classes = getCardVariant(contact);
   const fields = [
@@ -226,6 +230,7 @@ function createCardEditor(contact, statusMessage = "") {
   `;
 }
 
+// ===== 명함 수정·삭제 API 요청 =====
 async function requestCardUpdate(cardId, card, allowDuplicate = false) {
   const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
     method: "PUT",
@@ -259,6 +264,7 @@ async function requestCardDelete(cardId) {
   return result;
 }
 
+// ===== 상세 모달 조회·수정·삭제 동작 =====
 function getActiveCard() {
   return visibleCards.find((card) => Number(card.id) === Number(activeCardId));
 }
@@ -394,6 +400,7 @@ function closeCardDetail() {
   activeCardId = null;
 }
 
+// ===== 전체 명함 및 중복 그룹 화면 렌더링 =====
 function renderAllCards(cards) {
   board.classList.remove("duplicateMode");
   board.innerHTML = "";
@@ -448,6 +455,7 @@ function renderDuplicateGroups(groups) {
   });
 }
 
+// ===== 중복 명함 병합 =====
 async function requestDuplicateMerge(cardIds) {
   const response = await fetch("/api/cards/merge-group", {
     method: "POST",
@@ -501,6 +509,7 @@ async function mergeDuplicateGroup(button) {
   }
 }
 
+// ===== 명함 목록 검색 및 불러오기 =====
 function renderCurrentView() {
   if (showDuplicatesOnly) {
     const groups = groupDuplicateCards(visibleCards);
@@ -544,6 +553,7 @@ async function loadCards() {
   }
 }
 
+// ===== 검색·중복 보기·명함 선택 이벤트 =====
 searchForm.addEventListener("submit", (event) => {
   event.preventDefault();
   loadCards();
@@ -589,6 +599,7 @@ board.addEventListener("keydown", (event) => {
   }
 });
 
+// ===== 상세 모달 이벤트 =====
 detailClose.addEventListener("click", closeCardDetail);
 detailContent.addEventListener("click", (event) => {
   const actionButton = event.target.closest("[data-action]");

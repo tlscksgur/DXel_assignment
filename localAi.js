@@ -1,5 +1,7 @@
+// ===== 파일 처리 모듈 =====
 const fs = require("fs");
 
+// ===== 명함 정보 추출용 시스템 프롬프트 =====
 const systemPrompt = `
 You are a specialist that accurately extracts contact information from business card images.
 
@@ -63,6 +65,7 @@ Use exactly this JSON structure and no additional fields:
 }
 `.trim();
 
+// ===== LM Studio 구조화 응답 형식 =====
 const businessCardResponseFormat = {
   type: "json_schema",
   json_schema: {
@@ -127,6 +130,7 @@ const criticalFieldResponseFormat = {
   }
 };
 
+// ===== LM Studio 공통 요청 =====
 async function requestChatCompletion(body) {
   const response = await fetch(process.env.LM_STUDIO_ENDPOINT, {
     method: "POST",
@@ -143,6 +147,7 @@ async function requestChatCompletion(body) {
   return response.json();
 }
 
+// ===== 명함 전체 필드 추출 =====
 async function extractBusinessCard(imageDataUrl) {
   return requestChatCompletion({
     model: process.env.LM_STUDIO_MODEL,
@@ -174,6 +179,7 @@ async function extractBusinessCard(imageDataUrl) {
   });
 }
 
+// ===== 누락된 핵심 필드 재확인 =====
 async function verifyCriticalFields(imageDataUrl) {
   return requestChatCompletion({
     model: process.env.LM_STUDIO_MODEL,
@@ -213,11 +219,13 @@ Return an empty string only when the field is truly absent.`
   });
 }
 
+// ===== 업로드 이미지 Base64 Data URL 변환 =====
 function imageToDataUrl(file) {
   const base64 = fs.readFileSync(file.path).toString("base64");
   return `data:${file.mimetype};base64,${base64}`;
 }
 
+// ===== 모델 응답에서 마지막 유효 JSON 추출 =====
 function parseModelJson(content) {
   const text = String(content || "").trim();
   const parsedObjects = [];
@@ -277,6 +285,7 @@ function parseModelJson(content) {
   return parsedObjects[parsedObjects.length - 1];
 }
 
+// ===== 외부에서 사용할 기능 공개 =====
 module.exports = {
   extractBusinessCard,
   verifyCriticalFields,

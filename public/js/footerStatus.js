@@ -1,5 +1,4 @@
-/* 연결 상태 관리 */
-
+// ===== 서비스 상태 표시 설정 =====
 const serviceLabels = {
   "local-ai": "Local AI",
   sqlite: "SQLite"
@@ -17,6 +16,7 @@ function setServiceStatus(service, isOnline) {
   element.title = `${serviceLabels[service]} ${isOnline ? "connected" : "disconnected"}`;
 }
 
+// ===== Local AI 및 SQLite 실제 연결 상태 확인 =====
 async function updateFooterStatus() {
   try {
     const response = await fetch("/api/status", { cache: "no-store" });
@@ -38,10 +38,7 @@ async function updateFooterStatus() {
 updateFooterStatus();
 setInterval(updateFooterStatus, 10000);
 
-
-
-/* CSV 다운로드 */
-
+// ===== CSV 주소록 다운로드 =====
 const csvExportBtn = document.querySelector(".csvExport")
 
 if(csvExportBtn) {
@@ -50,6 +47,7 @@ if(csvExportBtn) {
   })
 }
 
+// ===== vCard 주소록 다운로드 =====
 const vcardExportBtn = document.querySelector(".vcardExport");
 
 if (vcardExportBtn) {
