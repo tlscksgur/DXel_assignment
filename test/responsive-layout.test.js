@@ -73,6 +73,15 @@ test("명함 등록 화면은 태블릿과 모바일에서 한 열로 표시된�
   );
 });
 
+test("명함 등록 업로드 패널은 콘텐츠가 커져도 작업 버튼과 겹치지 않는다", () => {
+  const css = read("public/css/cardAdd.css");
+
+  assert.match(
+    css,
+    /\.uploadPanel\s*\{\s*grid-area:\s*upload;[\s\S]*?min-height:\s*707px;[\s\S]*?height:\s*auto;[\s\S]*?\}/
+  );
+});
+
 test("명함관리 도구와 중복 그룹이 모바일 너비에 맞는다", () => {
   const css = read("public/css/BCM.css");
 

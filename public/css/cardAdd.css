@@ -106,7 +106,8 @@
   grid-area: upload;
   padding: 22px;
   border-radius: 18px;
-  height: 707px;
+  min-height: 707px;
+  height: auto;
 }
 
 .uploadBox{
