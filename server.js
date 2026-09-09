@@ -125,7 +125,7 @@ function normalizePhone(value) {
   const original = text(value);
 
   if (original.startsWith("+") && !original.startsWith("+82")) {
-    return original.replace(/\s+/g, " ");
+    return original.replace(/[.\-\s]+/g, " ").trim();
   }
 
   const digits = original
