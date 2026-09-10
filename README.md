@@ -19,7 +19,7 @@
 | Node.js | `20.17.0 이상` 또는 `22.9.0 이상` |
 | npm | Node.js에 포함된 npm 사용 |
 | AI 서버 | 사내 AI 서버와 `unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M` 모델 |
-| 네트워크 | 개발 PC에서 사내 AI 서버 `192.168.210.10`에 접속할 수 있어야 함 |
+| 네트워크 | 개발 PC에서 사내 AI 서버에 접속할 수 있어야 함 |
 | 저장 공간 | Node.js 패키지와 업로드 이미지를 저장할 여유 공간 필요 |
 | 브라우저 | 최신 Chrome 또는 Safari |
 | 휴대폰 접속 | 개발 PC와 휴대폰이 같은 Wi-Fi에 연결되어 있어야 함 |
@@ -49,19 +49,19 @@ npm install
 
 ```env
 PORT=3000
-AI_SERVER_ENDPOINT=http://192.168.210.10:8080/v1/chat/completions
-AI_SERVER_STATUS_URL=http://192.168.210.10:8080/health
+AI_SERVER_ENDPOINT=http://<AI_SERVER_IP>:<PORT>/v1/chat/completions
+AI_SERVER_STATUS_URL=http://<AI_SERVER_IP>:<PORT>/health
 AI_SERVER_MODEL=unsloth/Qwen3.8-27B-GGUF
 ```
 
-사내 AI 서버는 별도의 API 키 없이 접속하도록 설정되어 있습니다.
+`<AI_SERVER_IP>`와 `<PORT>`에는 실제 사내 AI 서버의 주소와 포트를 입력합니다. 실제 서버 주소나 인증 정보가 포함된 `.env` 파일은 Git에 커밋하지 않습니다. 현재 사내 AI 서버는 별도의 API 키 없이 접속하도록 설정되어 있습니다.
 
 ## 사내 AI 서버 실행
 
 ### 1. 맥에서 회사 AI 서버에 SSH 접속
 
 ```bash
-ssh chshin@192.168.210.10
+ssh <SSH_USER>@<AI_SERVER_IP>
 ```
 
 ### 2. AI 서버에서 Qwen API 서버 실행
@@ -82,7 +82,7 @@ listening on http://0.0.0.0:8080
 ### 3. 맥에서 새 터미널을 열고 연결 확인
 
 ```bash
-curl http://192.168.210.10:8080/health
+curl http://<AI_SERVER_IP>:<PORT>/health
 ```
 
 다음 응답이 나오면 정상입니다.
@@ -150,8 +150,8 @@ npm test
 ### Local AI 상태가 준비되지 않음으로 표시되는 경우
 
 - SSH 터미널에서 Qwen API 서버가 실행 중인지 확인합니다.
-- `curl http://192.168.210.10:8080/health`가 `{"status":"ok"}`를 반환하는지 확인합니다.
-- AI 서버 실행 포트와 `.env`에 적힌 포트가 모두 `8080`인지 확인합니다.
+- `curl http://<AI_SERVER_IP>:<PORT>/health`가 `{"status":"ok"}`를 반환하는지 확인합니다.
+- AI 서버 실행 포트와 `.env`에 적힌 포트가 같은지 확인합니다.
 - `.env`의 모델명이 `unsloth/Qwen3.8-27B-GGUF`인지 확인합니다.
 
 ### 핸드폰에서 페이지가 열리지 않는 경우
