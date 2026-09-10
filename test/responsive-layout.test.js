@@ -9,6 +9,12 @@ function read(relativePath) {
   return fs.readFileSync(path.join(projectRoot, relativePath), "utf8");
 }
 
+test("명함관리 페이지는 역할이 드러나는 JavaScript 파일명을 사용한다", () => {
+  assert.match(read("public/cardAdd.html"), /\.\/js\/cardAdd\.js/);
+  assert.match(read("public/BCM.html"), /\.\/js\/cardManagement\.js/);
+  assert.equal(fs.existsSync(path.join(projectRoot, "public/js/card.js")), false);
+});
+
 test("모든 화면이 모바일 viewport를 사용한다", () => {
   for (const page of ["public/index.html", "public/cardAdd.html", "public/BCM.html"]) {
     assert.match(

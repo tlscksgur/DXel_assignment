@@ -87,7 +87,7 @@ test("중복 후보 그룹 병합 API는 트랜잭션으로 갱신과 삭제를 
 });
 
 test("중복 후보 그룹은 병합 버튼으로 선택한 명함 ID 전체를 전송한다", async () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const board = {
     innerHTML: "",
     classList: { add() {}, remove() {} },
@@ -174,7 +174,7 @@ test("명함 내용을 참고 이미지처럼 왼쪽 위에서 순서대로 정�
 });
 
 test("전화번호 또는 이름과 회사가 같은 명함을 인접 그룹으로 묶는다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const board = {
     innerHTML: "",
     classList: { add() {}, remove() {} },
@@ -224,7 +224,7 @@ test("전화번호 또는 이름과 회사가 같은 명함을 인접 그룹으�
 });
 
 test("명함 디자인은 목록 순서가 바뀌어도 카드 ID별로 유지된다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const inertElement = {
     value: "",
     innerHTML: "",
@@ -264,7 +264,7 @@ test("명함 디자인은 목록 순서가 바뀌어도 카드 ID별로 유지�
 
 test("명함 상세 팝업에 저장하는 9개 필드를 모두 표시한다", () => {
   const html = fs.readFileSync(path.join(projectRoot, "public/BCM.html"), "utf8");
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
 
   assert.match(html, /class="cardDetailModal"/);
   assert.match(html, /class="cardDetailClose"/);
@@ -286,7 +286,7 @@ test("명함 상세 팝업에 저장하는 9개 필드를 모두 표시한다", 
 });
 
 test("명함은 마우스와 키보드로 상세 정보를 열 수 있다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
 
   assert.match(source, /class="profileCard[^\"]*"[^>]*tabindex="0"/);
   assert.match(source, /board\.addEventListener\("click"/);
@@ -297,7 +297,7 @@ test("명함은 마우스와 키보드로 상세 정보를 열 수 있다", () =
 });
 
 test("명함 상세 팝업은 작은 카드 디자인을 이어받고 빈 필드는 없음으로 표시한다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const inertElement = {
     value: "",
     innerHTML: "",
@@ -344,7 +344,7 @@ test("명함 상세 팝업은 작은 카드 디자인을 이어받고 빈 필드
 });
 
 test("상세 명함 번호는 닫기 버튼이 아니라 회사명 바로 옆에 정렬한다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 
   assert.match(
@@ -371,7 +371,7 @@ test("어두운 상세 명함의 회사명 배지는 밝은 배경과 테두리�
 });
 
 test("상세 명함 홈페이지는 안전한 새 탭 링크로 표시한다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
   const inertElement = {
     value: "",
@@ -414,7 +414,7 @@ test("상세 명함 홈페이지는 안전한 새 탭 링크로 표시한다", (
 });
 
 test("명함 상세 편집 화면은 저장하는 9개 필드와 저장·취소 버튼을 제공한다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const inertElement = {
     value: "",
     innerHTML: "",
@@ -476,7 +476,7 @@ test("명함 상세 편집 화면은 저장하는 9개 필드와 저장·취소 
 });
 
 test("명함 수정과 삭제 요청은 선택한 명함 API에 올바른 메서드로 전송한다", async () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const inertElement = {
     value: "",
     innerHTML: "",
@@ -537,7 +537,7 @@ test("명함 수정과 삭제 요청은 선택한 명함 API에 올바른 메서
 });
 
 test("명함 상세 모달은 읽기 상태에서 수정과 삭제 동작을 제공한다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/card.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const inertElement = {
     value: "",
     innerHTML: "",
