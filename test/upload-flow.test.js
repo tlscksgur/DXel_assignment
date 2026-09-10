@@ -128,8 +128,8 @@ test("명함이 아닌 사진은 빈 추출 결과 대신 422 오류를 반환�
     env: {
       ...process.env,
       PORT: String(appPort),
-      LM_STUDIO_ENDPOINT: `http://127.0.0.1:${lmPort}/v1/chat/completions`,
-      LM_STUDIO_MODEL: "test-vision-model"
+      AI_SERVER_ENDPOINT: `http://127.0.0.1:${lmPort}/v1/chat/completions`,
+      AI_SERVER_MODEL: "test-vision-model"
     },
     stdio: ["ignore", "pipe", "pipe"]
   });
@@ -161,7 +161,7 @@ test("명함이 아닌 사진은 빈 추출 결과 대신 422 오류를 반환�
   }
 });
 
-test("업로드한 이미지를 LM Studio에 전달하고 정규화된 필드를 반환한다", async () => {
+test("업로드한 이미지를 사내 AI 서버에 전달하고 정규화된 필드를 반환한다", async () => {
   let uploadedFilePath = "";
   const receivedLmRequests = [];
   const mockLmStudio = http.createServer((req, res) => {
@@ -224,8 +224,8 @@ ${JSON.stringify({
     env: {
       ...process.env,
       PORT: String(appPort),
-      LM_STUDIO_ENDPOINT: `http://127.0.0.1:${lmPort}/v1/chat/completions`,
-      LM_STUDIO_MODEL: "test-vision-model"
+      AI_SERVER_ENDPOINT: `http://127.0.0.1:${lmPort}/v1/chat/completions`,
+      AI_SERVER_MODEL: "test-vision-model"
     },
     stdio: ["ignore", "pipe", "pipe"]
   });
@@ -423,8 +423,8 @@ test("회사명이나 직책과 같은 부서명은 빈 값으로 정리한다",
     env: {
       ...process.env,
       PORT: String(appPort),
-      LM_STUDIO_ENDPOINT: `http://127.0.0.1:${lmPort}/v1/chat/completions`,
-      LM_STUDIO_MODEL: "test-vision-model"
+      AI_SERVER_ENDPOINT: `http://127.0.0.1:${lmPort}/v1/chat/completions`,
+      AI_SERVER_MODEL: "test-vision-model"
     },
     stdio: ["ignore", "pipe", "pipe"]
   });
@@ -1011,7 +1011,7 @@ test("취소 버튼은 현재 항목을 제거하고 다음 이미지를 분석�
   assert.match(browser.element(".queueBox").innerHTML, /second\.png/);
 });
 
-test("상태 API가 LM Studio 연결 상태를 반환한다", async () => {
+test("상태 API가 사내 AI 서버 연결 상태를 반환한다", async () => {
   let statusRequests = 0;
   const mockLmStudio = http.createServer((req, res) => {
     statusRequests += 1;
@@ -1029,7 +1029,7 @@ test("상태 API가 LM Studio 연결 상태를 반환한다", async () => {
     env: {
       ...process.env,
       PORT: String(appPort),
-      LM_STUDIO_STATUS_URL: `http://127.0.0.1:${lmPort}/v1/models`
+      AI_SERVER_STATUS_URL: `http://127.0.0.1:${lmPort}/v1/models`
     },
     stdio: ["ignore", "pipe", "pipe"]
   });

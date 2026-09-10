@@ -368,12 +368,12 @@ function checkSqliteStatus() {
 }
 
 async function checkLocalAiStatus() {
-  if (!process.env.LM_STUDIO_STATUS_URL) {
+  if (!process.env.AI_SERVER_STATUS_URL) {
     return false;
   }
 
   try {
-    const response = await fetch(process.env.LM_STUDIO_STATUS_URL, {
+    const response = await fetch(process.env.AI_SERVER_STATUS_URL, {
       signal: AbortSignal.timeout(2000)
     });
     return response.ok;

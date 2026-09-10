@@ -65,7 +65,7 @@ Use exactly this JSON structure and no additional fields:
 }
 `.trim();
 
-// ===== LM Studio 구조화 응답 형식 =====
+// ===== AI 서버 구조화 응답 형식 =====
 const businessCardResponseFormat = {
   type: "json_schema",
   json_schema: {
@@ -130,9 +130,9 @@ const criticalFieldResponseFormat = {
   }
 };
 
-// ===== LM Studio 공통 요청 =====
+// ===== AI 서버 공통 요청 =====
 async function requestChatCompletion(body) {
-  const response = await fetch(process.env.LM_STUDIO_ENDPOINT, {
+  const response = await fetch(process.env.AI_SERVER_ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -141,7 +141,7 @@ async function requestChatCompletion(body) {
   });
 
   if (!response.ok) {
-    throw new Error(`LM Studio 요청 실패: ${response.status}`);
+    throw new Error(`AI 서버 요청 실패: ${response.status}`);
   }
 
   return response.json();
@@ -150,7 +150,7 @@ async function requestChatCompletion(body) {
 // ===== 명함 전체 필드 추출 =====
 async function extractBusinessCard(imageDataUrl) {
   return requestChatCompletion({
-    model: process.env.LM_STUDIO_MODEL,
+    model: process.env.AI_SERVER_MODEL,
     temperature: 0,
     reasoning_effort: "low",
     max_tokens: 1536,
@@ -182,7 +182,7 @@ async function extractBusinessCard(imageDataUrl) {
 // ===== 누락된 핵심 필드 재확인 =====
 async function verifyCriticalFields(imageDataUrl) {
   return requestChatCompletion({
-    model: process.env.LM_STUDIO_MODEL,
+    model: process.env.AI_SERVER_MODEL,
     temperature: 0,
     reasoning_effort: "none",
     max_tokens: 384,
