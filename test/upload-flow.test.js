@@ -303,7 +303,7 @@ ${JSON.stringify({
     assert.doesNotMatch(systemPrompt, /"fax":/);
     assert.doesNotMatch(systemPrompt, /"other_text":/);
     assert.equal(receivedLmRequest.reasoning_effort, "low");
-    assert.equal(receivedLmRequest.max_tokens, 768);
+    assert.equal(receivedLmRequest.max_tokens, 1536);
     assert.equal(receivedLmRequest.response_format.type, "json_schema");
     assert.equal(receivedLmRequest.response_format.json_schema.strict, true);
     assert.deepEqual(

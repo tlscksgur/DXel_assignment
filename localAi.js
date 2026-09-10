@@ -153,7 +153,7 @@ async function extractBusinessCard(imageDataUrl) {
     model: process.env.LM_STUDIO_MODEL,
     temperature: 0,
     reasoning_effort: "low",
-    max_tokens: 768,
+    max_tokens: 1536,
     response_format: businessCardResponseFormat,
     messages: [
       {
