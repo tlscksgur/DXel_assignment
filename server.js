@@ -263,37 +263,6 @@ function vcardPhoneLines(value, type) {
     .map((phone) => `TEL;TYPE=${type}:${vcardValue(phone)}`);
 }
 
-function quotedPrintableLine(property, value) {
-  const prefix = `${property};CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:`;
-  const tokens = [...Buffer.from(String(value || ""), "utf8")].map((byte) => {
-    const isSafeAscii = (byte >= 33 && byte <= 60) || (byte >= 62 && byte <= 126);
-    return isSafeAscii ? String.fromCharCode(byte) : `=${byte.toString(16).toUpperCase().padStart(2, "0")}`;
-  });
-  const lines = [];
-  let line = prefix;
-
-  tokens.forEach((token) => {
-    if (line.length + token.length > 75) {
-      lines.push(`${line}=`);
-      line = "";
-    }
-    line += token;
-  });
-  lines.push(line);
-
-  return lines.join("\r\n");
-}
-
-function windowsVcardPhoneLines(value, types) {
-  const typeParameters = types.split(",").join(";");
-
-  return String(value || "")
-    .split(/\s*\/\s*/)
-    .map((phone) => phone.trim())
-    .filter(Boolean)
-    .map((phone) => `TEL;${typeParameters}:${vcardValue(phone)}`);
-}
-
 function createVcard(row) {
   const displayName = row.name || row.company || `명함 ${row.id}`;
   const lines = [
@@ -319,44 +288,6 @@ function createVcard(row) {
   lines.push("END:VCARD");
 
   return lines.join("\r\n");
-}
-
-function createWindowsVcard(row) {
-  const displayName = row.name || row.company || `명함 ${row.id}`;
-  const lines = [
-    "BEGIN:VCARD",
-    "VERSION:2.1",
-    quotedPrintableLine("FN", vcardValue(displayName)),
-    quotedPrintableLine("N", `;${vcardValue(row.name)};;;`)
-  ];
-
-  if (row.company || row.department) {
-    lines.push(
-      quotedPrintableLine(
-        "ORG",
-        `${vcardValue(row.company)};${vcardValue(row.department)}`
-      )
-    );
-  }
-  if (row.position) {
-    lines.push(quotedPrintableLine("TITLE", vcardValue(row.position)));
-  }
-  lines.push(...windowsVcardPhoneLines(row.mobile, "CELL"));
-  lines.push(...windowsVcardPhoneLines(row.phone, "WORK,VOICE"));
-  if (row.email) lines.push(`EMAIL;INTERNET:${vcardValue(row.email)}`);
-  if (row.address) {
-    lines.push(
-      quotedPrintableLine("ADR;WORK", `;;${vcardValue(row.address)};;;;`)
-    );
-  }
-  if (row.website) lines.push(`URL:${vcardValue(row.website)}`);
-  lines.push("END:VCARD");
-
-  return lines.join("\r\n");
-}
-
-function isWindowsRequest(req) {
-  return /Windows/i.test(req.get("user-agent") || "");
 }
 
 // ===== Local AI 추출 결과 정리 및 비명함 차단 =====
@@ -663,13 +594,11 @@ app.get("/api/cards/export/vcard", (req, res) => {
       });
     }
 
-    const windows = isWindowsRequest(req);
-    const createCard = windows ? createWindowsVcard : createVcard;
-    const vcard = rows.map(createCard).join("\r\n");
+    const vcard = rows.map(createVcard).join("\r\n");
 
     res.setHeader("Content-Type", "text/vcard; charset=utf-8");
     res.setHeader("Content-Disposition", "attachment; filename=business_cards.vcf");
-    res.send(windows ? vcard : `\uFEFF${vcard}`);
+    res.send(vcard);
   });
 });
 

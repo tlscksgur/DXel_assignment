@@ -32,7 +32,7 @@ test("모든 화면의 CSV 옆에 전체 주소록 vCard 내보내기를 제공�
   assert.match(footerSource, /\/api\/cards\/export\/vcard/);
 });
 
-test("vCard API는 운영체제에 맞는 Windows 2.1과 UTF-8 vCard 3.0을 생성한다", () => {
+test("vCard API는 macOS 연락처용 UTF-8 vCard 3.0 파일을 생성한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
 
   assert.match(source, /app\.get\("\/api\/cards\/export\/vcard"/);
@@ -40,12 +40,7 @@ test("vCard API는 운영체제에 맞는 Windows 2.1과 UTF-8 vCard 3.0을 생�
   assert.match(source, /VERSION:3\.0/);
   assert.match(source, /text\/vcard; charset=utf-8/);
   assert.match(source, /filename=business_cards\.vcf/);
-  assert.match(source, /function createWindowsVcard/);
-  assert.match(source, /function quotedPrintableLine/);
-  assert.match(source, /VERSION:2\.1/);
-  assert.match(source, /CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE/);
-  assert.match(source, /function isWindowsRequest/);
-  assert.match(source, /res\.send\(windows \? vcard : `\\uFEFF\$\{vcard\}`\)/);
+  assert.match(source, /res\.send\(vcard\)/);
   assert.match(source, /function vcardValue/);
   assert.match(source, /vcardPhoneLines\(row\.mobile, "CELL"\)/);
   assert.match(source, /vcardPhoneLines\(row\.phone, "WORK,VOICE"\)/);

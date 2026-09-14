@@ -1104,23 +1104,22 @@ test("명함 목록, CSV, vCard, 단건 조회 API 경로를 유지한다", asyn
       macVcardResponse.headers.get("content-disposition"),
       /filename=business_cards\.vcf/
     );
-    assert.deepEqual([...macVcardBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
-    assert.match(macVcard, /^\uFEFFBEGIN:VCARD\r?\nVERSION:3\.0/);
+    assert.deepEqual(macVcardBytes.subarray(0, 11).toString("ascii"), "BEGIN:VCARD");
+    assert.match(macVcard, /^BEGIN:VCARD\r?\nVERSION:3\.0/);
     assert.match(macVcard, /FN:홍길동/);
 
     const windowsVcardResponse = await fetch(
       `http://127.0.0.1:${appPort}/api/cards/export/vcard`,
       { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }
     );
-    const windowsVcard = Buffer.from(
+    const windowsVcardBytes = Buffer.from(
       await windowsVcardResponse.arrayBuffer()
-    ).toString("ascii");
-    assert.equal(windowsVcardResponse.status, 200);
-    assert.match(windowsVcard, /^BEGIN:VCARD\r?\nVERSION:2\.1/);
-    assert.match(
-      windowsVcard,
-      /FN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:=ED=99=8D=EA=B8=B8=EB=8F=99/
     );
+    const windowsVcard = windowsVcardBytes.toString("utf8");
+    assert.equal(windowsVcardResponse.status, 200);
+    assert.deepEqual(windowsVcardBytes.subarray(0, 11).toString("ascii"), "BEGIN:VCARD");
+    assert.match(windowsVcard, /^BEGIN:VCARD\r?\nVERSION:3\.0/);
+    assert.match(windowsVcard, /FN:홍길동/);
 
     const missingResponse = await fetch(
       `http://127.0.0.1:${appPort}/api/cards/not-a-number`
