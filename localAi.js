@@ -153,7 +153,7 @@ async function extractBusinessCard(imageDataUrl) {
     model: process.env.AI_SERVER_MODEL,
     temperature: 0,
     reasoning_effort: "low",
-    max_tokens: 1536,
+    max_tokens: 2000,
     response_format: businessCardResponseFormat,
     messages: [
       {
@@ -185,7 +185,7 @@ async function verifyCriticalFields(imageDataUrl) {
     model: process.env.AI_SERVER_MODEL,
     temperature: 0,
     reasoning_effort: "none",
-    max_tokens: 384,
+    max_tokens: 450,
     response_format: criticalFieldResponseFormat,
     messages: [
       {
