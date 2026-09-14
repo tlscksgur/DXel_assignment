@@ -1063,8 +1063,24 @@ test("명함 목록, CSV, vCard, 단건 조회 API 경로를 유지한다", asyn
     stdio: ["ignore", "pipe", "pipe"]
   });
 
+  let createdCardId;
+
   try {
     await waitForServer(app);
+
+    const createResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "홍길동",
+        company: "한글회사",
+        mobile: "010-1234-5678",
+        allowDuplicate: true
+      })
+    });
+    const createResult = await createResponse.json();
+    assert.equal(createResponse.status, 201);
+    createdCardId = createResult.id;
 
     const listResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards`);
     const listResult = await listResponse.json();
@@ -1076,27 +1092,46 @@ test("명함 목록, CSV, vCard, 단건 조회 API 경로를 유지한다", asyn
     assert.equal(csvResponse.status, 200);
     assert.match(csvResponse.headers.get("content-type"), /^text\/csv/);
 
-    const vcardResponse = await fetch(
-      `http://127.0.0.1:${appPort}/api/cards/export/vcard`
+    const macVcardResponse = await fetch(
+      `http://127.0.0.1:${appPort}/api/cards/export/vcard`,
+      { headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X)" } }
     );
-    const vcardBytes = Buffer.from(await vcardResponse.arrayBuffer());
-    const vcard = vcardBytes.toString("utf8");
-    assert.equal(vcardResponse.status, 200);
-    assert.match(vcardResponse.headers.get("content-type"), /^text\/vcard/);
+    const macVcardBytes = Buffer.from(await macVcardResponse.arrayBuffer());
+    const macVcard = macVcardBytes.toString("utf8");
+    assert.equal(macVcardResponse.status, 200);
+    assert.match(macVcardResponse.headers.get("content-type"), /^text\/vcard/);
     assert.match(
-      vcardResponse.headers.get("content-disposition"),
+      macVcardResponse.headers.get("content-disposition"),
       /filename=business_cards\.vcf/
     );
-    assert.deepEqual([...vcardBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
-    if (vcard) {
-      assert.match(vcard, /^\uFEFFBEGIN:VCARD\r?\nVERSION:3\.0/);
-    }
+    assert.deepEqual([...macVcardBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+    assert.match(macVcard, /^\uFEFFBEGIN:VCARD\r?\nVERSION:3\.0/);
+    assert.match(macVcard, /FN:홍길동/);
+
+    const windowsVcardResponse = await fetch(
+      `http://127.0.0.1:${appPort}/api/cards/export/vcard`,
+      { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } }
+    );
+    const windowsVcard = Buffer.from(
+      await windowsVcardResponse.arrayBuffer()
+    ).toString("ascii");
+    assert.equal(windowsVcardResponse.status, 200);
+    assert.match(windowsVcard, /^BEGIN:VCARD\r?\nVERSION:2\.1/);
+    assert.match(
+      windowsVcard,
+      /FN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:=ED=99=8D=EA=B8=B8=EB=8F=99/
+    );
 
     const missingResponse = await fetch(
       `http://127.0.0.1:${appPort}/api/cards/not-a-number`
     );
     assert.equal(missingResponse.status, 404);
   } finally {
+    if (createdCardId) {
+      await fetch(`http://127.0.0.1:${appPort}/api/cards/${createdCardId}`, {
+        method: "DELETE"
+      }).catch(() => {});
+    }
     app.kill("SIGTERM");
   }
 });

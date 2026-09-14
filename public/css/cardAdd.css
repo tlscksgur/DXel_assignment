@@ -143,9 +143,9 @@
   width: 34px;
   height: 34px;
   display: flex;
-  /* align-items: center; */
+  align-items: center;
   justify-content: center;
-  line-height: 37px;
+  /* line-height: 37px; */
   border-radius: 50%;
   background: var(--primary);
   color: #fff;
@@ -792,9 +792,12 @@
   }
 
   .uploadIcon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     width: 40px;
     height: 40px;
-    line-height: 43px;
+    /* line-height: 43px; */
     font-size: 28px;
   }
 
@@ -942,9 +945,12 @@
   }
 
   .uploadIcon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     width: 48px;
     height: 48px;
-    line-height: 51px;
+    /* line-height: 51px; */
     font-size: 33px;
   }
 
