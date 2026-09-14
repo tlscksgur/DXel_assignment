@@ -598,7 +598,7 @@ app.get("/api/cards/export/vcard", (req, res) => {
 
     res.setHeader("Content-Type", "text/vcard; charset=utf-8");
     res.setHeader("Content-Disposition", "attachment; filename=business_cards.vcf");
-    res.send(vcard);
+    res.send(`\uFEFF${vcard}`);
   });
 });
 

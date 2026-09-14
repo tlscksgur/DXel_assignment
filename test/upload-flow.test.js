@@ -303,7 +303,7 @@ ${JSON.stringify({
     assert.doesNotMatch(systemPrompt, /"fax":/);
     assert.doesNotMatch(systemPrompt, /"other_text":/);
     assert.equal(receivedLmRequest.reasoning_effort, "low");
-    assert.equal(receivedLmRequest.max_tokens, 1536);
+    assert.equal(receivedLmRequest.max_tokens, 2000);
     assert.equal(receivedLmRequest.response_format.type, "json_schema");
     assert.equal(receivedLmRequest.response_format.json_schema.strict, true);
     assert.deepEqual(
@@ -327,7 +327,7 @@ ${JSON.stringify({
     );
     const criticalFieldRequest = receivedLmRequests[1];
     assert.equal(criticalFieldRequest.reasoning_effort, "none");
-    assert.equal(criticalFieldRequest.max_tokens, 384);
+    assert.equal(criticalFieldRequest.max_tokens, 450);
     assert.deepEqual(
       Object.keys(criticalFieldRequest.response_format.json_schema.schema.properties),
       ["name", "department", "position", "email", "address", "website"]
@@ -1079,15 +1079,17 @@ test("명함 목록, CSV, vCard, 단건 조회 API 경로를 유지한다", asyn
     const vcardResponse = await fetch(
       `http://127.0.0.1:${appPort}/api/cards/export/vcard`
     );
-    const vcard = await vcardResponse.text();
+    const vcardBytes = Buffer.from(await vcardResponse.arrayBuffer());
+    const vcard = vcardBytes.toString("utf8");
     assert.equal(vcardResponse.status, 200);
     assert.match(vcardResponse.headers.get("content-type"), /^text\/vcard/);
     assert.match(
       vcardResponse.headers.get("content-disposition"),
       /filename=business_cards\.vcf/
     );
+    assert.deepEqual([...vcardBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
     if (vcard) {
-      assert.match(vcard, /BEGIN:VCARD\r?\nVERSION:3\.0/);
+      assert.match(vcard, /^\uFEFFBEGIN:VCARD\r?\nVERSION:3\.0/);
     }
 
     const missingResponse = await fetch(

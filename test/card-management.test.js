@@ -32,7 +32,7 @@ test("모든 화면의 CSV 옆에 전체 주소록 vCard 내보내기를 제공�
   assert.match(footerSource, /\/api\/cards\/export\/vcard/);
 });
 
-test("vCard API는 전체 연락처를 UTF-8 vCard 3.0 파일로 생성한다", () => {
+test("vCard API는 Windows에서도 한글이 깨지지 않는 UTF-8 BOM vCard 3.0 파일을 생성한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
 
   assert.match(source, /app\.get\("\/api\/cards\/export\/vcard"/);
@@ -40,6 +40,7 @@ test("vCard API는 전체 연락처를 UTF-8 vCard 3.0 파일로 생성한다", 
   assert.match(source, /VERSION:3\.0/);
   assert.match(source, /text\/vcard; charset=utf-8/);
   assert.match(source, /filename=business_cards\.vcf/);
+  assert.match(source, /res\.send\(`\\uFEFF\$\{vcard\}`\)/);
   assert.match(source, /function vcardValue/);
   assert.match(source, /vcardPhoneLines\(row\.mobile, "CELL"\)/);
   assert.match(source, /vcardPhoneLines\(row\.phone, "WORK,VOICE"\)/);
