@@ -61,7 +61,7 @@
           </div>
           <button class="selectionToggle" type="button" aria-pressed="false">
             <span class="selectionToggleIcon" aria-hidden="true">✓</span>
-            <span>선택 모드 활성화</span>
+            <span>선택</span>
             <strong class="selectionInlineCount" hidden>(0개 선택됨)</strong>
           </button>
         </div>
@@ -94,6 +94,13 @@
             <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
           </svg>
           그룹 지정
+        </button>
+        <button type="button" data-selection-action="remove-from-group" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+            <path d="M9 13h6" />
+          </svg>
+          그룹에서 제거
         </button>
         <button type="button" data-selection-action="delete">
           <svg viewBox="0 0 24 24" aria-hidden="true">

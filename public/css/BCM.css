@@ -103,10 +103,10 @@ body.bcm-page .bcmBoard {
 
 .cardListControls {
   width: min(1207px, 100%);
-  margin-top: 18px;
+  margin-top: 28px;
   margin-right: auto;
   margin-left: auto;
-  padding-top: 12px;
+  padding-top: 15px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -209,7 +209,7 @@ body.bcm-page .bcmBoard {
   background: #fff4ca;
   color: #9a6500;
   font-size: 11px;
-  line-height: 1;
+  /* line-height: 1; */
 }
 
 .selectionToggle {
@@ -382,7 +382,14 @@ body.bcm-page .bcmBoard {
   gap: 8px;
 }
 
-.duplicateMergeButton {
+.cardGroupMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.duplicateMergeButton,
+.groupRemoveButton {
   min-height: 30px;
   padding: 5px 12px;
   border: 1px solid #a94b3f;
@@ -396,12 +403,15 @@ body.bcm-page .bcmBoard {
 }
 
 .duplicateMergeButton:hover,
-.duplicateMergeButton:focus-visible {
+.duplicateMergeButton:focus-visible,
+.groupRemoveButton:hover,
+.groupRemoveButton:focus-visible {
   background: #7a3028;
   outline: none;
 }
 
-.duplicateMergeButton:disabled {
+.duplicateMergeButton:disabled,
+.groupRemoveButton:disabled {
   cursor: wait;
   opacity: .55;
 }
@@ -414,13 +424,6 @@ body.bcm-page .bcmBoard {
   background: rgba(255, 255, 255, .45);
   color: #77736c;
   text-align: center;
-}
-
-.bcmBoard.groupMode .emptyCards,
-.bcmBoard.duplicateMode .emptyCards {
-  width: min(1376px, 100%);
-  height: 165.5px;
-  flex: 0 1 1376px;
 }
 
 .profileCard {
@@ -475,6 +478,10 @@ body.bcm-page .bcmBoard {
 }
 
 .selectionActionBar[hidden] {
+  display: none;
+}
+
+.selectionActionBar button[hidden] {
   display: none;
 }
 

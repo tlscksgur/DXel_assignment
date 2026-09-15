@@ -699,7 +699,11 @@ app.patch("/api/cards/groups", (req, res) => {
   const cardIds = parseCardIds(req.body.cardIds);
   const groupName = singleLineText(req.body.groupName);
 
-  if (cardIds.length === 0 || !groupName || groupName.length > 40) {
+  if (
+    cardIds.length === 0 ||
+    typeof req.body.groupName !== "string" ||
+    groupName.length > 40
+  ) {
     return res.status(400).json({
       success: false,
       message: "명함과 40자 이내의 그룹 이름을 확인해 주세요."
@@ -727,7 +731,7 @@ app.patch("/api/cards/groups", (req, res) => {
 
       res.json({
         success: true,
-        message: "그룹 지정 완료",
+        message: groupName ? "그룹 지정 완료" : "그룹 해제 완료",
         updatedCount: this.changes
       });
     }

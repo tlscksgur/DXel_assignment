@@ -116,6 +116,22 @@ test("그룹별 보기에서는 그룹이 지정되지 않은 명함을 제외�
   assert.equal(groups.has("거래처"), true);
   assert.equal(groups.has("그룹 미지정"), false);
   assert.match(source, /지정된 그룹이 없습니다\./);
+  assert.match(source, /class="groupRemoveButton"[\s\S]*data-card-ids="\$\{cardIds\}"[\s\S]*그룹 삭제/);
+  assert.match(source, /function removeGroupAssignment\(button\)/);
+});
+
+test("보기별로 명함 선택 상태를 분리해 이전 보기의 선택이 섞이지 않는다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+
+  assert.match(source, /const selectedCardIdsByView = new Map\(/);
+  assert.match(source, /const selectionModeByView = new Map\(/);
+  assert.match(source, /let selectedCardIds = selectedCardIdsByView\.get\(viewMode\);/);
+  assert.match(source, /let selectionMode = selectionModeByView\.get\(viewMode\);/);
+  assert.match(source, /function setViewMode\(nextViewMode\)[\s\S]*selectedCardIds = selectedCardIdsByView\.get\(viewMode\);[\s\S]*selectionMode = selectionModeByView\.get\(viewMode\);/);
+  assert.match(source, /function setSelectionMode\(isActive\)[\s\S]*selectionModeByView\.set\(viewMode, selectionMode\);/);
+  assert.match(source, /allViewToggle\.addEventListener\("click", \(\) => \{[\s\S]*setViewMode\("all"\)/);
+  assert.match(source, /groupViewToggle\.addEventListener\("click", \(\) => \{[\s\S]*setViewMode\(viewMode === "groups" \? "all" : "groups"\)/);
+  assert.match(source, /duplicateToggle\.addEventListener\("click", \(\) => \{[\s\S]*setViewMode\(viewMode === "duplicates" \? "all" : "duplicates"\)/);
 });
 
 test("빈 명함 목록은 검색 여부와 보기 방식에 맞는 동일 크기 안내 영역을 표시한다", () => {
@@ -127,7 +143,9 @@ test("빈 명함 목록은 검색 여부와 보기 방식에 맞는 동일 크�
   assert.match(source, /검색 결과가 없습니다\./);
   assert.match(source, /renderEmptyCards\(cards\.length === 0/);
   assert.match(source, /renderEmptyCards\(visibleCards\.length === 0/);
-  assert.match(css, /\.bcmBoard\.groupMode \.emptyCards,[\s\S]*\.bcmBoard\.duplicateMode \.emptyCards\s*\{[\s\S]*width:\s*min\(1376px,\s*100%\);[\s\S]*height:\s*165\.5px;[\s\S]*flex:\s*0 1 1376px;/);
+  assert.match(source, /function renderEmptyCards\(message\)[\s\S]*board\.classList\.remove\("duplicateMode", "groupMode"\)/);
+  assert.doesNotMatch(css, /\.bcmBoard\.groupMode \.emptyCards|\.bcmBoard\.duplicateMode \.emptyCards/);
+  assert.match(css, /\.emptyCards\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/);
 });
 
 test("선택 작업 바는 CSV·vCard 내보내기와 그룹 지정·삭제를 명확한 아이콘으로 제공한다", () => {
@@ -140,9 +158,12 @@ test("선택 작업 바는 CSV·vCard 내보내기와 그룹 지정·삭제를 �
   assert.match(actionBar, /data-selection-action="export-csv"[^>]*>[\s\S]*CSV/);
   assert.match(actionBar, /data-selection-action="export-vcard"[^>]*>[\s\S]*vCard/);
   assert.match(actionBar, /data-selection-action="group"[^>]*>[\s\S]*그룹 지정/);
+  assert.match(actionBar, /data-selection-action="remove-from-group"[^>]*hidden[\s\S]*그룹에서 제거/);
   assert.match(actionBar, /data-selection-action="delete"[^>]*>[\s\S]*삭제/);
-  assert.equal((actionBar.match(/<button/g) || []).length, 4);
-  assert.equal((actionBar.match(/<svg/g) || []).length, 4);
+  assert.equal((actionBar.match(/<button/g) || []).length, 5);
+  assert.equal((actionBar.match(/<svg/g) || []).length, 5);
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  assert.match(source, /groupRemoveSelectedButton\.hidden\s*=\s*!\(hasSelection && viewMode === "groups"\)/);
   assert.doesNotMatch(css, /selectionActionBar button\[data-selection-action=.*::before/);
   assert.match(selectedCardRule, /border:\s*3px solid rgba\(3,\s*22,\s*50,\s*\.42\);/);
   assert.match(selectedCardRule, /box-shadow:\s*none;/);
@@ -182,6 +203,7 @@ test("그룹 저장소와 선택 명함 일괄 처리 API를 제공한다", () =
   assert.match(databaseSource, /PRAGMA table_info\(business_cards\)/);
   assert.match(databaseSource, /ALTER TABLE business_cards ADD COLUMN group_name TEXT/);
   assert.match(serverSource, /app\.patch\("\/api\/cards\/groups"/);
+  assert.match(serverSource, /typeof req\.body\.groupName !== "string"/);
   assert.match(serverSource, /app\.post\("\/api\/cards\/bulk-delete"/);
   assert.match(serverSource, /req\.query\.ids/);
 });
@@ -226,6 +248,7 @@ test("선택 명함의 그룹 지정과 삭제 요청은 ID 전체를 전송한�
   requests.length = 0;
 
   await context.requestGroupAssignment([9, 7], "거래처");
+  await context.requestGroupAssignment([9, 7], "");
   await context.requestBulkDelete([9, 7]);
 
   assert.equal(requests[0].url, "/api/cards/groups");
@@ -234,9 +257,12 @@ test("선택 명함의 그룹 지정과 삭제 요청은 ID 전체를 전송한�
     cardIds: [9, 7],
     groupName: "거래처"
   });
-  assert.equal(requests[1].url, "/api/cards/bulk-delete");
-  assert.equal(requests[1].options.method, "POST");
-  assert.deepEqual(JSON.parse(requests[1].options.body), { cardIds: [9, 7] });
+  assert.equal(requests[1].url, "/api/cards/groups");
+  assert.equal(requests[1].options.method, "PATCH");
+  assert.deepEqual(JSON.parse(requests[1].options.body), { cardIds: [9, 7], groupName: "" });
+  assert.equal(requests[2].url, "/api/cards/bulk-delete");
+  assert.equal(requests[2].options.method, "POST");
+  assert.deepEqual(JSON.parse(requests[2].options.body), { cardIds: [9, 7] });
   assert.match(source, /function renderGroupedCards/);
 });
 
@@ -409,6 +435,51 @@ test("중복 후보 그룹은 병합 버튼으로 선택한 명함 ID 전체를 
   assert.deepEqual(JSON.parse(requests[0].options.body), { cardIds: [9, 7] });
 });
 
+test("그룹별 보기 헤더에는 그룹 전체 해제 버튼과 해당 명함 ID가 표시된다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const board = {
+    innerHTML: "",
+    classList: { add() {}, remove() {} },
+    addEventListener() {},
+    insertAdjacentHTML(position, html) {
+      this.innerHTML += html;
+    }
+  };
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    hidden: true,
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    setAttribute() {},
+    querySelectorAll() { return []; }
+  };
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector(selector) {
+        if (selector === ".bcmBoard") return board;
+        return inertElement;
+      },
+      querySelectorAll: () => []
+    },
+    fetch: async () => ({ ok: true, json: async () => ({ success: true, cards: [] }) }),
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+  context.renderGroupedCards([
+    { id: 9, name: "홍길동", company: "회사", group_name: "거래처" },
+    { id: 7, name: "김철수", company: "회사", group_name: "거래처" }
+  ]);
+
+  assert.match(board.innerHTML, /class="groupRemoveButton"/);
+  assert.match(board.innerHTML, /data-group-name="거래처"/);
+  assert.match(board.innerHTML, /data-card-ids="9,7"/);
+});
+
 test("중복 병합 버튼은 장수 표시 옆에 배치되고 처리 중 상태를 구분한다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 
@@ -418,9 +489,10 @@ test("중복 병합 버튼은 장수 표시 옆에 배치되고 처리 중 상�
   );
   assert.match(
     css,
-    /\.duplicateMergeButton\s*\{[\s\S]*cursor:\s*pointer;/
+    /\.duplicateMergeButton,\s*\.groupRemoveButton\s*\{[\s\S]*cursor:\s*pointer;/
   );
-  assert.match(css, /\.duplicateMergeButton:disabled\s*\{/);
+  assert.match(css, /\.duplicateMergeButton:disabled,\s*\.groupRemoveButton:disabled\s*\{/);
+  assert.match(css, /\.cardGroupMeta\s*\{[\s\S]*display:\s*flex;/);
 });
 
 test("명함 내용을 참고 이미지처럼 왼쪽 위에서 순서대로 정렬한다", () => {
