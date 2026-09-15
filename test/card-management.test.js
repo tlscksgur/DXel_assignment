@@ -120,13 +120,14 @@ test("그룹별 보기에서는 그룹이 지정되지 않은 명함을 제외�
   assert.match(source, /function removeGroupAssignment\(button\)/);
 });
 
-test("보기별로 명함 선택 상태를 분리해 이전 보기의 선택이 섞이지 않는다", () => {
+test("보기별로 명함 선택 상태를 분리하고 빈 선택 모드는 화면 전환 시 해제한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
 
   assert.match(source, /const selectedCardIdsByView = new Map\(/);
   assert.match(source, /const selectionModeByView = new Map\(/);
   assert.match(source, /let selectedCardIds = selectedCardIdsByView\.get\(viewMode\);/);
   assert.match(source, /let selectionMode = selectionModeByView\.get\(viewMode\);/);
+  assert.match(source, /if \(selectedCardIds\.size === 0\) \{[\s\S]*selectionMode = false;[\s\S]*selectionModeByView\.set\(viewMode, selectionMode\);/);
   assert.match(source, /function setViewMode\(nextViewMode\)[\s\S]*selectedCardIds = selectedCardIdsByView\.get\(viewMode\);[\s\S]*selectionMode = selectionModeByView\.get\(viewMode\);/);
   assert.match(source, /function setSelectionMode\(isActive\)[\s\S]*selectionModeByView\.set\(viewMode, selectionMode\);/);
   assert.match(source, /allViewToggle\.addEventListener\("click", \(\) => \{[\s\S]*setViewMode\("all"\)/);

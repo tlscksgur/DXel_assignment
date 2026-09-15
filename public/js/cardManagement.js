@@ -915,6 +915,11 @@ function setViewMode(nextViewMode) {
     return;
   }
 
+  if (selectedCardIds.size === 0) {
+    selectionMode = false;
+    selectionModeByView.set(viewMode, selectionMode);
+  }
+
   viewMode = nextViewMode;
   selectedCardIds = selectedCardIdsByView.get(viewMode);
   selectionMode = selectionModeByView.get(viewMode);
