@@ -242,6 +242,46 @@ function allowDuplicate(body = {}) {
   return body.allowDuplicate === true || body.allowDuplicate === "true";
 }
 
+function parseCardIds(value) {
+  const requestedIds = Array.isArray(value)
+    ? value
+    : String(value || "").split(",").filter(Boolean);
+  const cardIds = [...new Set(
+    requestedIds
+      .map(Number)
+      .filter((id) => Number.isInteger(id) && id > 0)
+  )];
+
+  return cardIds.length > 0 && cardIds.length === requestedIds.length
+    ? cardIds
+    : [];
+}
+
+function selectCardsForExport(req, res, callback) {
+  const hasSelection = req.query.ids !== undefined;
+  const cardIds = hasSelection ? parseCardIds(req.query.ids) : [];
+
+  if (hasSelection && cardIds.length === 0) {
+    res.status(400).json({
+      success: false,
+      message: "내보낼 명함을 올바르게 선택해 주세요."
+    });
+    return;
+  }
+
+  const where = hasSelection
+    ? `WHERE id IN (${cardIds.map(() => "?").join(", ")})`
+    : "";
+  const sql = `
+    SELECT *
+    FROM business_cards
+    ${where}
+    ORDER BY created_at DESC
+  `;
+
+  db.all(sql, cardIds, callback);
+}
+
 // ===== CSV 및 vCard 변환 =====
 function csvValue(value) {
   return `"${String(value || "").replace(/"/g, '""')}"`;
@@ -542,13 +582,7 @@ app.post("/api/cardStorage", saveCard);
 
 // ===== 전체 주소록 CSV·vCard 내보내기 API =====
 app.get("/api/cards/export/csv", (req, res) => {
-  const sql = `
-    SELECT *
-    FROM business_cards
-    ORDER BY created_at DESC
-  `;
-
-  db.all(sql, (error, rows) => {
+  selectCardsForExport(req, res, (error, rows) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -580,13 +614,7 @@ app.get("/api/cards/export/csv", (req, res) => {
 });
 
 app.get("/api/cards/export/vcard", (req, res) => {
-  const sql = `
-    SELECT *
-    FROM business_cards
-    ORDER BY created_at DESC
-  `;
-
-  db.all(sql, (error, rows) => {
+  selectCardsForExport(req, res, (error, rows) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -664,6 +692,84 @@ app.get("/api/cardSelect", (req, res) => {
       cards: rows
     });
   });
+});
+
+// ===== 선택 명함 그룹 지정·일괄 삭제 API =====
+app.patch("/api/cards/groups", (req, res) => {
+  const cardIds = parseCardIds(req.body.cardIds);
+  const groupName = singleLineText(req.body.groupName);
+
+  if (cardIds.length === 0 || !groupName || groupName.length > 40) {
+    return res.status(400).json({
+      success: false,
+      message: "명함과 40자 이내의 그룹 이름을 확인해 주세요."
+    });
+  }
+
+  const placeholders = cardIds.map(() => "?").join(", ");
+  db.run(
+    `UPDATE business_cards SET group_name = ? WHERE id IN (${placeholders})`,
+    [groupName, ...cardIds],
+    function (error) {
+      if (error) {
+        return res.status(500).json({
+          success: false,
+          message: "그룹 지정에 실패했습니다."
+        });
+      }
+
+      if (this.changes !== cardIds.length) {
+        return res.status(404).json({
+          success: false,
+          message: "선택한 명함 일부를 찾을 수 없습니다."
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "그룹 지정 완료",
+        updatedCount: this.changes
+      });
+    }
+  );
+});
+
+app.post("/api/cards/bulk-delete", (req, res) => {
+  const cardIds = parseCardIds(req.body.cardIds);
+
+  if (cardIds.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "삭제할 명함을 올바르게 선택해 주세요."
+    });
+  }
+
+  const placeholders = cardIds.map(() => "?").join(", ");
+  db.run(
+    `DELETE FROM business_cards WHERE id IN (${placeholders})`,
+    cardIds,
+    function (error) {
+      if (error) {
+        return res.status(500).json({
+          success: false,
+          message: "선택한 명함 삭제에 실패했습니다."
+        });
+      }
+
+      if (this.changes !== cardIds.length) {
+        return res.status(404).json({
+          success: false,
+          message: "선택한 명함 일부를 찾을 수 없습니다."
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "선택한 명함 삭제 완료",
+        deletedCount: this.changes
+      });
+    }
+  );
 });
 
 // ===== 명함 단건 조회·수정 API =====

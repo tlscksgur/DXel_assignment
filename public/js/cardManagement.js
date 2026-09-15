@@ -1,14 +1,37 @@
 const board = document.querySelector(".bcmBoard");
 const searchForm = document.querySelector(".cardSearchForm");
 const searchInput = document.querySelector("#cardSearch");
+const allViewToggle = document.querySelector(".allViewToggle");
+const groupViewToggle = document.querySelector(".groupViewToggle");
 const duplicateToggle = document.querySelector(".duplicateToggle");
+const duplicateCountBadge = document.querySelector(".duplicateCountBadge");
+const cardSortSelect = document.querySelector(".cardSortSelect");
+const sortDirectionButtons = [
+  document.querySelector('[data-sort-direction="asc"]'),
+  document.querySelector('[data-sort-direction="desc"]')
+].filter((button) => button?.dataset?.sortDirection);
+const selectionToggle = document.querySelector(".selectionToggle");
+const selectionInlineCount = document.querySelector(".selectionInlineCount");
+const selectionActionBar = document.querySelector(".selectionActionBar");
+const selectionBarCountValue = document.querySelector(".selectionBarCountValue");
 const resultSummary = document.querySelector(".resultSummary");
 const detailModal = document.querySelector(".cardDetailModal");
 const detailContent = document.querySelector(".cardDetailContent");
 const detailClose = document.querySelector(".cardDetailClose");
+const groupAssignModal = document.querySelector(".groupAssignModal");
+const groupAssignForm = document.querySelector(".groupAssignForm");
+const groupNameInput = document.querySelector("#groupName");
+const groupAssignStatus = document.querySelector(".groupAssignStatus");
+const groupAssignSelectedCards = document.querySelector(".groupAssignSelectedCards");
+const groupAssignExistingCount = document.querySelector(".groupAssignExistingCount");
+const groupQuickList = document.querySelector(".groupQuickList");
 
 let visibleCards = [];
-let showDuplicatesOnly = false;
+let viewMode = "all";
+let sortKey = "recent";
+let sortDirection = "desc";
+let selectionMode = false;
+const selectedCardIds = new Set();
 let searchTimer;
 let requestSequence = 0;
 let activeCardId = null;
@@ -20,6 +43,29 @@ function normalizedPhone(value) {
 
 function normalizedText(value) {
   return String(value || "").trim().toLocaleLowerCase();
+}
+
+function sortCards(cards, key = sortKey, direction = sortDirection) {
+  const directionMultiplier = direction === "asc" ? 1 : -1;
+
+  return [...cards].sort((first, second) => {
+    if (key === "recent") {
+      return (Number(first.id) - Number(second.id)) * directionMultiplier;
+    }
+
+    const firstValue = normalizedText(first[key]);
+    const secondValue = normalizedText(second[key]);
+    const comparison = firstValue.localeCompare(secondValue, "ko", {
+      numeric: true,
+      sensitivity: "base"
+    });
+
+    if (comparison !== 0) {
+      return comparison * directionMultiplier;
+    }
+
+    return (Number(first.id) - Number(second.id)) * directionMultiplier;
+  });
 }
 
 function areDuplicateCards(first, second) {
@@ -116,6 +162,8 @@ function getCardVariant(contact) {
 
 function createCard(contact) {
   const classes = getCardVariant(contact);
+  const cardId = Number(contact.id) || 0;
+  const isSelected = selectedCardIds.has(cardId);
   const name = escapeHtml(contact.name || "이름 없음");
   const company = escapeHtml(contact.company);
   const position = escapeHtml(contact.position);
@@ -123,9 +171,9 @@ function createCard(contact) {
   const email = escapeHtml(contact.email);
 
   return `
-    <article class="profileCard ${classes}" data-card-id="${Number(contact.id) || 0}" tabindex="0" role="button" aria-label="${name} 명함 상세 보기">
+    <article class="profileCard ${classes}${isSelected ? " is-selected" : ""}" data-card-id="${cardId}" tabindex="0" role="button" aria-pressed="${isSelected}" aria-label="${name} 명함 ${selectionMode ? "선택" : "상세 보기"}">
       <span class="pill">${company || "BUSINESS CARD"}</span>
-      <span class="cardId">#${Number(contact.id) || "-"}</span>
+      <span class="cardId">#${cardId || "-"}</span>
       <h2>${name}</h2>
       <p class="role">${[position, company].filter(Boolean).join(" · ")}</p>
       ${mobile ? `<p class="meta strong">${mobile}</p>` : ""}
@@ -401,12 +449,18 @@ function closeCardDetail() {
 }
 
 // ===== 전체 명함 및 중복 그룹 화면 렌더링 =====
+function renderEmptyCards(message) {
+  const isSearching = Boolean(String(searchInput.value || "").trim());
+  const emptyMessage = isSearching ? "검색 결과가 없습니다." : message;
+  board.innerHTML = `<p class="emptyCards">${escapeHtml(emptyMessage)}</p>`;
+}
+
 function renderAllCards(cards) {
-  board.classList.remove("duplicateMode");
+  board.classList.remove("duplicateMode", "groupMode");
   board.innerHTML = "";
 
   if (cards.length === 0) {
-    board.innerHTML = '<p class="emptyCards">검색 결과가 없습니다.</p>';
+    renderEmptyCards("등록된 명함이 없습니다.");
     return;
   }
 
@@ -415,12 +469,58 @@ function renderAllCards(cards) {
   });
 }
 
+function groupCardsByName(cards) {
+  const groups = new Map();
+
+  cards.forEach((card) => {
+    const groupName = String(card.group_name || "").trim();
+    if (!groupName) {
+      return;
+    }
+    if (!groups.has(groupName)) {
+      groups.set(groupName, []);
+    }
+    groups.get(groupName).push(card);
+  });
+
+  return groups;
+}
+
+function renderGroupedCards(cards) {
+  board.classList.remove("duplicateMode");
+  board.classList.add("groupMode");
+  board.innerHTML = "";
+  const groups = groupCardsByName(cards);
+
+  if (groups.size === 0) {
+    renderEmptyCards(cards.length === 0 ? "등록된 명함이 없습니다." : "지정된 그룹이 없습니다.");
+    return;
+  }
+
+  groups.forEach((groupCards, groupName) => {
+    const cardsMarkup = groupCards.map((card) => createCard(card)).join("");
+    board.insertAdjacentHTML(
+      "beforeend",
+      `
+        <section class="cardGroup" aria-label="${escapeHtml(groupName)} 그룹">
+          <div class="cardGroupHeader">
+            <strong>${escapeHtml(groupName)}</strong>
+            <span>${groupCards.length}장</span>
+          </div>
+          <div class="groupedCards">${cardsMarkup}</div>
+        </section>
+      `
+    );
+  });
+}
+
 function renderDuplicateGroups(groups) {
+  board.classList.remove("groupMode");
   board.classList.add("duplicateMode");
   board.innerHTML = "";
 
   if (groups.length === 0) {
-    board.innerHTML = '<p class="emptyCards">중복으로 판단된 명함이 없습니다.</p>';
+    renderEmptyCards(visibleCards.length === 0 ? "등록된 명함이 없습니다." : "중복으로 판단된 명함이 없습니다.");
     return;
   }
 
@@ -509,18 +609,232 @@ async function mergeDuplicateGroup(button) {
   }
 }
 
-// ===== 명함 목록 검색 및 불러오기 =====
-function renderCurrentView() {
-  if (showDuplicatesOnly) {
-    const groups = groupDuplicateCards(visibleCards);
-    renderDuplicateGroups(groups);
-    const duplicateCount = groups.reduce((total, group) => total + group.length, 0);
-    resultSummary.textContent = `중복 후보 ${groups.length}개 그룹 · ${duplicateCount}장`;
+// ===== 선택 명함 그룹 지정·삭제 API 요청 =====
+async function requestGroupAssignment(cardIds, groupName) {
+  const response = await fetch("/api/cards/groups", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ cardIds, groupName })
+  });
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "그룹을 지정하지 못했습니다.");
+  }
+
+  return result;
+}
+
+async function requestBulkDelete(cardIds) {
+  const response = await fetch("/api/cards/bulk-delete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ cardIds })
+  });
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "선택한 명함을 삭제하지 못했습니다.");
+  }
+
+  return result;
+}
+
+// ===== 선택 모드 및 하단 작업 바 =====
+function selectedIds() {
+  return Array.from(selectedCardIds);
+}
+
+function syncSelectionUi() {
+  const hasSelection = selectedCardIds.size > 0;
+  selectionActionBar.hidden = !hasSelection;
+  selectionBarCountValue.textContent = String(selectedCardIds.size);
+  selectionInlineCount.hidden = !hasSelection;
+  selectionInlineCount.textContent = `(${selectedCardIds.size}개 선택됨)`;
+  selectionToggle.classList.toggle("active", selectionMode);
+  selectionToggle.setAttribute("aria-pressed", String(selectionMode));
+}
+
+function setSelectionMode(isActive) {
+  selectionMode = isActive;
+  if (!selectionMode) {
+    selectedCardIds.clear();
+  }
+  syncSelectionUi();
+  renderCurrentView();
+}
+
+function toggleCardSelection(cardId) {
+  const numericId = Number(cardId);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
     return;
   }
 
-  renderAllCards(visibleCards);
-  resultSummary.textContent = `최근 등록순 ${visibleCards.length}장`;
+  if (selectedCardIds.has(numericId)) {
+    selectedCardIds.delete(numericId);
+  } else {
+    selectedCardIds.add(numericId);
+  }
+  syncSelectionUi();
+  renderCurrentView();
+}
+
+function selectedCardsForGroupAssignment() {
+  const selectedIdSet = new Set(selectedIds());
+  return visibleCards.filter((card) => selectedIdSet.has(Number(card.id)));
+}
+
+function renderGroupAssignmentOptions() {
+  const groupNames = [...new Set(
+    visibleCards
+      .map((card) => String(card.group_name || "").trim())
+      .filter(Boolean)
+  )].sort((first, second) => first.localeCompare(second, "ko"));
+  const selectedCards = selectedCardsForGroupAssignment();
+
+  groupAssignExistingCount.textContent = groupNames.length
+    ? `등록된 그룹 ${groupNames.length}개`
+    : "등록된 그룹 없음";
+  groupAssignSelectedCards.innerHTML = selectedCards
+    .map((card) => {
+      const primary = escapeHtml(card.name || card.company || "이름 없음");
+      const secondary = escapeHtml(card.company || "회사 미입력");
+      return `<span class="groupAssignTargetChip"><b>${primary}</b><small>${secondary}</small></span>`;
+    })
+    .join("");
+  groupQuickList.innerHTML = groupNames.length
+    ? groupNames.map((groupName) => `
+      <button type="button" class="groupQuickOption" data-group-name="${escapeHtml(groupName)}" role="listitem">
+        ${escapeHtml(groupName)}
+      </button>
+    `).join("")
+    : '<p class="groupQuickEmpty">아직 지정된 그룹이 없습니다. 새 그룹 이름을 입력해 주세요.</p>';
+}
+
+function openGroupAssignment() {
+  renderGroupAssignmentOptions();
+  groupAssignStatus.textContent = "";
+  groupNameInput.value = "";
+
+  if (typeof groupAssignModal.showModal === "function") {
+    groupAssignModal.showModal();
+  } else {
+    groupAssignModal.setAttribute("open", "");
+  }
+  groupNameInput.focus();
+}
+
+function closeGroupAssignment() {
+  if (typeof groupAssignModal.close === "function") {
+    groupAssignModal.close();
+  } else {
+    groupAssignModal.removeAttribute("open");
+  }
+}
+
+async function assignSelectedGroup() {
+  const groupName = groupNameInput.value.trim();
+  if (!groupName) {
+    groupAssignStatus.textContent = "그룹 이름을 입력해 주세요.";
+    return;
+  }
+
+  groupAssignForm.querySelectorAll("button, input").forEach((element) => {
+    element.disabled = true;
+  });
+  groupAssignStatus.textContent = "그룹을 지정하는 중입니다.";
+
+  try {
+    await requestGroupAssignment(selectedIds(), groupName);
+    closeGroupAssignment();
+    selectedCardIds.clear();
+    selectionMode = false;
+    syncSelectionUi();
+    await loadCards();
+  } catch (error) {
+    console.error(error);
+    groupAssignStatus.textContent = error.message;
+  } finally {
+    groupAssignForm.querySelectorAll("button, input").forEach((element) => {
+      element.disabled = false;
+    });
+  }
+}
+
+async function deleteSelectedCards() {
+  const cardIds = selectedIds();
+  if (
+    cardIds.length === 0 ||
+    !window.confirm(`선택한 명함 ${cardIds.length}장을 삭제할까요?`)
+  ) {
+    return;
+  }
+
+  try {
+    await requestBulkDelete(cardIds);
+    selectedCardIds.clear();
+    selectionMode = false;
+    syncSelectionUi();
+    await loadCards();
+  } catch (error) {
+    console.error(error);
+    window.alert(error.message);
+  }
+}
+
+function selectedExportPath(format, cardIds) {
+  const exportFormat = format === "vcard" ? "vcard" : "csv";
+  const params = new URLSearchParams({ ids: cardIds.join(",") });
+  return `/api/cards/export/${exportFormat}?${params.toString()}`;
+}
+
+function exportSelectedCards(format) {
+  const cardIds = selectedIds();
+  if (cardIds.length > 0) {
+    window.location.assign(selectedExportPath(format, cardIds));
+  }
+}
+
+// ===== 명함 목록 검색 및 불러오기 =====
+function renderCurrentView() {
+  const sortedCards = sortCards(visibleCards);
+  const duplicateGroups = groupDuplicateCards(sortedCards);
+  duplicateCountBadge.textContent = String(duplicateGroups.length);
+  duplicateCountBadge.hidden = duplicateGroups.length === 0;
+  allViewToggle.classList.toggle("active", viewMode === "all");
+  allViewToggle.setAttribute("aria-pressed", String(viewMode === "all"));
+  groupViewToggle.classList.toggle("active", viewMode === "groups");
+  groupViewToggle.setAttribute("aria-pressed", String(viewMode === "groups"));
+  duplicateToggle.classList.toggle("active", viewMode === "duplicates");
+  duplicateToggle.setAttribute("aria-pressed", String(viewMode === "duplicates"));
+  sortDirectionButtons.forEach((button) => {
+    const isActive = button.dataset.sortDirection === sortDirection;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+
+  if (viewMode === "duplicates") {
+    renderDuplicateGroups(duplicateGroups);
+    const duplicateCount = duplicateGroups.reduce((total, group) => total + group.length, 0);
+    resultSummary.textContent = `중복 ${duplicateGroups.length}그룹 · ${duplicateCount}장`;
+    return;
+  }
+
+  if (viewMode === "groups") {
+    const groups = groupCardsByName(sortedCards);
+    const groupedCardCount = Array.from(groups.values())
+      .reduce((total, cards) => total + cards.length, 0);
+    renderGroupedCards(sortedCards);
+    resultSummary.textContent = `그룹 ${groups.size}개 · ${groupedCardCount}장`;
+    return;
+  }
+
+  renderAllCards(sortedCards);
+  resultSummary.textContent = `전체 ${visibleCards.length}장`;
 }
 
 async function loadCards() {
@@ -543,6 +857,13 @@ async function loadCards() {
     }
 
     visibleCards = result.cards || [];
+    const visibleIds = new Set(visibleCards.map((card) => Number(card.id)));
+    selectedCardIds.forEach((cardId) => {
+      if (!visibleIds.has(cardId)) {
+        selectedCardIds.delete(cardId);
+      }
+    });
+    syncSelectionUi();
     renderCurrentView();
   } catch (error) {
     console.error(error);
@@ -553,7 +874,7 @@ async function loadCards() {
   }
 }
 
-// ===== 검색·중복 보기·명함 선택 이벤트 =====
+// ===== 검색·보기 전환·명함 선택 이벤트 =====
 searchForm.addEventListener("submit", (event) => {
   event.preventDefault();
   loadCards();
@@ -564,12 +885,53 @@ searchInput.addEventListener("input", () => {
   searchTimer = setTimeout(loadCards, 250);
 });
 
-duplicateToggle.addEventListener("click", () => {
-  showDuplicatesOnly = !showDuplicatesOnly;
-  duplicateToggle.classList.toggle("active", showDuplicatesOnly);
-  duplicateToggle.setAttribute("aria-pressed", String(showDuplicatesOnly));
-  duplicateToggle.textContent = showDuplicatesOnly ? "전체 명함 보기" : "중복 모아보기";
+allViewToggle.addEventListener("click", () => {
+  viewMode = "all";
   renderCurrentView();
+});
+
+groupViewToggle.addEventListener("click", () => {
+  viewMode = viewMode === "groups" ? "all" : "groups";
+  renderCurrentView();
+});
+
+duplicateToggle.addEventListener("click", () => {
+  viewMode = viewMode === "duplicates" ? "all" : "duplicates";
+  renderCurrentView();
+});
+
+cardSortSelect.addEventListener("change", () => {
+  sortKey = cardSortSelect.value;
+  renderCurrentView();
+});
+
+sortDirectionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    sortDirection = button.dataset.sortDirection;
+    renderCurrentView();
+  });
+});
+
+selectionToggle.addEventListener("click", () => {
+  setSelectionMode(!selectionMode);
+});
+
+selectionActionBar.addEventListener("click", (event) => {
+  const actionButton = event.target.closest("[data-selection-action]");
+  if (!actionButton) {
+    return;
+  }
+
+  const action = actionButton.dataset.selectionAction;
+  if (action === "export-csv") {
+    exportSelectedCards("csv");
+  } else if (action === "export-vcard") {
+    exportSelectedCards("vcard");
+  } else if (action === "group") {
+    openGroupAssignment();
+  } else if (action === "delete") {
+    deleteSelectedCards();
+  }
 });
 
 board.addEventListener("click", (event) => {
@@ -583,7 +945,11 @@ board.addEventListener("click", (event) => {
 
   const card = event.target.closest(".profileCard");
   if (card) {
-    openCardDetail(card.dataset.cardId);
+    if (selectionMode) {
+      toggleCardSelection(card.dataset.cardId);
+    } else {
+      openCardDetail(card.dataset.cardId);
+    }
   }
 });
 
@@ -595,7 +961,30 @@ board.addEventListener("keydown", (event) => {
   const card = event.target.closest(".profileCard");
   if (card) {
     event.preventDefault();
-    openCardDetail(card.dataset.cardId);
+    if (selectionMode) {
+      toggleCardSelection(card.dataset.cardId);
+    } else {
+      openCardDetail(card.dataset.cardId);
+    }
+  }
+});
+
+groupAssignForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  assignSelectedGroup();
+});
+
+groupAssignModal.addEventListener("click", (event) => {
+  const groupChoice = event.target.closest?.("[data-group-name]");
+  if (groupChoice) {
+    groupNameInput.value = groupChoice.dataset.groupName || "";
+    groupNameInput.focus();
+    return;
+  }
+
+  const cancelButton = event.target.closest?.('[data-group-action="cancel"]');
+  if (cancelButton || event.target === groupAssignModal) {
+    closeGroupAssignment();
   }
 });
 

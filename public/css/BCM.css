@@ -39,15 +39,15 @@ body.bcm-page .bcmBoard {
 }
 
 .bcmTools {
-  width: min(760px, 100%);
+  width: min(1280px, 100%);
   margin: 0 auto 42px;
   text-align: center;
 }
 
 .cardSearchForm {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  width: min(760px, 100%);
+  margin: 0 auto;
+  display: block;
 }
 
 .cardSearchField {
@@ -85,7 +85,8 @@ body.bcm-page .bcmBoard {
 }
 
 .cardSearchField button,
-.duplicateToggle {
+.viewModeControls button,
+.selectionToggle {
   height: 52px;
   border: 0;
   font: inherit;
@@ -100,25 +101,180 @@ body.bcm-page .bcmBoard {
   color: #fff;
 }
 
-.duplicateToggle {
-  padding: 0 15px;
-  border: 1px solid rgba(3, 22, 50, .18);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, .82);
-  color: #031632;
-  transition: background .2s ease, color .2s ease;
+.cardListControls {
+  width: min(1207px, 100%);
+  margin-top: 18px;
+  margin-right: auto;
+  margin-left: auto;
+  padding-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-top: 1px solid rgba(3, 22, 50, .08);
 }
 
-.duplicateToggle.active {
-  background: #a94b3f;
+.viewModeControls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1.5px;
+  border: 1px solid rgba(3, 22, 50, .08);
+  border-radius: 10px;
+  background: rgba(231, 228, 223, .72);
+}
+
+.viewModeControls button,
+.selectionToggle {
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #031632;
+  font-size: 12px;
+  transition: background .2s ease, box-shadow .2s ease, color .2s ease;
+}
+
+.viewModeControls button.active {
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(3, 22, 50, .12);
+  font-weight: 800;
+}
+
+.sortControls,
+.sortDirectionControls {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sortControls {
+  gap: 8px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(3, 22, 50, .1);
+}
+
+.cardSortSelect,
+.sortDirectionButton {
+  height: 31px;
+  border: 1px solid rgba(3, 22, 50, .1);
+  background: rgba(255, 255, 255, .9);
+  color: #3f3c37;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cardSortSelect {
+  min-width: 108px;
+  padding: 0 28px 0 11px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(3, 22, 50, .06);
+}
+
+.sortDirectionControls {
+  overflow: hidden;
+  border: 1px solid rgba(3, 22, 50, .1);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(3, 22, 50, .06);
+}
+
+.sortDirectionButton {
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, .72);
+  color: #8b8780;
+}
+
+.sortDirectionButton + .sortDirectionButton {
+  border-left: 1px solid rgba(3, 22, 50, .08);
+}
+
+.sortDirectionButton.active {
+  background: #fff;
+  color: #031632;
+  font-weight: 800;
+}
+
+.duplicateCountBadge {
+  min-width: 21px;
+  height: 21px;
+  margin-left: 6px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e8a814;
+  border-radius: 999px;
+  background: #fff4ca;
+  color: #9a6500;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.selectionToggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid rgba(3, 22, 50, .1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 2px 7px rgba(3, 22, 50, .08);
+}
+
+.selectionToggleIcon {
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(3, 22, 50, .5);
+  border-radius: 4px;
+  background: transparent;
+  color: transparent;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.selectionToggle.active {
+  border-color: rgba(3, 22, 50, .28);
+  background: #fff;
+}
+
+.selectionToggle.active .selectionToggleIcon {
+  border-color: #031632;
+  background: #031632;
   color: #fff;
 }
 
+.selectionInlineCount {
+  color: #2563eb;
+  font-size: 12px;
+}
+
 .resultSummary {
-  min-height: 18px;
-  margin-top: 12px;
-  color: #77736c;
-  font-size: 13px;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: rgba(231, 228, 223, .72);
+  color: #3f3c37;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.resultSummary::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .bcmBoard {
@@ -138,15 +294,69 @@ body.bcm-page .bcmBoard {
   justify-content: center;
 }
 
+.bcmBoard.groupMode {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cardGroup {
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  padding: 23px;
+  border: 1px solid rgba(3, 22, 50, .1);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, .52);
+}
+
+.cardGroupHeader {
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #031632;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cardGroupHeader span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(3, 22, 50, .08);
+  color: #031632;
+}
+
+.groupedCards,
+.duplicateCards {
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: 305px;
+  grid-template-columns: none;
+  justify-content: start;
+  align-items: start;
+  gap: 24px;
+  overflow: visible;
+  padding: 4px 4px 18px;
+  overscroll-behavior-inline: contain;
+}
+
+.duplicateCards {
+  padding: 6px 4px 17px;
+}
+
 .duplicateGroup {
-  flex: 0 1 400px;
+  flex: 0 1 auto;
+  width: fit-content;
   max-width: 100%;
   min-width: 0;
   padding: 23px;
   border: 1px solid rgba(169, 75, 63, .24);
   border-radius: 20px;
   background: rgba(255, 255, 255, .52);
-  box-shadow: 0 16px 38px rgba(23, 27, 36, .06);
 }
 
 .duplicateGroupHeader {
@@ -196,13 +406,6 @@ body.bcm-page .bcmBoard {
   opacity: .55;
 }
 
-.duplicateCards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 305px);
-  justify-content: center;
-  gap: 20px;
-}
-
 .emptyCards {
   grid-column: 1 / -1;
   padding: 72px 20px;
@@ -211,6 +414,13 @@ body.bcm-page .bcmBoard {
   background: rgba(255, 255, 255, .45);
   color: #77736c;
   text-align: center;
+}
+
+.bcmBoard.groupMode .emptyCards,
+.bcmBoard.duplicateMode .emptyCards {
+  width: min(1376px, 100%);
+  height: 165.5px;
+  flex: 0 1 1376px;
 }
 
 .profileCard {
@@ -241,6 +451,94 @@ body.bcm-page .bcmBoard {
   outline: 3px solid #a94b3f;
   outline-offset: 5px;
   transform: translateY(-4px) rotate(0deg);
+}
+
+.profileCard.is-selected {
+  border: 3px solid rgba(3, 22, 50, .42);
+  box-shadow: none;
+}
+
+.selectionActionBar {
+  position: fixed;
+  z-index: 12;
+  left: 50%;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  background: #151a2a;
+  box-shadow: 0 18px 50px rgba(3, 22, 50, .28);
+  transform: translateX(-50%);
+}
+
+.selectionActionBar[hidden] {
+  display: none;
+}
+
+.selectionBarCount {
+  padding: 0 13px 0 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-right: 1px solid rgba(255, 255, 255, .16);
+  color: rgba(255, 255, 255, .86);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.selectionBarCountValue {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #2d6cdf;
+  color: #fff;
+  font-size: 12px;
+}
+
+.selectionActionBar button {
+  min-width: 0;
+  height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, .82);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.selectionActionBar svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.selectionActionBar button:hover,
+.selectionActionBar button:focus-visible {
+  background: rgba(255, 255, 255, .12);
+  outline: none;
+}
+
+.selectionActionBar button[data-selection-action="delete"] {
+  color: #ff7f78;
 }
 
 .tilt-left {
@@ -417,6 +715,260 @@ body.bcm-page .cardId {
 
 body.detailOpen {
   overflow: hidden;
+}
+
+.groupAssignModal {
+  width: min(620px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  color: #031632;
+  box-shadow: 0 30px 90px rgba(3, 22, 50, .3);
+}
+
+.groupAssignModal::backdrop {
+  background: rgba(3, 15, 31, .6);
+  backdrop-filter: blur(5px);
+}
+
+.groupAssignForm {
+  padding: 0;
+}
+
+.groupAssignHeader {
+  padding: 17px 30px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid rgba(3, 22, 50, .08);
+}
+
+.groupAssignHeader h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-size: 24px;
+}
+
+.groupAssignHeader h2::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #8eb9ff;
+}
+
+.groupAssignHeader p {
+  margin-top: 7px;
+  color: #788596;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.groupAssignClose {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #8794a6;
+  font: inherit;
+  font-size: 29px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.groupAssignClose:hover,
+.groupAssignClose:focus-visible {
+  background: rgba(3, 22, 50, .06);
+  color: #031632;
+  outline: none;
+}
+
+.groupAssignTargets {
+  min-height: 69px;
+  padding: 13px 30px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border-bottom: 1px solid rgba(3, 22, 50, .08);
+  background: rgba(246, 249, 253, .74);
+}
+
+.groupAssignTargets > span {
+  flex: 0 0 auto;
+  color: #8a96a5;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.groupAssignSelectedCards {
+  display: flex;
+  min-width: 0;
+  gap: 7px;
+  overflow-x: auto;
+}
+
+.groupAssignTargetChip {
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(50, 112, 223, .14);
+  border-radius: 999px;
+  background: #fff;
+  color: #2b3a50;
+  font-size: 12px;
+}
+
+.groupAssignTargetChip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+
+.groupAssignTargetChip small {
+  max-width: 100px;
+  overflow: hidden;
+  color: #8a96a5;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupAssignBody {
+  padding: 23px 30px 0;
+}
+
+.groupAssignLabelRow {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.groupAssignForm label {
+  display: block;
+  color: #77736c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.groupAssignExistingCount {
+  color: #9aa5b4;
+  font-size: 12px;
+}
+
+.groupAssignForm input {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid rgba(3, 22, 50, .2);
+  border-radius: 12px;
+  outline: none;
+  color: #031632;
+  font: inherit;
+}
+
+.groupAssignForm input:focus {
+  border-color: #031632;
+  box-shadow: 0 0 0 3px rgba(3, 22, 50, .1);
+}
+
+.groupQuickSection {
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px solid rgba(3, 22, 50, .07);
+  border-radius: 14px;
+  background: #fafbfd;
+}
+
+.groupQuickSection > p {
+  margin-bottom: 10px;
+  color: #8a96a5;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.groupQuickList {
+  display: grid;
+  gap: 7px;
+  max-height: 162px;
+  overflow-y: auto;
+}
+
+.groupQuickOption {
+  min-height: 37px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(3, 22, 50, .09);
+  border-radius: 9px;
+  background: #fff;
+  color: #314158;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.groupQuickOption:hover,
+.groupQuickOption:focus-visible {
+  border-color: rgba(45, 108, 223, .42);
+  background: #f4f8ff;
+  color: #174c9e;
+  outline: none;
+}
+
+.groupQuickEmpty {
+  color: #8a96a5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.groupAssignStatus {
+  min-height: 20px;
+  margin: 8px 30px 0;
+  color: #a94b3f;
+  font-size: 12px;
+}
+
+.groupAssignActions {
+  margin-top: 14px;
+  padding: 17px 30px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.groupAssignActions button {
+  height: 42px;
+  padding: 0 18px;
+  border: 1px solid #031632;
+  border-radius: 11px;
+  background: #031632;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.groupAssignActions button[data-group-action="cancel"] {
+  background: #fff;
+  color: #031632;
 }
 
 .cardDetailModal {
@@ -727,10 +1279,6 @@ textarea.cardDetailInput {
     margin-bottom: 28px;
   }
 
-  .cardSearchForm {
-    grid-template-columns: 1fr;
-  }
-
   .cardSearchField {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -744,8 +1292,64 @@ textarea.cardDetailInput {
     padding: 0 15px;
   }
 
-  .duplicateToggle {
+  .cardListControls {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .viewModeControls {
+    order: 3;
     width: 100%;
+  }
+
+  .viewModeControls button {
+    flex: 1;
+  }
+
+  .groupedCards,
+  .duplicateCards {
+    grid-auto-columns: 305px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .sortControls {
+    order: 4;
+    width: 100%;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .cardSortSelect {
+    flex: 1;
+  }
+
+  .selectionActionBar {
+    width: calc(100% - 24px);
+    bottom: 12px;
+    justify-content: center;
+  }
+
+  .selectionActionBar button {
+    flex: 1;
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .selectionBarCount {
+    padding-right: 9px;
+  }
+
+  .cardGroup {
+    padding: 14px 0;
+  }
+
+  .cardGroupHeader {
+    padding: 0 14px;
+  }
+
+  .groupedCards {
+    grid-template-columns: 305px;
   }
 
   .bcmBoard {
@@ -869,20 +1473,31 @@ textarea.cardDetailInput {
   }
 
   .bcmTools {
-    width: min(800px, 100%);
+    width: min(1440px, 100%);
     margin-bottom: 44px;
   }
 
+  .cardListControls {
+    width: min(1367px, 100%);
+  }
+
+  .cardSearchForm {
+    width: min(800px, 100%);
+  }
+
   .cardSearchField input,
-  .cardSearchField button,
-  .duplicateToggle {
+  .cardSearchField button {
     height: 54px;
     font-size: 14px;
   }
 
   .resultSummary {
-    margin-top: 14px;
-    font-size: 14px;
+    font-size: 12px;
+  }
+
+  .selectionToggle {
+    height: 32px;
+    font-size: 12px;
   }
 
   .bcmBoard {
@@ -892,7 +1507,7 @@ textarea.cardDetailInput {
   }
 
   .duplicateGroup {
-    flex: 0 1 420px;
+    flex: 0 1 auto;
     padding: 22px;
   }
 
@@ -902,8 +1517,12 @@ textarea.cardDetailInput {
   }
 
   .duplicateCards {
-    grid-template-columns: repeat(auto-fill, 323px);
+    grid-auto-columns: 323px;
     gap: 20px;
+  }
+
+  .groupedCards {
+    grid-auto-columns: 323px;
   }
 
   .profileCard {
@@ -948,24 +1567,31 @@ textarea.cardDetailInput {
   }
 
   .bcmTools {
-    width: min(900px, 100%);
+    width: min(1680px, 100%);
     margin-bottom: 50px;
   }
 
-  .cardSearchForm {
-    gap: 16px;
+  .cardListControls {
+    width: min(1607px, 100%);
   }
 
-  .cardSearchField,
-  .duplicateToggle {
+  .cardSearchForm {
+    width: min(900px, 100%);
+  }
+
+  .cardSearchField {
     border-radius: 20px;
   }
 
   .cardSearchField input,
-  .cardSearchField button,
-  .duplicateToggle {
+  .cardSearchField button {
     height: 58px;
     font-size: 15px;
+  }
+
+  .selectionToggle {
+    height: 34px;
+    font-size: 13px;
   }
 
   .cardSearchField input {
@@ -976,14 +1602,9 @@ textarea.cardDetailInput {
     padding: 0 28px;
   }
 
-  .duplicateToggle {
-    padding: 0 22px;
-  }
-
   .resultSummary {
     min-height: 22px;
-    margin-top: 16px;
-    font-size: 16px;
+    font-size: 13px;
   }
 
   .bcmBoard {
@@ -993,7 +1614,7 @@ textarea.cardDetailInput {
   }
 
   .duplicateGroup {
-    flex: 0 1 450px;
+    flex: 0 1 auto;
     padding: 24px;
     border-radius: 24px;
   }
@@ -1004,8 +1625,12 @@ textarea.cardDetailInput {
   }
 
   .duplicateCards {
-    grid-template-columns: repeat(auto-fill, 348px);
+    grid-auto-columns: 348px;
     gap: 22px;
+  }
+
+  .groupedCards {
+    grid-auto-columns: 348px;
   }
 
   .profileCard {
@@ -1051,24 +1676,31 @@ textarea.cardDetailInput {
   }
 
   .bcmTools {
-    width: min(1050px, 100%);
+    width: min(2200px, 100%);
     margin-bottom: 60px;
   }
 
+  .cardListControls {
+    width: min(2127px, 100%);
+  }
+
   .cardSearchForm {
-    gap: 20px;
+    width: min(1050px, 100%);
   }
 
   .cardSearchField input,
-  .cardSearchField button,
-  .duplicateToggle {
+  .cardSearchField button {
     height: 66px;
     font-size: 17px;
   }
 
+  .selectionToggle {
+    height: 38px;
+    font-size: 14px;
+  }
+
   .resultSummary {
-    margin-top: 20px;
-    font-size: 19px;
+    font-size: 14px;
   }
 
   .bcmBoard {
@@ -1078,7 +1710,7 @@ textarea.cardDetailInput {
   }
 
   .duplicateGroup {
-    flex-basis: 500px;
+    flex-basis: auto;
     padding: 28px;
   }
 
@@ -1088,8 +1720,12 @@ textarea.cardDetailInput {
   }
 
   .duplicateCards {
-    grid-template-columns: repeat(auto-fill, 393px);
+    grid-auto-columns: 393px;
     gap: 26px;
+  }
+
+  .groupedCards {
+    grid-auto-columns: 393px;
   }
 
   .profileCard {

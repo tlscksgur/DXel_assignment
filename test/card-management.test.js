@@ -6,12 +6,238 @@ const { test } = require("node:test");
 
 const projectRoot = path.join(__dirname, "..");
 
-test("명함관리 화면에 검색창과 중복 모아보기 버튼이 있다", () => {
+test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복·선택 보기를 제공한다", () => {
   const html = fs.readFileSync(path.join(projectRoot, "public/BCM.html"), "utf8");
 
   assert.match(html, /id="cardSearch"/);
+  assert.match(html, /class="cardListControls"/);
+  assert.match(html, /class="resultSummary"/);
+  assert.match(html, /class="allViewToggle active"[^>]*>[\s\S]*전체/);
+  assert.match(html, /class="groupViewToggle"[^>]*>[\s\S]*그룹별 보기/);
   assert.match(html, /class="duplicateToggle"/);
-  assert.match(html, /중복 모아보기/);
+  assert.match(html, /중복 의심 보기/);
+  assert.match(html, /class="duplicateCountBadge"/);
+  assert.match(html, /class="cardSortSelect"/);
+  assert.match(html, /value="recent"[^>]*>최근 등록순/);
+  assert.match(html, /value="name"[^>]*>이름순/);
+  assert.match(html, /value="company"[^>]*>회사순/);
+  assert.match(html, /class="sortDirectionButton active"[^>]*data-sort-direction="desc"[^>]*>내림차순/);
+  assert.match(html, /data-sort-direction="asc"[^>]*>오름차순/);
+  assert.match(html, /class="selectionToggle"[^>]*>[\s\S]*선택/);
+  assert.match(html, /class="selectionInlineCount"/);
+  const searchForm = html.match(/<form class="cardSearchForm"[\s\S]*?<\/form>/)?.[0] || "";
+  assert.doesNotMatch(searchForm, /class="duplicateToggle"/);
+  assert.doesNotMatch(html, /총\s*\d+개\s*보관/);
+});
+
+test("명함 목록은 선택한 기준과 방향으로 정렬한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const inertElement = {
+    value: "recent",
+    innerHTML: "",
+    hidden: true,
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    insertAdjacentHTML() {},
+    setAttribute() {},
+    querySelectorAll() { return []; }
+  };
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector: () => inertElement,
+      querySelectorAll: () => []
+    },
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({ success: true, cards: [] })
+    }),
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+  const cards = [
+    { id: 2, name: "Beta", company: "Alpha" },
+    { id: 3, name: "Alpha", company: "Charlie" },
+    { id: 1, name: "Charlie", company: "Beta" }
+  ];
+
+  assert.deepEqual(
+    Array.from(context.sortCards(cards, "recent", "desc"), (card) => card.id),
+    [3, 2, 1]
+  );
+  assert.deepEqual(
+    Array.from(context.sortCards(cards, "name", "asc"), (card) => card.id),
+    [3, 2, 1]
+  );
+  assert.deepEqual(
+    Array.from(context.sortCards(cards, "company", "desc"), (card) => card.id),
+    [3, 1, 2]
+  );
+});
+
+test("그룹별 보기에서는 그룹이 지정되지 않은 명함을 제외한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    hidden: true,
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    insertAdjacentHTML() {},
+    setAttribute() {},
+    querySelectorAll() { return []; }
+  };
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector: () => inertElement,
+      querySelectorAll: () => []
+    },
+    fetch: async () => ({
+      ok: true,
+      json: async () => ({ success: true, cards: [] })
+    }),
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+  const groups = context.groupCardsByName([
+    { id: 1, group_name: "거래처" },
+    { id: 2, group_name: "" },
+    { id: 3, group_name: null }
+  ]);
+
+  assert.equal(groups.size, 1);
+  assert.equal(groups.has("거래처"), true);
+  assert.equal(groups.has("그룹 미지정"), false);
+  assert.match(source, /지정된 그룹이 없습니다\./);
+});
+
+test("빈 명함 목록은 검색 여부와 보기 방식에 맞는 동일 크기 안내 영역을 표시한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(source, /function renderEmptyCards\(message\)/);
+  assert.match(source, /등록된 명함이 없습니다\./);
+  assert.match(source, /검색 결과가 없습니다\./);
+  assert.match(source, /renderEmptyCards\(cards\.length === 0/);
+  assert.match(source, /renderEmptyCards\(visibleCards\.length === 0/);
+  assert.match(css, /\.bcmBoard\.groupMode \.emptyCards,[\s\S]*\.bcmBoard\.duplicateMode \.emptyCards\s*\{[\s\S]*width:\s*min\(1376px,\s*100%\);[\s\S]*height:\s*165\.5px;[\s\S]*flex:\s*0 1 1376px;/);
+});
+
+test("선택 작업 바는 CSV·vCard 내보내기와 그룹 지정·삭제를 명확한 아이콘으로 제공한다", () => {
+  const html = fs.readFileSync(path.join(projectRoot, "public/BCM.html"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+  const selectedCardRule = css.match(/\.profileCard\.is-selected\s*\{([^}]*)\}/)?.[1] || "";
+
+  const actionBar = html.match(/<aside class="selectionActionBar"[\s\S]*?<\/aside>/)?.[0] || "";
+  assert.match(actionBar, /class="selectionBarCount"[\s\S]*선택됨/);
+  assert.match(actionBar, /data-selection-action="export-csv"[^>]*>[\s\S]*CSV/);
+  assert.match(actionBar, /data-selection-action="export-vcard"[^>]*>[\s\S]*vCard/);
+  assert.match(actionBar, /data-selection-action="group"[^>]*>[\s\S]*그룹 지정/);
+  assert.match(actionBar, /data-selection-action="delete"[^>]*>[\s\S]*삭제/);
+  assert.equal((actionBar.match(/<button/g) || []).length, 4);
+  assert.equal((actionBar.match(/<svg/g) || []).length, 4);
+  assert.doesNotMatch(css, /selectionActionBar button\[data-selection-action=.*::before/);
+  assert.match(selectedCardRule, /border:\s*3px solid rgba\(3,\s*22,\s*50,\s*\.42\);/);
+  assert.match(selectedCardRule, /box-shadow:\s*none;/);
+  assert.doesNotMatch(selectedCardRule, /outline|outline-offset|transform/);
+  assert.doesNotMatch(html, /cardSelectionIndicator|selectionCheckbox/);
+});
+
+test("그룹 지정 창은 선택 대상과 기존 그룹 빠른 선택을 제공하며 불필요한 옵션은 표시하지 않는다", () => {
+  const html = fs.readFileSync(path.join(projectRoot, "public/BCM.html"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+
+  const modal = html.match(/<dialog class="groupAssignModal"[\s\S]*?<\/dialog>/)?.[0] || "";
+  assert.match(modal, /class="groupAssignHeader"/);
+  assert.match(modal, /class="groupAssignSelectedCards"/);
+  assert.match(modal, /class="groupQuickList"/);
+  assert.match(modal, /data-group-action="cancel"/);
+  assert.doesNotMatch(modal, /태그 색상|덮어쓰기|교체/);
+  assert.match(source, /function renderGroupAssignmentOptions\(\)/);
+  assert.match(source, /data-group-name=/);
+});
+
+test("선택 명함 CSV와 vCard는 각각 올바른 내보내기 API를 사용한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const context = { URLSearchParams };
+
+  vm.runInNewContext(source.match(/function selectedExportPath[\s\S]*?\n\}/)?.[0] || "", context);
+
+  assert.equal(context.selectedExportPath("csv", [9, 7]), "/api/cards/export/csv?ids=9%2C7");
+  assert.equal(context.selectedExportPath("vcard", [9, 7]), "/api/cards/export/vcard?ids=9%2C7");
+});
+
+test("그룹 저장소와 선택 명함 일괄 처리 API를 제공한다", () => {
+  const databaseSource = fs.readFileSync(path.join(projectRoot, "database/db.js"), "utf8");
+  const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+
+  assert.match(databaseSource, /group_name TEXT/);
+  assert.match(databaseSource, /PRAGMA table_info\(business_cards\)/);
+  assert.match(databaseSource, /ALTER TABLE business_cards ADD COLUMN group_name TEXT/);
+  assert.match(serverSource, /app\.patch\("\/api\/cards\/groups"/);
+  assert.match(serverSource, /app\.post\("\/api\/cards\/bulk-delete"/);
+  assert.match(serverSource, /req\.query\.ids/);
+});
+
+test("선택 명함의 그룹 지정과 삭제 요청은 ID 전체를 전송한다", async () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    open: false,
+    hidden: true,
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    insertAdjacentHTML() {},
+    setAttribute() {},
+    removeAttribute() {},
+    showModal() {},
+    close() {},
+    focus() {},
+    querySelectorAll() { return []; }
+  };
+  const requests = [];
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector: () => inertElement
+    },
+    fetch: async (url, options = {}) => {
+      requests.push({ url, options });
+      return {
+        ok: true,
+        json: async () => ({ success: true, cards: [] })
+      };
+    },
+    location: { assign() {} },
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+  requests.length = 0;
+
+  await context.requestGroupAssignment([9, 7], "거래처");
+  await context.requestBulkDelete([9, 7]);
+
+  assert.equal(requests[0].url, "/api/cards/groups");
+  assert.equal(requests[0].options.method, "PATCH");
+  assert.deepEqual(JSON.parse(requests[0].options.body), {
+    cardIds: [9, 7],
+    groupName: "거래처"
+  });
+  assert.equal(requests[1].url, "/api/cards/bulk-delete");
+  assert.equal(requests[1].options.method, "POST");
+  assert.deepEqual(JSON.parse(requests[1].options.body), { cardIds: [9, 7] });
+  assert.match(source, /function renderGroupedCards/);
 });
 
 test("모든 화면의 CSV 옆에 전체 주소록 vCard 내보내기를 제공한다", () => {
@@ -55,7 +281,7 @@ test("명함 카드 크기를 305x204로 유지한다", () => {
   );
   assert.match(
     css,
-    /\.duplicateCards\s*\{[\s\S]*grid-template-columns:\s*repeat\(auto-fill,\s*305px\)/
+    /\.duplicateCards\s*\{[\s\S]*grid-auto-columns:\s*305px/
   );
   assert.match(
     css,
@@ -63,8 +289,12 @@ test("명함 카드 크기를 305x204로 유지한다", () => {
   );
 });
 
-test("중복 후보 그룹은 가운데에서 시작해 최대 3개씩 줄바꿈한다", () => {
+test("중복 후보와 일반 그룹은 세로 2장씩 채운 뒤 다음 열로 배치한다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+  const groupModeRule = css.match(/\.bcmBoard\.groupMode\s*\{([^}]*)\}/)?.[1] || "";
+  const cardGroupRule = css.match(/\.cardGroup\s*\{([^}]*)\}/)?.[1] || "";
+  const duplicateGroupRule = css.match(/\.duplicateGroup\s*\{([^}]*)\}/)?.[1] || "";
+  const groupedCardsRule = css.match(/\.groupedCards,\s*\.duplicateCards\s*\{([^}]*)\}/)?.[1] || "";
 
   assert.match(
     css,
@@ -72,7 +302,40 @@ test("중복 후보 그룹은 가운데에서 시작해 최대 3개씩 줄바꿈
   );
   assert.match(
     css,
-    /\.duplicateGroup\s*\{[\s\S]*flex:\s*0 1 400px;[\s\S]*max-width:\s*100%;/
+    /\.duplicateGroup\s*\{[\s\S]*flex:\s*0 1 auto;[\s\S]*width:\s*fit-content;[\s\S]*max-width:\s*100%;/
+  );
+  assert.match(groupModeRule, /display:\s*flex;/);
+  assert.match(groupModeRule, /flex-wrap:\s*wrap;/);
+  assert.match(groupModeRule, /justify-content:\s*center;/);
+  assert.match(cardGroupRule, /flex:\s*0 1 auto;/);
+  assert.match(cardGroupRule, /width:\s*fit-content;/);
+  assert.match(cardGroupRule, /max-width:\s*100%;/);
+  assert.doesNotMatch(cardGroupRule, /box-shadow/);
+  assert.doesNotMatch(duplicateGroupRule, /box-shadow/);
+  assert.match(groupedCardsRule, /overflow:\s*visible;/);
+  assert.doesNotMatch(css, /\.groupedCards \.profileCard|\.duplicateCards \.profileCard/);
+  assert.match(
+    css,
+    /\.groupedCards,[\s\S]*\.duplicateCards\s*\{[\s\S]*grid-template-rows:\s*repeat\(2,\s*auto\);[\s\S]*grid-auto-flow:\s*column;[\s\S]*overflow:\s*visible;/
+  );
+  assert.match(css, /\.duplicateCards\s*\{[\s\S]*padding:\s*6px 4px 17px;/);
+  assert.match(
+    css,
+    /@media \(max-width:\s*680px\)[\s\S]*\.groupedCards,[\s\S]*\.duplicateCards\s*\{[\s\S]*grid-auto-columns:\s*305px;[\s\S]*overflow-x:\s*auto;/
+  );
+});
+
+test("목록 도구는 4px 더 넓고 명함 보드 안쪽에 정렬된다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(css, /\.cardListControls\s*\{[\s\S]*width:\s*min\(1207px,\s*100%\);/);
+  assert.match(
+    css,
+    /@media \(min-width:\s*1200px\) and \(max-width:\s*1599px\)[\s\S]*\.cardListControls\s*\{[\s\S]*width:\s*min\(1367px,\s*100%\);/
+  );
+  assert.match(
+    css,
+    /@media \(min-width:\s*1600px\)[\s\S]*\.cardListControls\s*\{[\s\S]*width:\s*min\(1607px,\s*100%\);/
   );
 });
 
