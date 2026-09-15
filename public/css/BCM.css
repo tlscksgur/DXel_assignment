@@ -331,10 +331,11 @@ body.bcm-page .bcmBoard {
 
 .groupedCards,
 .duplicateCards {
+  --group-card-width: 305px;
   display: grid;
   grid-template-rows: repeat(2, auto);
   grid-auto-flow: column;
-  grid-auto-columns: 305px;
+  grid-auto-columns: var(--group-card-width);
   grid-template-columns: none;
   justify-content: start;
   align-items: start;
@@ -346,6 +347,14 @@ body.bcm-page .bcmBoard {
 
 .duplicateCards {
   padding: 6px 4px 17px;
+}
+
+.groupedCardsOverflow {
+  margin-top: 24px;
+  grid-template-rows: none;
+  grid-auto-flow: row;
+  grid-template-columns: repeat(var(--group-column-count), var(--group-card-width));
+  grid-auto-columns: auto;
 }
 
 .duplicateGroup {
@@ -457,8 +466,13 @@ body.bcm-page .bcmBoard {
 }
 
 .profileCard.is-selected {
-  border: 3px solid rgba(3, 22, 50, .42);
+  border: 3px solid rgba(3, 22, 50, 0.643);
   box-shadow: none;
+}
+
+.profileCard.card-dark.is-selected,
+.profileCard.card-dark-grey.is-selected {
+  border-color: rgba(3, 22, 50, 0.643);
 }
 
 .selectionActionBar {
@@ -1529,7 +1543,7 @@ textarea.cardDetailInput {
   }
 
   .groupedCards {
-    grid-auto-columns: 323px;
+    --group-card-width: 323px;
   }
 
   .profileCard {
@@ -1637,7 +1651,7 @@ textarea.cardDetailInput {
   }
 
   .groupedCards {
-    grid-auto-columns: 348px;
+    --group-card-width: 348px;
   }
 
   .profileCard {
@@ -1732,7 +1746,7 @@ textarea.cardDetailInput {
   }
 
   .groupedCards {
-    grid-auto-columns: 393px;
+    --group-card-width: 393px;
   }
 
   .profileCard {

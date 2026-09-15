@@ -434,6 +434,28 @@ test("중복 후보와 일반 그룹은 세로 2장씩 채운 뒤 다음 열로 
   );
 });
 
+test("그룹 명함은 화면 폭에 맞춰 2줄 단위로 나누고 넘치는 카드는 다음 줄로 보낸다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(source, /function groupCardChunkSize\(\)/);
+  assert.match(source, /board\.clientWidth/);
+  assert.match(source, /Math\.min\(5, columnCount\)\) \* 2/);
+  assert.match(source, /const primaryCards = groupCards\.slice\(0, cardsPerChunk\)/);
+  assert.match(source, /const overflowCards = groupCards\.slice\(cardsPerChunk\)/);
+  assert.match(source, /class="groupedCards groupedCardsOverflow" style="--group-column-count:\$\{cardsPerChunk \/ 2\}"/);
+  assert.match(css, /\.groupedCardsOverflow\s*\{[\s\S]*grid-template-rows:\s*none;[\s\S]*grid-auto-flow:\s*row;[\s\S]*grid-template-columns:\s*repeat\(var\(--group-column-count\), var\(--group-card-width\)\);/);
+});
+
+test("어두운 명함은 선택 시 밝은 테두리로 구분한다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(
+    css,
+    /\.profileCard\.card-dark\.is-selected,[\s\S]*\.profileCard\.card-dark-grey\.is-selected\s*\{[\s\S]*border-color:\s*#2d6cdf;/
+  );
+});
+
 test("목록 도구는 4px 더 넓고 명함 보드 안쪽에 정렬된다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 

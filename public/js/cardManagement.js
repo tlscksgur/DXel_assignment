@@ -498,6 +498,25 @@ function groupCardsByName(cards) {
   return groups;
 }
 
+function groupCardChunkSize() {
+  const viewportWidth = Number(globalThis.innerWidth) || 1280;
+  const cardWidth = viewportWidth >= 2200
+    ? 393
+    : viewportWidth >= 1600
+      ? 348
+      : viewportWidth >= 1200
+        ? 323
+        : 305;
+  const groupPadding = 46;
+  const groupGap = 24;
+  const availableWidth = Number(board.clientWidth) || Math.min(viewportWidth, 1280);
+  const columnCount = Math.floor(
+    (availableWidth - groupPadding + groupGap) / (cardWidth + groupGap)
+  );
+
+  return Math.max(1, Math.min(5, columnCount)) * 2;
+}
+
 function renderGroupedCards(cards) {
   board.classList.remove("duplicateMode");
   board.classList.add("groupMode");
@@ -510,7 +529,11 @@ function renderGroupedCards(cards) {
   }
 
   groups.forEach((groupCards, groupName) => {
-    const cardsMarkup = groupCards.map((card) => createCard(card)).join("");
+    const cardsPerChunk = groupCardChunkSize();
+    const primaryCards = groupCards.slice(0, cardsPerChunk);
+    const overflowCards = groupCards.slice(cardsPerChunk);
+    const cardsMarkup = primaryCards.map((card) => createCard(card)).join("");
+    const overflowCardsMarkup = overflowCards.map((card) => createCard(card)).join("");
     const cardIds = groupCards
       .map((card) => Number(card.id))
       .filter((id) => Number.isInteger(id) && id > 0)
@@ -527,6 +550,7 @@ function renderGroupedCards(cards) {
             </div>
           </div>
           <div class="groupedCards">${cardsMarkup}</div>
+          ${overflowCardsMarkup ? `<div class="groupedCards groupedCardsOverflow" style="--group-column-count:${cardsPerChunk / 2}">${overflowCardsMarkup}</div>` : ""}
         </section>
       `
     );
