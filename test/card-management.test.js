@@ -135,6 +135,88 @@ test("보기별로 명함 선택 상태를 분리하고 빈 선택 모드는 화
   assert.match(source, /duplicateToggle\.addEventListener\("click", \(\) => \{[\s\S]*setViewMode\(viewMode === "duplicates" \? "all" : "duplicates"\)/);
 });
 
+test("같은 그룹을 다시 지정하려 하면 요청 전에 안내하고 중단한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    hidden: true,
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    insertAdjacentHTML() {},
+    setAttribute() {},
+    querySelectorAll() { return []; }
+  };
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector: () => inertElement,
+      querySelectorAll: () => []
+    },
+    fetch: async () => ({ ok: true, json: async () => ({ success: true, cards: [] }) }),
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+
+  assert.equal(context.isSelectedCardsAlreadyInGroup([
+    { group_name: "거래처" },
+    { group_name: "거래처" }
+  ], "거래처"), true);
+  assert.equal(context.isSelectedCardsAlreadyInGroup([
+    { group_name: "거래처" },
+    { group_name: "고객" }
+  ], "거래처"), false);
+  assert.match(source, /이미 “\$\{groupName\}” 그룹에 속해 있습니다\./);
+});
+
+test("기존 그룹 빠른 선택은 검색 결과가 아닌 전체 그룹 API에서 불러온다", async () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+  const inertElement = {
+    value: "",
+    innerHTML: "",
+    hidden: true,
+    classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {},
+    insertAdjacentHTML() {},
+    setAttribute() {},
+    querySelectorAll() { return []; }
+  };
+  const requests = [];
+  const context = {
+    console,
+    document: {
+      body: { classList: { add() {}, remove() {} } },
+      querySelector: () => inertElement,
+      querySelectorAll: () => []
+    },
+    fetch: async (url) => {
+      requests.push(url);
+      return {
+        ok: true,
+        json: async () => ({ success: true, groups: ["거래처", "고객"] })
+      };
+    },
+    setTimeout,
+    clearTimeout
+  };
+
+  vm.runInNewContext(source, context);
+  requests.length = 0;
+
+  const groups = await context.requestGroupNames();
+
+  assert.equal(requests[0], "/api/cards/groups");
+  assert.deepEqual(Array.from(groups), ["거래처", "고객"]);
+  assert.match(source, /function renderGroupAssignmentOptions\(groupNames\)/);
+  assert.doesNotMatch(source, /function renderGroupAssignmentOptions\(\)[\s\S]*visibleCards\s*\.map\(\(card\) => String\(card\.group_name/);
+  assert.match(serverSource, /app\.get\("\/api\/cards\/groups"/);
+  assert.match(serverSource, /SELECT DISTINCT group_name FROM business_cards/);
+});
+
 test("빈 명함 목록은 검색 여부와 보기 방식에 맞는 동일 크기 안내 영역을 표시한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
@@ -182,7 +264,7 @@ test("그룹 지정 창은 선택 대상과 기존 그룹 빠른 선택을 제�
   assert.match(modal, /class="groupQuickList"/);
   assert.match(modal, /data-group-action="cancel"/);
   assert.doesNotMatch(modal, /태그 색상|덮어쓰기|교체/);
-  assert.match(source, /function renderGroupAssignmentOptions\(\)/);
+  assert.match(source, /function renderGroupAssignmentOptions\(groupNames\)/);
   assert.match(source, /data-group-name=/);
 });
 

@@ -695,6 +695,25 @@ app.get("/api/cardSelect", (req, res) => {
 });
 
 // ===== 선택 명함 그룹 지정·일괄 삭제 API =====
+app.get("/api/cards/groups", (req, res) => {
+  db.all(
+    "SELECT DISTINCT group_name FROM business_cards WHERE TRIM(COALESCE(group_name, '')) <> '' ORDER BY group_name COLLATE NOCASE",
+    (error, rows) => {
+      if (error) {
+        return res.status(500).json({
+          success: false,
+          message: "그룹 목록 조회 실패"
+        });
+      }
+
+      res.json({
+        success: true,
+        groups: rows.map((row) => row.group_name)
+      });
+    }
+  );
+});
+
 app.patch("/api/cards/groups", (req, res) => {
   const cardIds = parseCardIds(req.body.cardIds);
   const groupName = singleLineText(req.body.groupName);

@@ -646,6 +646,17 @@ async function requestGroupAssignment(cardIds, groupName) {
   return result;
 }
 
+async function requestGroupNames() {
+  const response = await fetch("/api/cards/groups", { cache: "no-store" });
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "그룹 목록을 불러오지 못했습니다.");
+  }
+
+  return Array.isArray(result.groups) ? result.groups : [];
+}
+
 async function requestBulkDelete(cardIds) {
   const response = await fetch("/api/cards/bulk-delete", {
     method: "POST",
@@ -709,12 +720,14 @@ function selectedCardsForGroupAssignment() {
   return visibleCards.filter((card) => selectedIdSet.has(Number(card.id)));
 }
 
-function renderGroupAssignmentOptions() {
-  const groupNames = [...new Set(
-    visibleCards
-      .map((card) => String(card.group_name || "").trim())
-      .filter(Boolean)
-  )].sort((first, second) => first.localeCompare(second, "ko"));
+function isSelectedCardsAlreadyInGroup(cards, groupName) {
+  const targetGroupName = String(groupName || "").trim();
+  return Boolean(targetGroupName) && cards.length > 0 && cards.every((card) => (
+    String(card.group_name || "").trim() === targetGroupName
+  ));
+}
+
+function renderGroupAssignmentOptions(groupNames) {
   const selectedCards = selectedCardsForGroupAssignment();
 
   groupAssignExistingCount.textContent = groupNames.length
@@ -736,9 +749,9 @@ function renderGroupAssignmentOptions() {
     : '<p class="groupQuickEmpty">아직 지정된 그룹이 없습니다. 새 그룹 이름을 입력해 주세요.</p>';
 }
 
-function openGroupAssignment() {
-  renderGroupAssignmentOptions();
-  groupAssignStatus.textContent = "";
+async function openGroupAssignment() {
+  renderGroupAssignmentOptions([]);
+  groupAssignStatus.textContent = "그룹 목록을 불러오는 중입니다.";
   groupNameInput.value = "";
 
   if (typeof groupAssignModal.showModal === "function") {
@@ -747,6 +760,15 @@ function openGroupAssignment() {
     groupAssignModal.setAttribute("open", "");
   }
   groupNameInput.focus();
+
+  try {
+    const groupNames = await requestGroupNames();
+    renderGroupAssignmentOptions(groupNames);
+    groupAssignStatus.textContent = "";
+  } catch (error) {
+    console.error(error);
+    groupAssignStatus.textContent = error.message;
+  }
 }
 
 function closeGroupAssignment() {
@@ -764,6 +786,12 @@ async function assignSelectedGroup() {
     return;
   }
 
+  const selectedCards = selectedCardsForGroupAssignment();
+  if (isSelectedCardsAlreadyInGroup(selectedCards, groupName)) {
+    window.alert(`선택한 명함은 이미 “${groupName}” 그룹에 속해 있습니다.`);
+    return;
+  }
+
   groupAssignForm.querySelectorAll("button, input").forEach((element) => {
     element.disabled = true;
   });
@@ -774,6 +802,7 @@ async function assignSelectedGroup() {
     closeGroupAssignment();
     selectedCardIds.clear();
     selectionMode = false;
+    selectionModeByView.set(viewMode, selectionMode);
     syncSelectionUi();
     await loadCards();
   } catch (error) {
