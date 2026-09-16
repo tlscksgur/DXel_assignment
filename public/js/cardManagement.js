@@ -229,7 +229,7 @@ function createCard(contact) {
       <h2>${name}</h2>
       <p class="role">${[position, company].filter(Boolean).join(" · ")}</p>
       ${mobile ? `<p class="meta strong">${mobile}</p>` : ""}
-      ${email ? `<p class="meta">${email}</p>` : ""}
+      ${email ? `<p class="meta emailMeta">${email}</p>` : ""}
     </article>
   `;
 }
@@ -254,7 +254,7 @@ function createCardDetail(contact) {
       ? createWebsiteLink(content)
       : escapeHtml(content);
     return `
-      <div class="cardDetailField${label === "주소" ? " cardDetailAddress" : ""}">
+      <div class="cardDetailField${label === "주소" ? " cardDetailAddress" : ""}${label === "이메일" ? " cardDetailEmails" : ""}">
         <dt>${label}</dt>
         <dd${content ? "" : ' class="isEmpty"'}>${content ? displayValue : "없음"}</dd>
       </div>
@@ -303,12 +303,12 @@ function createCardEditor(contact, statusMessage = "") {
   ];
   const inputs = fields.map(([name, label, value]) => {
     const safeValue = escapeHtml(value);
-    const input = name === "address"
+    const input = name === "address" || name === "email"
       ? `<textarea class="cardDetailInput" name="${name}" rows="2">${safeValue}</textarea>`
       : `<input class="cardDetailInput" name="${name}" value="${safeValue}">`;
 
     return `
-      <label class="cardDetailField${name === "address" ? " cardDetailAddress" : ""}">
+      <label class="cardDetailField${name === "address" ? " cardDetailAddress" : ""}${name === "email" ? " cardDetailEmails" : ""}">
         <span>${label}</span>
         ${input}
       </label>

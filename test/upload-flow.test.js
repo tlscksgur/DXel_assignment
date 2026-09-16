@@ -1135,6 +1135,58 @@ test("명함 목록, CSV, vCard, 단건 조회 API 경로를 유지한다", asyn
   }
 });
 
+test("여러 이메일은 줄바꿈으로 저장하고 각 주소를 검증한다", async () => {
+  const probeServer = http.createServer();
+  const appPort = await listen(probeServer);
+  await close(probeServer);
+  const app = spawn(process.execPath, ["server.js"], {
+    cwd: projectRoot,
+    env: { ...process.env, PORT: String(appPort) },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let createdCardId;
+  const emails = "budge@keti.re.kr\ngadin.kang@gmail.com";
+
+  try {
+    await waitForServer(app);
+    const createResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "다중 이메일 저장 테스트",
+        company: "KETI",
+        mobile: "010-4911-2934",
+        email: emails,
+        allowDuplicate: true
+      })
+    });
+    const createResult = await createResponse.json();
+
+    assert.equal(createResponse.status, 201);
+    createdCardId = createResult.id;
+
+    const cardResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards/${createdCardId}`);
+    const cardResult = await cardResponse.json();
+    assert.equal(cardResponse.status, 200);
+    assert.equal(cardResult.card.email, emails);
+  } finally {
+    if (createdCardId) {
+      await fetch(`http://127.0.0.1:${appPort}/api/cards/${createdCardId}`, {
+        method: "DELETE"
+      }).catch(() => {});
+    }
+    app.kill("SIGTERM");
+  }
+});
+
+test("명함 등록 이메일 칸은 여러 주소를 줄바꿈으로 입력할 수 있다", () => {
+  const html = fs.readFileSync(path.join(projectRoot, "public/cardAdd.html"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "localAi.js"), "utf8");
+
+  assert.match(html, /<textarea id="email" rows="2"><\/textarea>/);
+  assert.match(source, /multiple email addresses[\s\S]*separate them with a newline/i);
+});
+
 test("명함 등록 화면에 검증 및 중복 안내 블록을 표시하지 않는다", () => {
   const html = fs.readFileSync(path.join(projectRoot, "public/cardAdd.html"), "utf8");
 

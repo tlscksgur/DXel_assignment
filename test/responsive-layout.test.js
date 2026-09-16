@@ -75,7 +75,7 @@ test("명함 등록 화면은 태블릿과 모바일에서 한 열로 표시된�
   );
   assert.match(
     css,
-    /@media\s*\(max-width:\s*900px\)\s*\{[\s\S]*\.uploadPanel\s*\{[\s\S]*height:\s*auto;/
+    /@media\s*\(max-width:\s*900px\)\s*\{[\s\S]*\.uploadPanel\s*\{[\s\S]*min-height:\s*0;[\s\S]*height:\s*auto;/
   );
 });
 

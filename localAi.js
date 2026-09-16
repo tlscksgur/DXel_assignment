@@ -25,7 +25,7 @@ Follow these rules:
 5. Preserve company suffixes such as (주), 주식회사, Co., Ltd., and Inc.
 6. Extract an organization or team name into department. Text ending in 팀, 부, 실, 센터, 본부, 연구소, 사업부, or Division is usually a department. Never copy the company name into department; when no separate department is printed, return an empty string for department. For example, in "융합보안팀 | 책임", department is "융합보안팀". In "수석/기업부설연구소", department is "기업부설연구소".
 7. Extract a printed job title into position. Check Korean titles such as 사원, 주임, 책임, 선임, 수석, 수석연구원, 대리, 과장, 차장, 부장, 이사, 상무, 전무, 대표, 팀장, 실장, and 본부장. For example, in "융합보안팀 | 책임", position is "책임". In "수석/기업부설연구소", position is "수석" and department is "기업부설연구소". Never return the same text in both department and position. If only "수석연구원" is printed, put it in position only and leave department empty. Do not put a job title into department or a department name into position, even when they are printed on the same line separated by / or |.
-8. Extract text labeled E, Email, E-mail, or E-Mail, or printed next to an envelope icon, into email. Carefully inspect small text near phone numbers and the bottom of the card.
+8. Extract text labeled E, Email, E-mail, or E-Mail, or printed next to an envelope icon, into email. Carefully inspect small text near phone numbers and the bottom of the card. When multiple email addresses are visible, separate them with a newline.
 9. Extract text labeled A, Address, or 주소, or printed next to a location-pin icon, into address. Also extract an unlabeled line that clearly begins with a postal code or geographic address.
 10. Extract a printed domain labeled W or W., Web, Website, Homepage, or URL, printed next to a globe icon, beginning with http://, https://, or www, or shown as a bare printed domain such as 3ds.com into website. For example, "W. daejoheavy.com" means website is "daejoheavy.com". A domain appearing only inside an email address is not a printed website; do not invent a website from the email domain.
 11. Preserve the leading + sign and country code in telephone numbers.
@@ -44,7 +44,7 @@ Follow these rules:
 
 Before returning the JSON, perform this final field check:
 - If a readable title such as 대리 is printed next to the person's name, position must contain it.
-- If a readable E-mail or E-Mail label and value are printed, email must contain the complete printed value.
+- If readable E-mail or E-Mail labels and values are printed, email must contain every complete printed value, separated with a newline.
 - If a readable W or W. label, globe icon, URL prefix, www address, or bare printed domain is present, website must contain that complete printed domain.
 - If a readable line begins with a five-digit postal code, or contains an administrative area and street/building information, address must contain the entire physical-address line. A line such as "31791, 충청남도 당진시 ..." is an address even when no A or Address label is printed.
 - Do not return any of these fields as empty merely because its text is smaller than the name or company text.
@@ -195,7 +195,7 @@ Copy only clearly visible text and preserve every character exactly.
 Read the Korean name character by character.
 The department field must contain only an organization or team name. Text ending in 팀, 부, 실, 센터, 본부, 연구소, 사업부, or Division usually belongs in department. Never repeat the company name in department; if no separate department is visible, return an empty string for department. In "융합보안팀 | 책임", department is "융합보안팀".
 The position field must contain only a job rank or title such as 수석, 수석연구원, or 대리 and must not contain department or team text. Never return the same text in both department and position. If only "수석연구원" is printed, put it in position only and leave department empty. In "수석/기업부설연구소", position is "수석" and department is "기업부설연구소". Split title and department even when they share one line separated by / or |.
-Copy the complete value labeled E-mail or E-Mail, or printed next to an envelope icon, into email.
+Copy every complete value labeled E-mail or E-Mail, or printed next to an envelope icon, into email. When multiple email addresses are visible, separate them with a newline.
 Copy the entire physical address labeled A or printed next to a location-pin icon, including any five-digit postal code, administrative area, street, building, floor, or unit. When both a headquarters address and a branch address are printed, return only the headquarters address and omit the location label itself.
 Copy the complete domain labeled W or W., printed next to a globe icon, beginning with http://, https://, or www, or shown as a bare printed domain such as 3ds.com into website. Do not derive it from an email address unless the domain is separately printed on the card.
 Return an empty string only when the field is truly absent.`

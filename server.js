@@ -200,9 +200,21 @@ function normalizeWebsite(value) {
   return `https://${website}`;
 }
 
+function normalizeEmails(value) {
+  return [...new Set(
+    text(value)
+      .split(/\r?\n/)
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  )].join("\n");
+}
+
 function isValidEmail(email) {
-  if (!email) return true;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return text(email)
+    .split(/\r?\n/)
+    .map((address) => address.trim())
+    .filter(Boolean)
+    .every((address) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address));
 }
 
 function makeCard(body = {}) {
@@ -219,7 +231,7 @@ function makeCard(body = {}) {
     position: organization.position,
     mobile: phones.mobile,
     phone: phones.phone,
-    email: text(body.email).toLowerCase(),
+    email: normalizeEmails(body.email),
     address: normalizeAddress(body.address),
     website: normalizeWebsite(body.website),
     image_path: text(body.image_path || body.imagePath)
@@ -303,6 +315,14 @@ function vcardPhoneLines(value, type) {
     .map((phone) => `TEL;TYPE=${type}:${vcardValue(phone)}`);
 }
 
+function vcardEmailLines(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((email) => email.trim())
+    .filter(Boolean)
+    .map((email) => `EMAIL;TYPE=INTERNET:${vcardValue(email)}`);
+}
+
 function createVcard(row) {
   const displayName = row.name || row.company || `명함 ${row.id}`;
   const lines = [
@@ -320,7 +340,7 @@ function createVcard(row) {
   if (row.position) lines.push(`TITLE:${vcardValue(row.position)}`);
   lines.push(...vcardPhoneLines(row.mobile, "CELL"));
   lines.push(...vcardPhoneLines(row.phone, "WORK,VOICE"));
-  if (row.email) lines.push(`EMAIL;TYPE=INTERNET:${vcardValue(row.email)}`);
+  lines.push(...vcardEmailLines(row.email));
   if (row.address) {
     lines.push(`ADR;TYPE=WORK:;;${vcardValue(row.address)};;;;`);
   }
@@ -345,7 +365,7 @@ function sanitizeExtractedCard(value = {}) {
     position: organization.position,
     mobile: phones.mobile,
     phone: phones.phone,
-    email: text(value.email).toLowerCase(),
+    email: normalizeEmails(value.email),
     address: normalizeAddress(value.address),
     website: normalizeWebsite(value.website)
   });

@@ -465,6 +465,10 @@
   resize: vertical;
 }
 
+.fieldGroup textarea#email {
+  height: 72px;
+}
+
 .fieldGroup input:focus,
 .fieldGroup textarea:focus{
   border-color: var(--primary);
@@ -555,6 +559,7 @@
   }
 
   .uploadPanel {
+    min-height: 0;
     height: auto;
   }
 
