@@ -45,6 +45,13 @@ test("즐겨찾기는 DB에 저장하고 단건 토글 API로 변경한다", () 
   assert.match(serverSource, /SET is_favorite = \? WHERE id = \?/);
 });
 
+test("이름이 비어 있는 명함은 임의 이름 대신 하이픈으로 표시한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+
+  assert.doesNotMatch(source, /이름 없음/);
+  assert.match(source, /contact\.name\s*\|\|\s*"-"/);
+});
+
 test("즐겨찾기는 PC 더블클릭과 상세 모달 별 버튼으로 토글한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
@@ -76,6 +83,31 @@ test("즐겨찾기는 PC 더블클릭과 상세 모달 별 버튼으로 토글�
     /\.profileCard\s*\{[\s\S]*overflow:\s*visible;/
   );
   assert.match(css, /\.favoriteViewToggle\.active\s*\{/);
+});
+
+test("일반 목록에서 즐겨찾기를 바꿔도 전체 목록을 다시 렌더링하지 않는다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const toggleFavorite = source.match(/async function toggleFavorite[\s\S]*?\n}\n\nasync function saveCardEdits/)?.[0] || "";
+
+  assert.match(source, /function syncFavoriteCard\(/);
+  assert.match(toggleFavorite, /if \(favoritesOnly\) \{\s*renderCurrentView\(\);\s*\} else \{\s*syncFavoriteCard/);
+  assert.doesNotMatch(toggleFavorite, /showCardDetail\(\);\s*renderCurrentView\(\);/);
+});
+
+test("명함 목록을 새로 불러오면 모든 보기의 삭제된 선택 상태를 정리한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const loadCards = source.match(/async function loadCards\(\)[\s\S]*?\n}\n\n\/\/ ===== 검색/)?.[0] || "";
+
+  assert.match(source, /function pruneSelectedCardIds\(visibleIds\)/);
+  assert.match(source, /selectedCardIdsByView\.forEach/);
+  assert.match(loadCards, /pruneSelectedCardIds\(visibleIds\)/);
+});
+
+test("목록 요청 실패 시 그룹 보기 클래스도 제거해 빈 안내를 정상 크기로 표시한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const loadCards = source.match(/async function loadCards\(\)[\s\S]*?\n}\n\n\/\/ ===== 검색/)?.[0] || "";
+
+  assert.match(loadCards, /board\.classList\.remove\("duplicateMode", "groupMode"\)/);
 });
 
 test("명함 목록은 선택한 기준과 방향으로 정렬한다", () => {

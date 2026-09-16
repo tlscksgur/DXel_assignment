@@ -215,7 +215,7 @@ function createCard(contact) {
   const cardId = Number(contact.id) || 0;
   const isSelected = selectedCardIds.has(cardId);
   const isFavorite = Boolean(Number(contact.is_favorite));
-  const name = escapeHtml(contact.name || "이름 없음");
+  const name = escapeHtml(contact.name || "-");
   const company = escapeHtml(contact.company);
   const position = escapeHtml(contact.position);
   const mobile = escapeHtml(contact.mobile);
@@ -269,7 +269,7 @@ function createCardDetail(contact) {
           <span class="cardDetailId">#${Number(contact.id) || "-"}</span>
         </div>
         <p class="cardDetailEyebrow">BUSINESS CARD DETAIL</p>
-        <h2 id="cardDetailTitle">${escapeHtml(contact.name || "이름 없음")}</h2>
+        <h2 id="cardDetailTitle">${escapeHtml(contact.name || "-")}</h2>
         <button
           class="cardDetailFavoriteButton${Number(contact.is_favorite) ? " is-favorite" : ""}"
           type="button"
@@ -430,6 +430,27 @@ function setDetailStatus(message) {
   }
 }
 
+function syncFavoriteCard(cardId, isFavorite) {
+  const numericId = Number(cardId);
+  if (!Number.isInteger(numericId) || numericId <= 0) {
+    return;
+  }
+
+  board.querySelectorAll(`.profileCard[data-card-id="${numericId}"]`).forEach((card) => {
+    card.classList.toggle("has-favorite", isFavorite);
+    const marker = card.querySelector(".profileCardFavoriteMarker");
+
+    if (isFavorite && !marker) {
+      card.insertAdjacentHTML(
+        "afterbegin",
+        '<span class="profileCardFavoriteMarker" aria-hidden="true">★</span>'
+      );
+    } else if (!isFavorite && marker) {
+      marker.remove();
+    }
+  });
+}
+
 async function toggleFavorite(cardId) {
   const contact = visibleCards.find((card) => Number(card.id) === Number(cardId));
   if (!contact) {
@@ -444,7 +465,11 @@ async function toggleFavorite(cardId) {
     if (Number(activeCardId) === Number(contact.id)) {
       showCardDetail();
     }
-    renderCurrentView();
+    if (favoritesOnly) {
+      renderCurrentView();
+    } else {
+      syncFavoriteCard(contact.id, Boolean(contact.is_favorite));
+    }
   } catch (error) {
     console.error(error);
     setDetailStatus(error.message || "즐겨찾기를 변경하지 못했습니다.");
@@ -502,7 +527,7 @@ async function saveCardEdits(form) {
 
 async function deleteCurrentCard() {
   const contact = getActiveCard();
-  if (!contact || !window.confirm(`'${contact.name || "이름 없음"}' 명함을 삭제할까요?`)) {
+  if (!contact || !window.confirm(`'${contact.name || "-"}' 명함을 삭제할까요?`)) {
     return;
   }
 
@@ -789,6 +814,20 @@ function selectedIds() {
   return Array.from(selectedCardIds);
 }
 
+function pruneSelectedCardIds(visibleIds) {
+  selectedCardIdsByView.forEach((cardIds, mode) => {
+    cardIds.forEach((cardId) => {
+      if (!visibleIds.has(cardId)) {
+        cardIds.delete(cardId);
+      }
+    });
+
+    if (cardIds.size === 0) {
+      selectionModeByView.set(mode, false);
+    }
+  });
+}
+
 function syncSelectionUi() {
   const hasSelection = selectedCardIds.size > 0;
   selectionActionBar.hidden = !hasSelection;
@@ -850,7 +889,7 @@ function renderGroupAssignmentOptions(groupNames) {
     : "등록된 그룹 없음";
   groupAssignSelectedCards.innerHTML = selectedCards
     .map((card) => {
-      const primary = escapeHtml(card.name || card.company || "이름 없음");
+      const primary = escapeHtml(card.name || card.company || "-");
       const secondary = escapeHtml(card.company || "회사 미입력");
       return `<span class="groupAssignTargetChip"><b>${primary}</b><small>${secondary}</small></span>`;
     })
@@ -1100,17 +1139,13 @@ async function loadCards() {
 
     visibleCards = result.cards || [];
     const visibleIds = new Set(visibleCards.map((card) => Number(card.id)));
-    selectedCardIds.forEach((cardId) => {
-      if (!visibleIds.has(cardId)) {
-        selectedCardIds.delete(cardId);
-      }
-    });
+    pruneSelectedCardIds(visibleIds);
     syncSelectionUi();
     renderCurrentView();
   } catch (error) {
     console.error(error);
     visibleCards = [];
-    board.classList.remove("duplicateMode");
+    board.classList.remove("duplicateMode", "groupMode");
     board.innerHTML = `<p class="emptyCards">${escapeHtml(error.message)}</p>`;
     resultSummary.textContent = "목록 조회 실패";
   }
