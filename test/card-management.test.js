@@ -302,6 +302,16 @@ test("선택 작업 바는 CSV·vCard 내보내기와 그룹 지정·삭제를 �
   assert.doesNotMatch(html, /cardSelectionIndicator|selectionCheckbox/);
 });
 
+test("명함 선택은 목록을 다시 렌더링하지 않아 현재 스크롤 위치를 유지한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const toggleSelectionBody = source.match(/function toggleCardSelection\(cardId\)\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+
+  assert.match(toggleSelectionBody, /board\.querySelectorAll\(`\.profileCard\[data-card-id="\$\{numericId\}"\]`\)/);
+  assert.match(toggleSelectionBody, /classList\.toggle\("is-selected", isSelected\)/);
+  assert.match(toggleSelectionBody, /setAttribute\("aria-pressed", String\(isSelected\)\)/);
+  assert.doesNotMatch(toggleSelectionBody, /renderCurrentView\(\)/);
+});
+
 test("모바일 보기 전환 배지와 선택 작업 바가 줄바꿈·안전 영역 없이 표시된다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");

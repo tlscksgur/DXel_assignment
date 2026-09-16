@@ -821,8 +821,13 @@ function toggleCardSelection(cardId) {
   } else {
     selectedCardIds.add(numericId);
   }
+
+  const isSelected = selectedCardIds.has(numericId);
+  board.querySelectorAll(`.profileCard[data-card-id="${numericId}"]`).forEach((card) => {
+    card.classList.toggle("is-selected", isSelected);
+    card.setAttribute("aria-pressed", String(isSelected));
+  });
   syncSelectionUi();
-  renderCurrentView();
 }
 
 function selectedCardsForGroupAssignment() {
