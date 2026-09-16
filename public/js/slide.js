@@ -5,9 +5,11 @@ const searchBtn = document.querySelector(".searchBox button");
 // ===== 최근 명함 목록 렌더링 =====
 function renderCards(data){
   cardTrack.classList.remove("slide");
+  cardTrack.classList.remove("is-empty");
   cardTrack.innerHTML = "";
 
   if(data.length === 0){
+    cardTrack.classList.add("is-empty");
     cardTrack.innerHTML = `
       <div class="emptyBox">
         <p class="emptyText">등록된 명함이 없습니다.</p>

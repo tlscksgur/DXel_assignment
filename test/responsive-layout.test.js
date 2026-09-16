@@ -128,6 +128,7 @@ test("일반 모니터 구간에서 세 화면이 중간 크기로 확대된다"
 
 test("대형 화면에서 공통 헤더와 홈 명함이 단계적으로 확대된다", () => {
   const css = read("public/css/style.css");
+  const source = read("public/js/slide.js");
 
   assert.match(
     css,
@@ -137,6 +138,11 @@ test("대형 화면에서 공통 헤더와 홈 명함이 단계적으로 확대�
     css,
     /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.mainTitle h1\s*\{[\s\S]*font-size:\s*64px;[\s\S]*\.contactCard\s*\{[\s\S]*width:\s*690px;[\s\S]*height:\s*212px;/
   );
+  assert.match(source, /cardTrack\.classList\.add\("is-empty"\)/);
+  assert.match(source, /cardTrack\.classList\.remove\("is-empty"\)/);
+  assert.match(css, /\.cardTrack\.is-empty\s*\{[\s\S]*width:\s*90%;[\s\S]*padding-left:\s*0;/);
+  assert.match(css, /@media\s*\(min-width:\s*1600px\)\s*\{[\s\S]*\.cardTrack\.is-empty\s*\{[\s\S]*max-width:\s*1800px;/);
+  assert.match(css, /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.cardTrack\.is-empty\s*\{[\s\S]*max-width:\s*2200px;/);
 });
 
 test("대형 명함관리 화면에서 검색 도구와 명함 카드가 확대된다", () => {

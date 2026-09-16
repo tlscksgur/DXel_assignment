@@ -163,6 +163,12 @@ main {
   padding-left: 5%;
 }
 
+.cardTrack.is-empty {
+  width: 90%;
+  margin: 0 auto;
+  padding-left: 0;
+}
+
 .cardTrack.slide {
   animation: cardFlow 45s linear infinite;
 }
@@ -684,6 +690,10 @@ footer {
     margin-bottom: 90px;
   }
 
+  .cardTrack.is-empty {
+    max-width: 1800px;
+  }
+
   .mainTitle h1 {
     font-size: 52px;
   }
@@ -795,6 +805,10 @@ footer {
   .mainTitle {
     max-width: 2200px;
     margin-bottom: 105px;
+  }
+
+  .cardTrack.is-empty {
+    max-width: 2200px;
   }
 
   .mainTitle h1 {
