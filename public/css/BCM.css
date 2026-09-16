@@ -468,13 +468,13 @@ body.bcm-page .bcmBoard {
 .profileCard {
   position: relative;
   width: 305px;
-  height: 252px;
+  height: 228px;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   align-items: flex-start;
   overflow: visible;
-  min-height: 252px;
+  min-height: 228px;
   padding: 22px 24px;
   text-align: left;
   border: 1px solid rgba(230, 226, 221, .92);
@@ -661,7 +661,7 @@ body.bcm-page .bcmBoard {
 
 .profileCard h2 {
   width: 100%;
-  height: 55px;
+  height: 46px;
   margin-top: 18px;
   overflow: hidden;
   font-family: Georgia, "Times New Roman", serif;
@@ -683,12 +683,16 @@ body.bcm-page .bcmBoard {
 
 .profileCard .role {
   width: 100%;
+  display: -webkit-box;
   margin-top: 8px;
+  overflow: hidden;
   font-size: 11px;
   line-height: 1.35;
   letter-spacing: 2.2px;
   text-transform: uppercase;
   opacity: .78;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .profileCard .meta {
@@ -1652,8 +1656,8 @@ textarea.cardDetailInput {
 
   .profileCard {
     width: 323px;
-    height: 264px;
-    min-height: 264px;
+    height: 236px;
+    min-height: 236px;
     padding: 22px 24px;
   }
 
@@ -1760,8 +1764,8 @@ textarea.cardDetailInput {
 
   .profileCard {
     width: 348px;
-    height: 282px;
-    min-height: 282px;
+    height: 252px;
+    min-height: 252px;
     padding: 24px 26px;
   }
 
@@ -1855,12 +1859,13 @@ textarea.cardDetailInput {
 
   .profileCard {
     width: 393px;
-    height: 320px;
-    min-height: 320px;
+    height: 292px;
+    min-height: 292px;
     padding: 28px 30px;
   }
 
   .profileCard h2 {
+    height: 50px;
     margin-top: 23px;
     font-size: 38px;
   }
