@@ -6,6 +6,7 @@ const groupViewToggle = document.querySelector(".groupViewToggle");
 const duplicateToggle = document.querySelector(".duplicateToggle");
 const duplicateCountBadge = document.querySelector(".duplicateCountBadge");
 const cardSortSelect = document.querySelector(".cardSortSelect");
+const favoriteViewToggle = document.querySelector(".favoriteViewToggle");
 const sortDirectionButtons = [
   document.querySelector('[data-sort-direction="asc"]'),
   document.querySelector('[data-sort-direction="desc"]')
@@ -31,6 +32,7 @@ let visibleCards = [];
 let viewMode = "all";
 let sortKey = "recent";
 let sortDirection = "desc";
+let favoritesOnly = false;
 const selectionModeByView = new Map([
   ["all", false],
   ["groups", false],
@@ -46,6 +48,43 @@ let selectedCardIds = selectedCardIdsByView.get(viewMode);
 let searchTimer;
 let requestSequence = 0;
 let activeCardId = null;
+let cardOpenTimer;
+
+function usesFinePointer() {
+  return Boolean(
+    globalThis.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches
+  );
+}
+
+function syncVisualViewportHeight() {
+  const viewportHeight = Number(
+    globalThis.visualViewport?.height || globalThis.innerHeight
+  );
+
+  if (
+    !Number.isFinite(viewportHeight) ||
+    viewportHeight <= 0 ||
+    !document.documentElement?.style
+  ) {
+    return;
+  }
+
+  document.documentElement.style.setProperty(
+    "--visual-viewport-height",
+    `${Math.round(viewportHeight)}px`
+  );
+}
+
+syncVisualViewportHeight();
+
+if (typeof globalThis.visualViewport?.addEventListener === "function") {
+  globalThis.visualViewport.addEventListener("resize", syncVisualViewportHeight);
+  globalThis.visualViewport.addEventListener("scroll", syncVisualViewportHeight);
+}
+
+if (typeof globalThis.addEventListener === "function") {
+  globalThis.addEventListener("resize", syncVisualViewportHeight);
+}
 
 // ===== 중복 명함 판정 및 그룹화 =====
 function normalizedPhone(value) {
@@ -175,6 +214,7 @@ function createCard(contact) {
   const classes = getCardVariant(contact);
   const cardId = Number(contact.id) || 0;
   const isSelected = selectedCardIds.has(cardId);
+  const isFavorite = Boolean(Number(contact.is_favorite));
   const name = escapeHtml(contact.name || "이름 없음");
   const company = escapeHtml(contact.company);
   const position = escapeHtml(contact.position);
@@ -182,7 +222,8 @@ function createCard(contact) {
   const email = escapeHtml(contact.email);
 
   return `
-    <article class="profileCard ${classes}${isSelected ? " is-selected" : ""}" data-card-id="${cardId}" tabindex="0" role="button" aria-pressed="${isSelected}" aria-label="${name} 명함 ${selectionMode ? "선택" : "상세 보기"}">
+    <article class="profileCard ${classes}${isSelected ? " is-selected" : ""}${isFavorite ? " has-favorite" : ""}" data-card-id="${cardId}" tabindex="0" role="button" aria-pressed="${isSelected}" aria-label="${name} 명함 ${selectionMode ? "선택" : "상세 보기"}">
+      ${isFavorite ? '<span class="profileCardFavoriteMarker" aria-hidden="true">★</span>' : ""}
       <span class="pill">${company || "BUSINESS CARD"}</span>
       <span class="cardId">#${cardId || "-"}</span>
       <h2>${name}</h2>
@@ -229,6 +270,13 @@ function createCardDetail(contact) {
         </div>
         <p class="cardDetailEyebrow">BUSINESS CARD DETAIL</p>
         <h2 id="cardDetailTitle">${escapeHtml(contact.name || "이름 없음")}</h2>
+        <button
+          class="cardDetailFavoriteButton${Number(contact.is_favorite) ? " is-favorite" : ""}"
+          type="button"
+          data-action="toggle-favorite"
+          aria-pressed="${Number(contact.is_favorite) ? "true" : "false"}"
+          aria-label="${Number(contact.is_favorite) ? "즐겨찾기 해제" : "즐겨찾기 추가"}"
+        >${Number(contact.is_favorite) ? "★" : "☆"}</button>
       </div>
       <dl class="cardDetailGrid">${details}</dl>
       <div class="cardDetailActions">
@@ -323,6 +371,23 @@ async function requestCardDelete(cardId) {
   return result;
 }
 
+async function requestFavoriteUpdate(cardId, isFavorite) {
+  const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}/favorite`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ isFavorite })
+  });
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "즐겨찾기를 변경하지 못했습니다.");
+  }
+
+  return result;
+}
+
 // ===== 상세 모달 조회·수정·삭제 동작 =====
 function getActiveCard() {
   return visibleCards.find((card) => Number(card.id) === Number(activeCardId));
@@ -362,6 +427,27 @@ function setDetailStatus(message) {
   const status = detailContent.querySelector(".cardDetailStatus");
   if (status) {
     status.textContent = message;
+  }
+}
+
+async function toggleFavorite(cardId) {
+  const contact = visibleCards.find((card) => Number(card.id) === Number(cardId));
+  if (!contact) {
+    return;
+  }
+
+  const isFavorite = !Boolean(Number(contact.is_favorite));
+
+  try {
+    const result = await requestFavoriteUpdate(contact.id, isFavorite);
+    contact.is_favorite = Number(result.is_favorite);
+    if (Number(activeCardId) === Number(contact.id)) {
+      showCardDetail();
+    }
+    renderCurrentView();
+  } catch (error) {
+    console.error(error);
+    setDetailStatus(error.message || "즐겨찾기를 변경하지 못했습니다.");
   }
 }
 
@@ -927,7 +1013,10 @@ function exportSelectedCards(format) {
 // ===== 명함 목록 검색 및 불러오기 =====
 function renderCurrentView() {
   syncSelectionUi();
-  const sortedCards = sortCards(visibleCards);
+  const cardsForView = favoritesOnly
+    ? visibleCards.filter((card) => Boolean(Number(card.is_favorite)))
+    : visibleCards;
+  const sortedCards = sortCards(cardsForView);
   const duplicateGroups = groupDuplicateCards(sortedCards);
   duplicateCountBadge.textContent = String(duplicateGroups.length);
   duplicateCountBadge.hidden = duplicateGroups.length === 0;
@@ -937,6 +1026,9 @@ function renderCurrentView() {
   groupViewToggle.setAttribute("aria-pressed", String(viewMode === "groups"));
   duplicateToggle.classList.toggle("active", viewMode === "duplicates");
   duplicateToggle.setAttribute("aria-pressed", String(viewMode === "duplicates"));
+  favoriteViewToggle.classList.toggle("active", favoritesOnly);
+  favoriteViewToggle.setAttribute("aria-pressed", String(favoritesOnly));
+  favoriteViewToggle.textContent = favoritesOnly ? "★" : "☆";
   sortDirectionButtons.forEach((button) => {
     const isActive = button.dataset.sortDirection === sortDirection;
     button.classList.toggle("active", isActive);
@@ -960,7 +1052,9 @@ function renderCurrentView() {
   }
 
   renderAllCards(sortedCards);
-  resultSummary.textContent = `전체 ${visibleCards.length}장`;
+  resultSummary.textContent = favoritesOnly
+    ? `즐겨찾기 ${sortedCards.length}장`
+    : `전체 ${visibleCards.length}장`;
 }
 
 function setViewMode(nextViewMode) {
@@ -1052,6 +1146,11 @@ sortDirectionButtons.forEach((button) => {
   });
 });
 
+favoriteViewToggle.addEventListener("click", () => {
+  favoritesOnly = !favoritesOnly;
+  renderCurrentView();
+});
+
 selectionToggle.addEventListener("click", () => {
   setSelectionMode(!selectionMode);
 });
@@ -1097,10 +1196,25 @@ board.addEventListener("click", (event) => {
   if (card) {
     if (selectionMode) {
       toggleCardSelection(card.dataset.cardId);
-    } else {
+    } else if (!usesFinePointer()) {
       openCardDetail(card.dataset.cardId);
+    } else {
+      clearTimeout(cardOpenTimer);
+      cardOpenTimer = setTimeout(() => {
+        openCardDetail(card.dataset.cardId);
+      }, 200);
     }
   }
+});
+
+board.addEventListener("dblclick", (event) => {
+  const card = event.target.closest(".profileCard");
+  if (!card || selectionMode || !usesFinePointer()) {
+    return;
+  }
+
+  clearTimeout(cardOpenTimer);
+  toggleFavorite(card.dataset.cardId);
 });
 
 board.addEventListener("keydown", (event) => {
@@ -1111,6 +1225,7 @@ board.addEventListener("keydown", (event) => {
   const card = event.target.closest(".profileCard");
   if (card) {
     event.preventDefault();
+    clearTimeout(cardOpenTimer);
     if (selectionMode) {
       toggleCardSelection(card.dataset.cardId);
     } else {
@@ -1153,6 +1268,8 @@ detailContent.addEventListener("click", (event) => {
     showCardDetail();
   } else if (action === "delete") {
     deleteCurrentCard();
+  } else if (action === "toggle-favorite") {
+    toggleFavorite(activeCardId);
   }
 });
 detailContent.addEventListener("submit", (event) => {

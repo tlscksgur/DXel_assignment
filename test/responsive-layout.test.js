@@ -19,7 +19,7 @@ test("모든 화면이 모바일 viewport를 사용한다", () => {
   for (const page of ["public/index.html", "public/cardAdd.html", "public/BCM.html"]) {
     assert.match(
       read(page),
-      /<meta name="viewport" content="width=device-width, initial-scale=1\.0">/
+      /<meta name="viewport" content="width=device-width, initial-scale=1\.0(?:, viewport-fit=cover)?">/
     );
   }
 });

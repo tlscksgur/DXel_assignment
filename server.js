@@ -896,6 +896,42 @@ app.put("/api/cards/:id", (req, res) => {
   });
 });
 
+// ===== 명함 즐겨찾기 토글 API =====
+app.patch("/api/cards/:id/favorite", (req, res) => {
+  if (typeof req.body.isFavorite !== "boolean") {
+    return res.status(400).json({
+      success: false,
+      message: "즐겨찾기 상태를 확인해 주세요."
+    });
+  }
+
+  const isFavorite = req.body.isFavorite ? 1 : 0;
+  db.run(
+    "UPDATE business_cards SET is_favorite = ? WHERE id = ?",
+    [isFavorite, req.params.id],
+    function (error) {
+      if (error) {
+        return res.status(500).json({
+          success: false,
+          message: "즐겨찾기 변경에 실패했습니다."
+        });
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "즐겨찾기를 변경할 명함을 찾을 수 없습니다."
+        });
+      }
+
+      res.json({
+        success: true,
+        is_favorite: isFavorite
+      });
+    }
+  );
+});
+
 // ===== 중복 명함 그룹 병합 API =====
 app.post("/api/cards/merge-group", (req, res) => {
   const requestedIds = Array.isArray(req.body.cardIds) ? req.body.cardIds : [];

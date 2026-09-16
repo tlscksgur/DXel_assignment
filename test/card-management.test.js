@@ -23,11 +23,59 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   assert.match(html, /value="company"[^>]*>회사순/);
   assert.match(html, /class="sortDirectionButton active"[^>]*data-sort-direction="desc"[^>]*>내림차순/);
   assert.match(html, /data-sort-direction="asc"[^>]*>오름차순/);
+  assert.match(html, /class="favoriteViewToggle"/);
+  assert.match(html, /aria-label="즐겨찾기 명함만 보기"/);
   assert.match(html, /class="selectionToggle"[^>]*>[\s\S]*선택/);
   assert.match(html, /class="selectionInlineCount"/);
   const searchForm = html.match(/<form class="cardSearchForm"[\s\S]*?<\/form>/)?.[0] || "";
   assert.doesNotMatch(searchForm, /class="duplicateToggle"/);
   assert.doesNotMatch(html, /총\s*\d+개\s*보관/);
+});
+
+test("즐겨찾기는 DB에 저장하고 단건 토글 API로 변경한다", () => {
+  const databaseSource = fs.readFileSync(
+    path.join(projectRoot, "database/db.js"),
+    "utf8"
+  );
+  const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+
+  assert.match(databaseSource, /is_favorite\s+INTEGER\s+NOT\s+NULL\s+DEFAULT\s+0/i);
+  assert.match(databaseSource, /ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0/);
+  assert.match(serverSource, /app\.patch\("\/api\/cards\/:id\/favorite"/);
+  assert.match(serverSource, /SET is_favorite = \? WHERE id = \?/);
+});
+
+test("즐겨찾기는 PC 더블클릭과 상세 모달 별 버튼으로 토글한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(source, /function toggleFavorite/);
+  assert.match(source, /requestFavoriteUpdate/);
+  assert.match(source, /function usesFinePointer\(\)/);
+  assert.match(source, /board\.addEventListener\("dblclick"/);
+  assert.match(source, /if \(!usesFinePointer\(\)\) \{/);
+  assert.match(source, /data-action="toggle-favorite"/);
+  assert.match(source, /favoriteViewToggle\.addEventListener\("click"/);
+  assert.match(source, /class="profileCardFavoriteMarker"/);
+  assert.doesNotMatch(source, /class="cardDetailNameLine"/);
+  assert.match(css, /\.cardDetailFavoriteButton\s*\{/);
+  assert.match(
+    css,
+    /\.cardDetailFavoriteButton\s*\{[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;/
+  );
+  assert.match(
+    css,
+    /\.cardDetailFavoriteButton\.is-favorite\s*\{[\s\S]*color:\s*#e8a814;/
+  );
+  assert.match(
+    css,
+    /\.profileCardFavoriteMarker\s*\{[\s\S]*position:\s*absolute;[\s\S]*top:\s*0;[\s\S]*right:\s*0;[\s\S]*transform:\s*translate\([^;]+\);[\s\S]*color:\s*#e8a814;/
+  );
+  assert.match(
+    css,
+    /\.profileCard\s*\{[\s\S]*overflow:\s*visible;/
+  );
+  assert.match(css, /\.favoriteViewToggle\.active\s*\{/);
 });
 
 test("명함 목록은 선택한 기준과 방향으로 정렬한다", () => {
@@ -252,6 +300,32 @@ test("선택 작업 바는 CSV·vCard 내보내기와 그룹 지정·삭제를 �
   assert.match(selectedCardRule, /box-shadow:\s*none;/);
   assert.doesNotMatch(selectedCardRule, /outline|outline-offset|transform/);
   assert.doesNotMatch(html, /cardSelectionIndicator|selectionCheckbox/);
+});
+
+test("모바일 보기 전환 배지와 선택 작업 바가 줄바꿈·안전 영역 없이 표시된다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(css, /\.viewModeControls \.duplicateToggle\s*\{[\s\S]*display:\s*inline-flex;[\s\S]*white-space:\s*nowrap;/);
+  assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.selectionActionBar\s*\{[\s\S]*bottom:\s*env\(safe-area-inset-bottom\);/);
+  assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.selectionActionBar\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*max-content repeat\(4, max-content\);/);
+  assert.match(css, /\.selectionBarCount\s*\{[\s\S]*height:\s*34px;/);
+  assert.match(css, /\.selectionActionBar svg\s*\{[\s\S]*display:\s*block;/);
+  assert.match(source, /setTimeout\(\(\) => \{[\s\S]*openCardDetail\(card\.dataset\.cardId\);[\s\S]*\}, 150\);/);
+});
+
+test("모바일 상세 모달은 실제 브라우저 viewport 높이를 사용해 하단 배경 여백을 남기지 않는다", () => {
+  const html = fs.readFileSync(path.join(projectRoot, "public/BCM.html"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+
+  assert.match(html, /name="viewport"[^>]*viewport-fit=cover/);
+  assert.match(source, /function syncVisualViewportHeight\(\)[\s\S]*globalThis\.visualViewport\?\.height[\s\S]*setProperty\(\s*"--visual-viewport-height"/);
+  assert.match(source, /globalThis\.visualViewport\.addEventListener\("resize", syncVisualViewportHeight\)/);
+  assert.match(css, /:root\s*\{[\s\S]*--visual-viewport-height:\s*100dvh;/);
+  assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.cardDetailModal\s*\{[\s\S]*inset:\s*0;[\s\S]*width:\s*100%;[\s\S]*height:\s*calc\(var\(--visual-viewport-height\) \+ env\(safe-area-inset-bottom\)\);[\s\S]*max-height:\s*none;/);
+  assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.cardDetailContent\s*\{[\s\S]*height:\s*100%;[\s\S]*max-height:\s*100%;/);
+  assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.cardDetailModal::backdrop\s*\{[\s\S]*min-height:\s*calc\(var\(--visual-viewport-height\) \+ env\(safe-area-inset-bottom\)\);/);
 });
 
 test("그룹 지정 창은 선택 대상과 기존 그룹 빠른 선택을 제공하며 불필요한 옵션은 표시하지 않는다", () => {
@@ -796,10 +870,8 @@ test("상세 명함 번호는 닫기 버튼이 아니라 회사명 바로 옆에
     css,
     /\.cardDetailCompanyLine\s*\{[\s\S]*display:\s*flex;[\s\S]*align-items:\s*center;/
   );
-  assert.doesNotMatch(
-    css,
-    /\.cardDetailId\s*\{[\s\S]*position:\s*absolute;/
-  );
+  const detailIdRule = css.match(/\.cardDetailId\s*\{([^}]*)\}/)?.[1] || "";
+  assert.doesNotMatch(detailIdRule, /position:\s*absolute;/);
 });
 
 test("어두운 상세 명함의 회사명 배지는 밝은 배경과 테두리로 구분한다", () => {

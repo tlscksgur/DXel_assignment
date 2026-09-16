@@ -1,0 +1,67 @@
+<h2>즐겨찾기 별 위치</h2>
+<p class="subtitle">요청한 “이름 정보 칸 위쪽의 오른쪽 정렬”을 기준으로 세 가지 간격만 비교했습니다.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px;background:#faf8f3;color:#031632;min-height:330px">
+      <div style="font-size:12px;letter-spacing:3px;color:#777">BUSINESS CARD DETAIL</div>
+      <div style="font:38px Georgia;margin:12px 0 20px">김수훈</div>
+      <div style="height:38px;display:flex;justify-content:flex-end;align-items:center">
+        <span style="font-size:32px;color:#e8aa16;line-height:1">★</span>
+      </div>
+      <div style="border:1px solid #ddd;border-radius:14px;padding:14px 16px">
+        <small style="color:#66758a;font-weight:700">이름</small>
+        <div style="margin-top:6px;font-size:20px">김수훈</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 별 전용 행 — 추천</h3>
+      <p>이름 정보 칸 바로 위에서 오른쪽 정렬. 긴 이름에도 별 위치가 흔들리지 않습니다.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px;background:#faf8f3;color:#031632;min-height:330px">
+      <div style="font-size:12px;letter-spacing:3px;color:#777">BUSINESS CARD DETAIL</div>
+      <div style="font:38px Georgia;margin:12px 0 38px">김수훈</div>
+      <span style="display:block;text-align:right;margin:0 8px -2px 0;font-size:32px;color:#e8aa16;line-height:1">★</span>
+      <div style="border:1px solid #ddd;border-radius:14px;padding:14px 16px">
+        <small style="color:#66758a;font-weight:700">이름</small>
+        <div style="margin-top:6px;font-size:20px">김수훈</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. 입력 칸에 밀착</h3>
+      <p>별과 이름 칸이 가깝지만 화면이 조금 답답해 보일 수 있습니다.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px;background:#faf8f3;color:#031632;min-height:330px">
+      <div style="font-size:12px;letter-spacing:3px;color:#777">BUSINESS CARD DETAIL</div>
+      <div style="font:38px Georgia;margin:12px 0 32px">김수훈</div>
+      <div style="border:1px solid #ddd;border-radius:14px;padding:14px 16px;position:relative">
+        <small style="color:#66758a;font-weight:700">이름</small>
+        <span style="position:absolute;right:14px;top:10px;font-size:28px;color:#e8aa16">★</span>
+        <div style="margin-top:6px;font-size:20px">김수훈</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. 이름 칸 내부</h3>
+      <p>공간은 절약되지만 별이 필드 값처럼 보여 의미가 섞입니다.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>목록 카드 표시</h3>
+  <div class="mockup">
+    <div class="mockup-body" style="background:#fff;padding:20px;position:relative;max-width:320px;color:#031632">
+      <span style="position:absolute;right:18px;top:14px;font-size:22px;color:#e8aa16">★</span>
+      <div style="display:inline-block;background:#eef0f3;border-radius:99px;padding:6px 12px;font-size:12px">다쏘시스템코리아</div>
+      <div style="font:34px Georgia;margin:26px 0 12px">김수훈</div>
+      <div style="font-size:14px">기술 대표 · 다쏘시스템코리아</div>
+    </div>
+  </div>
+  <p class="subtitle">즐겨찾기일 때만 오른쪽 위에 노란색 ★가 나타납니다.</p>
+</div>

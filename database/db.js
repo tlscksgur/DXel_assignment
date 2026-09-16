@@ -23,6 +23,7 @@ db.serialize(() => {
       website TEXT,
       image_path TEXT,
       group_name TEXT,
+      is_favorite INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -36,6 +37,14 @@ db.serialize(() => {
 
     if (!columns.some((column) => column.name === "group_name")) {
       db.run("ALTER TABLE business_cards ADD COLUMN group_name TEXT", (alterError) => {
+        if (alterError) {
+          console.error(alterError.message);
+        }
+      });
+    }
+
+    if (!columns.some((column) => column.name === "is_favorite")) {
+      db.run("ALTER TABLE business_cards ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0", (alterError) => {
         if (alterError) {
           console.error(alterError.message);
         }
