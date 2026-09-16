@@ -468,13 +468,13 @@ body.bcm-page .bcmBoard {
 .profileCard {
   position: relative;
   width: 305px;
-  height: 204px;
+  height: 252px;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   align-items: flex-start;
   overflow: visible;
-  min-height: 204px;
+  min-height: 252px;
   padding: 22px 24px;
   text-align: left;
   border: 1px solid rgba(230, 226, 221, .92);
@@ -1652,8 +1652,8 @@ textarea.cardDetailInput {
 
   .profileCard {
     width: 323px;
-    height: 224px;
-    min-height: 224px;
+    height: 264px;
+    min-height: 264px;
     padding: 22px 24px;
   }
 
@@ -1760,8 +1760,8 @@ textarea.cardDetailInput {
 
   .profileCard {
     width: 348px;
-    height: 242px;
-    min-height: 242px;
+    height: 282px;
+    min-height: 282px;
     padding: 24px 26px;
   }
 

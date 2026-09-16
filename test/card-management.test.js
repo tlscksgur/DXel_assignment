@@ -455,7 +455,7 @@ test("vCard API는 macOS 연락처용 UTF-8 vCard 3.0 파일을 생성한다", (
   assert.match(source, /vcardPhoneLines\(row\.phone, "WORK,VOICE"\)/);
 });
 
-test("명함 카드 크기를 305x204로 유지한다", () => {
+test("긴 직책도 잘리지 않도록 기본 명함 카드 높이를 확보한다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 
   assert.match(
@@ -468,7 +468,7 @@ test("명함 카드 크기를 305x204로 유지한다", () => {
   );
   assert.match(
     css,
-    /\.profileCard\s*\{[\s\S]*width:\s*305px;[\s\S]*height:\s*204px;/
+    /\.profileCard\s*\{[\s\S]*width:\s*305px;[\s\S]*height:\s*252px;/
   );
 });
 
