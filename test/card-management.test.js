@@ -311,7 +311,7 @@ test("모바일 보기 전환 배지와 선택 작업 바가 줄바꿈·안전 �
   assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.selectionActionBar\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*max-content repeat\(4, max-content\);/);
   assert.match(css, /\.selectionBarCount\s*\{[\s\S]*height:\s*34px;/);
   assert.match(css, /\.selectionActionBar svg\s*\{[\s\S]*display:\s*block;/);
-  assert.match(source, /setTimeout\(\(\) => \{[\s\S]*openCardDetail\(card\.dataset\.cardId\);[\s\S]*\}, 150\);/);
+  assert.match(source, /setTimeout\(\(\) => \{[\s\S]*openCardDetail\(card\.dataset\.cardId\);[\s\S]*\}, 200\);/);
 });
 
 test("모바일 상세 모달은 실제 브라우저 viewport 높이를 사용해 하단 배경 여백을 남기지 않는다", () => {

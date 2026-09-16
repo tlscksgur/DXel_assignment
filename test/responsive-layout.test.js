@@ -148,7 +148,7 @@ test("대형 명함관리 화면에서 검색 도구와 명함 카드가 확대�
   );
   assert.match(
     css,
-    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*393px;[\s\S]*height:\s*273px;[\s\S]*min-height:\s*273px;/
+    /@media\s*\(min-width:\s*2200px\)\s*\{[\s\S]*\.profileCard\s*\{[\s\S]*width:\s*393px;[\s\S]*height:\s*320px;[\s\S]*min-height:\s*320px;/
   );
 });
 
