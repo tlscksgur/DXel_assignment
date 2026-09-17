@@ -122,14 +122,14 @@ function clearDuplicateDepartment(card) {
 function normalizePhone(value) {
   if (!value) return "";
 
-  const original = text(value);
+  const original = text(value).replace(/[‐‑‒–—―﹘﹣－]/g, "-");
 
   if (original.startsWith("+") && !original.startsWith("+82")) {
     return original.replace(/[.\-\s]+/g, " ").trim();
   }
 
   const digits = original
-    .replace(/^\+82/, "0")
+    .replace(/^\+?82[\s.-]*/, "0")
     .replace(/\D/g, "");
 
   if (digits.startsWith("010") && digits.length === 11) {
@@ -153,6 +153,15 @@ function normalizePhone(value) {
   }
 
   return original;
+}
+
+function phoneIdentity(value) {
+  const digits = text(value)
+    .replace(/[‐‑‒–—―﹘﹣－]/g, "-")
+    .replace(/^\+?82[\s.-]*/, "0")
+    .replace(/\D/g, "");
+
+  return digits.startsWith("0") ? digits : digits;
 }
 
 function isKoreanMobile(value) {
@@ -401,23 +410,32 @@ function checkDuplicate(card, excludeId, callback) {
     SELECT *
     FROM business_cards
     WHERE id != ?
-      AND (
-        (? != '' AND mobile = ?)
-        OR
-        (? != '' AND ? != '' AND name = ? AND company = ?)
-      )
     ORDER BY created_at DESC
   `;
 
-  db.all(sql, [
-    excludeId || 0,
-    card.mobile,
-    card.mobile,
-    card.name,
-    card.company,
-    card.name,
-    card.company
-  ], callback);
+  db.all(sql, [excludeId || 0], (error, rows = []) => {
+    if (error) return callback(error);
+
+    const mobileKeys = new Set(
+      text(card.mobile)
+        .split(/\s*\/\s*/)
+        .map(phoneIdentity)
+        .filter(Boolean)
+    );
+    const duplicates = rows.filter((row) => {
+      const rowMobileKeys = text(row.mobile)
+        .split(/\s*\/\s*/)
+        .map(phoneIdentity)
+        .filter(Boolean);
+      const sameMobile = [...mobileKeys].some((key) => rowMobileKeys.includes(key));
+      const samePerson = card.name && card.company
+        && card.name === row.name
+        && card.company === row.company;
+      return sameMobile || samePerson;
+    });
+
+    callback(null, duplicates);
+  });
 }
 
 // ===== SQLite 및 Local AI 연결 상태 확인 =====
