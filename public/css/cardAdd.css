@@ -164,11 +164,16 @@
 }
 
 .uploadSourceSheet{
-  position: fixed;
-  inset: 0;
+  /* iOS Chrome can clip fixed layers to the viewport before its toolbar hides. */
+  position: absolute;
+  inset: var(--upload-source-page-top, 0px) 0 auto;
+  height: var(--upload-source-viewport-height, 100vh);
+  min-height: 100dvh;
   z-index: 100;
   display: grid;
   align-items: end;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .uploadSourceSheet[hidden]{

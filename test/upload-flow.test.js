@@ -469,6 +469,7 @@ function createCardAddBrowser(
 ) {
   const elements = new Map();
   const handlers = new Map();
+  const viewportHandlers = new Map();
   const alerts = [];
   const canvasState = {
     width: 0,
@@ -489,6 +490,12 @@ function createCardAddBrowser(
         clickCount: 0,
         click() {
           this.clickCount += 1;
+        },
+        style: {
+          properties: new Map(),
+          setProperty(name, value) {
+            this.properties.set(name, value);
+          }
         },
         addEventListener(event, handler) {
           handlers.set(`${selector}:${event}`, handler);
@@ -549,6 +556,13 @@ function createCardAddBrowser(
       }
     },
     fetch: fetchImplementation,
+    innerHeight: 720,
+    visualViewport: {
+      height: 640,
+      addEventListener(event, handler) {
+        viewportHandlers.set(event, handler);
+      }
+    },
     matchMedia: () => ({ matches: mobile }),
     createImageBitmap: imageDimensions
       ? async (file, options) => {
@@ -568,6 +582,10 @@ function createCardAddBrowser(
     alerts,
     canvasState,
     element,
+    resizeViewport(height) {
+      context.visualViewport.height = height;
+      viewportHandlers.get("resize")?.();
+    },
     handler(selector, event) {
       return handlers.get(`${selector}:${event}`);
     }
@@ -722,6 +740,24 @@ test("모바일 업로드 선택창에 촬영용과 여러 장 선택용 입력�
   assert.match(html, /class="uploadSourceCamera"[^>]*>[\s\S]*사진 촬영/);
   assert.match(html, /class="uploadSourceGallery"[^>]*>[\s\S]*사진 선택/);
   assert.match(html, /class="uploadSourceCancel"[^>]*>[\s\S]*취소/);
+});
+
+test("모바일 업로드 선택창은 실제 viewport와 하단 안전 영역까지 덮는다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/cardAdd.css"), "utf8");
+  const sheetRule = css.match(/\.uploadSourceSheet\s*\{([^}]*)\}/)?.[1] || "";
+  const panelRule = css.match(/\.uploadSourcePanel\s*\{([^}]*)\}/)?.[1] || "";
+  const browser = createCardAddBrowser(async () => {});
+  const sheet = browser.element(".uploadSourceSheet");
+
+  assert.match(sheetRule, /position:\s*absolute/);
+  assert.match(sheetRule, /min-height:\s*100dvh/);
+  assert.match(panelRule, /padding:\s*24px 18px calc\(18px \+ env\(safe-area-inset-bottom\)\)/);
+  browser.handler(".uploadTrigger", "click")();
+  assert.equal(sheet.style.properties.get("--upload-source-viewport-height"), "720px");
+  browser.resizeViewport(680);
+  assert.equal(sheet.style.properties.get("--upload-source-viewport-height"), "720px");
+  browser.resizeViewport(800);
+  assert.equal(sheet.style.properties.get("--upload-source-viewport-height"), "800px");
 });
 
 test("모바일 업로드 버튼에서 촬영 또는 사진 선택을 고를 수 있다", () => {

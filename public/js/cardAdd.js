@@ -381,7 +381,23 @@ async function moveToNextCard() {
 }
 
 // ===== 모바일 촬영·사진 선택창 =====
+function syncUploadSourceViewportHeight() {
+  const viewport = globalThis.visualViewport;
+  // Toolbar transitions can leave visualViewport.height one update behind.
+  // This sheet has no keyboard inputs, so use the larger visible window size.
+  const height = Math.max(Number(viewport?.height) || 0, Number(globalThis.innerHeight) || 0);
+  const pageTop = Number(viewport?.pageTop) || Number(globalThis.scrollY) || 0;
+  uploadSourceSheet.style?.setProperty("--upload-source-page-top", `${pageTop}px`);
+  if (Number.isFinite(height) && height > 0) {
+    uploadSourceSheet.style?.setProperty(
+      "--upload-source-viewport-height",
+      `${Math.ceil(height)}px`
+    );
+  }
+}
+
 function openUploadSourceSheet() {
+  syncUploadSourceViewportHeight();
   uploadSourceSheet.hidden = false;
 }
 
@@ -443,6 +459,10 @@ uploadSourceGallery.addEventListener("click", () => {
 
 uploadSourceCancel.addEventListener("click", closeUploadSourceSheet);
 uploadSourceBackdrop.addEventListener("click", closeUploadSourceSheet);
+globalThis.visualViewport?.addEventListener?.("resize", syncUploadSourceViewportHeight);
+globalThis.visualViewport?.addEventListener?.("scroll", syncUploadSourceViewportHeight);
+globalThis.addEventListener?.("resize", syncUploadSourceViewportHeight);
+globalThis.addEventListener?.("scroll", syncUploadSourceViewportHeight, { passive: true });
 cameraInput.addEventListener("change", (event) => {
   return handleSelectedFiles(event, false);
 });
