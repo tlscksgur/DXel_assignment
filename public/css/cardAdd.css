@@ -466,6 +466,11 @@
 }
 
 .fieldGroup textarea#email {
+  height: 50px;
+  min-height: 50px;
+}
+
+.fieldGroup textarea#email.has-multiple-lines {
   height: 72px;
 }
 
@@ -736,6 +741,11 @@
     padding: 0 17px;
   }
 
+  .fieldGroup textarea#email:not(.has-multiple-lines) {
+    height: 52px;
+    min-height: 52px;
+  }
+
   .identity input {
     height: 62px;
     font-size: 26px;
@@ -879,6 +889,11 @@
   .fieldGroup input {
     height: 56px;
     padding: 0 19px;
+  }
+
+  .fieldGroup textarea#email:not(.has-multiple-lines) {
+    height: 56px;
+    min-height: 56px;
   }
 
   .fieldGroup textarea {
@@ -1032,6 +1047,11 @@
   .fieldGroup input {
     height: 62px;
     padding: 0 24px;
+  }
+
+  .fieldGroup textarea#email:not(.has-multiple-lines) {
+    height: 62px;
+    min-height: 62px;
   }
 
   .fieldGroup textarea {

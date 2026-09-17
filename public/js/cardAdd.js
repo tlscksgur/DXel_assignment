@@ -12,6 +12,7 @@ const nextButton = document.querySelector(".subAction");
 const cancelButton = document.querySelector(".ghostAction");
 const previewFrame = document.querySelector(".previewFrame");
 const queueBox = document.querySelector(".queueBox");
+const emailInput = document.querySelector("#email");
 
 // ===== 입력 필드 설정 =====
 const fieldIds = [
@@ -40,6 +41,13 @@ const queueStatusLabels = {
 let uploadQueue = [];
 let currentQueueIndex = -1;
 let isAnalyzing = false;
+
+function syncEmailFieldHeight() {
+  emailInput.classList.toggle(
+    "has-multiple-lines",
+    emailInput.value.includes("\n")
+  );
+}
 
 // ===== 업로드 큐 데이터 생성 및 표시 =====
 function createQueueId() {
@@ -134,6 +142,7 @@ function clearCardForm(message = "명함 사진을 업로드하면 이곳에 표
     document.querySelector(`#${field}`).value = "";
   });
   document.querySelector("#homepage").value = "";
+  syncEmailFieldHeight();
 
   previewFrame.innerHTML = `
     <div class="emptyPreview">
@@ -154,6 +163,7 @@ function showQueueItem(item) {
     document.querySelector(`#${field}`).value = extracted[field] || "";
   });
   document.querySelector("#homepage").value = extracted.website || "";
+  syncEmailFieldHeight();
 }
 
 function updateActionState() {
@@ -439,6 +449,7 @@ cameraInput.addEventListener("change", (event) => {
 galleryInput.addEventListener("change", (event) => {
   return handleSelectedFiles(event, true);
 });
+emailInput.addEventListener("input", syncEmailFieldHeight);
 
 // ===== 수정한 명함 정보 수집 및 SQLite 저장 =====
 function getCardFormData() {

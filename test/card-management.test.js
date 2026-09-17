@@ -82,6 +82,7 @@ test("즐겨찾기는 PC 더블클릭과 상세 모달 별 버튼으로 토글�
     css,
     /\.profileCard\s*\{[\s\S]*overflow:\s*visible;/
   );
+  assert.doesNotMatch(css, /\.profileCard\.has-favorite\s+\.cardId/);
   assert.match(css, /\.favoriteViewToggle\.active\s*\{/);
 });
 

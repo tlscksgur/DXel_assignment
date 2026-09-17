@@ -1187,6 +1187,15 @@ test("명함 등록 이메일 칸은 여러 주소를 줄바꿈으로 입력할 
   assert.match(source, /multiple email addresses[\s\S]*separate them with a newline/i);
 });
 
+test("명함 등록 이메일 칸은 두 줄일 때만 높이를 확장한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardAdd.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/cardAdd.css"), "utf8");
+
+  assert.match(source, /function syncEmailFieldHeight\(\)/);
+  assert.match(source, /classList\.toggle\(\s*"has-multiple-lines",[\s\S]*includes\("\\n"\)/);
+  assert.match(css, /textarea#email\.has-multiple-lines\s*\{[\s\S]*height:\s*72px;/);
+});
+
 test("명함 등록 화면에 검증 및 중복 안내 블록을 표시하지 않는다", () => {
   const html = fs.readFileSync(path.join(projectRoot, "public/cardAdd.html"), "utf8");
 

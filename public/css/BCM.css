@@ -519,10 +519,6 @@ body.bcm-page .bcmBoard {
   pointer-events: none;
 }
 
-.profileCard.has-favorite .cardId {
-  right: 18px;
-}
-
 .selectionActionBar {
   position: fixed;
   z-index: 12;
