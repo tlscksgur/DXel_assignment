@@ -47,7 +47,8 @@ header {
 .headerBox1 {
   display: flex;
   align-items: center;
-  gap: 90px;
+  width: 480px;
+  /* gap: 54px; */
 }
 
 .logo {
@@ -60,7 +61,7 @@ header {
 .headerBox1 ul {
   display: flex;
   align-items: center;
-  gap: 46px;
+  gap: 32px;
 }
 
 .headerBox1 ul li a {
@@ -94,6 +95,15 @@ header {
   letter-spacing: 1px;
   cursor: pointer;
   box-shadow: 0 5px 18px rgba(3, 22, 50, .15);
+}
+
+@media (max-width: 880px) {
+  .headerBox1 { gap: 42px; }
+  .headerBox1 ul { gap: 24px; }
+}
+
+@media (max-width: 680px) {
+  .headerBox1 ul li:nth-child(3) { display: none; }
 }
 
 main {

@@ -303,12 +303,13 @@ function createCardEditor(contact, statusMessage = "") {
   ];
   const inputs = fields.map(([name, label, value]) => {
     const safeValue = escapeHtml(value);
+    const hasMultipleEmailLines = name === "email" && /\r?\n/.test(String(value || ""));
     const input = name === "address" || name === "email"
       ? `<textarea class="cardDetailInput" name="${name}" rows="2">${safeValue}</textarea>`
       : `<input class="cardDetailInput" name="${name}" value="${safeValue}">`;
 
     return `
-      <label class="cardDetailField${name === "address" ? " cardDetailAddress" : ""}${name === "email" ? " cardDetailEmails" : ""}">
+      <label class="cardDetailField${name === "address" ? " cardDetailAddress" : ""}${name === "email" ? ` cardDetailEmails${hasMultipleEmailLines ? " has-multiple-lines" : ""}` : ""}">
         <span>${label}</span>
         ${input}
       </label>
@@ -1318,6 +1319,16 @@ detailContent.addEventListener("submit", (event) => {
   }
   event.preventDefault();
   saveCardEdits(event.target);
+});
+detailContent.addEventListener("input", (event) => {
+  if (!event.target.matches('textarea[name="email"]')) {
+    return;
+  }
+
+  event.target.closest(".cardDetailEmails")?.classList.toggle(
+    "has-multiple-lines",
+    event.target.value.includes("\n")
+  );
 });
 detailModal.addEventListener("click", (event) => {
   if (event.target === detailModal) {

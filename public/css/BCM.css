@@ -1273,6 +1273,16 @@ textarea.cardDetailInput {
   resize: vertical;
 }
 
+.cardDetailEmails textarea.cardDetailInput {
+  min-height: 44px;
+  height: 44px;
+}
+
+.cardDetailEmails.has-multiple-lines textarea.cardDetailInput {
+  min-height: 72px;
+  height: 72px;
+}
+
 .cardDetailInput:focus {
   border-color: #031632;
   box-shadow: 0 0 0 3px rgba(3, 22, 50, .12);

@@ -1,0 +1,77 @@
+.card-import-page { background: #fdf9f3; }
+
+.importMain { min-height: calc(100vh - 146px); padding: 54px 32px 72px; background-image: radial-gradient(rgba(110, 100, 86, .18) 1px, transparent 1px); background-size: 16px 16px; }
+.importTitle { width: min(1400px, 100%); margin: 0 auto 32px; padding-bottom: 24px; border-bottom: 1px solid rgba(3,22,50,.12); }
+.importEyebrow { display:block; margin-bottom: 10px; color:#77879f; font-size:12px; font-weight:800; letter-spacing:2px; }
+.importTitle h1 { font-size: 34px; letter-spacing:-1.4px; }
+.importTitle p { margin-top:8px; color:#5e6f89; font-size:16px; }
+.importWorkspace { width:min(1400px,100%); margin:30px auto; display:grid; grid-template-columns:minmax(300px, .72fr) minmax(0, 1.28fr); gap:28px; align-items:stretch; }
+
+.importOptions, .importPreview { min-width:0; border:1px solid #e4e8ee; border-radius:18px; background:rgba(255,255,255,.96); box-shadow:0 10px 28px rgba(3,22,50,.06); }
+.importOptions { padding:0 22px 22px; }
+
+.importDropzone { width:100%; min-height:264px; margin:22px 0; padding:36px 20px; border:2px dashed #cbd9ea; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; cursor:pointer; transition:.2s ease; }
+.importDropzone:hover, .importDropzone.is-dragover { border-color:#3469c8; background:#f6f9ff; }
+.importDropIcon { width:58px; height:58px; margin-bottom:18px; border-radius:16px; display:grid; place-items:center; background:#eef3fa; color:#344a6c; font-size:36px; font-weight:300; }
+.importDropzone strong { font-size:17px; }
+.importDropzone em { margin-top:9px; color:#637795; font-size:13px; font-style:normal; }
+
+.importFileInfo { min-height:74px; margin-bottom:18px; padding:12px 14px; display:flex; align-items:center; gap:12px; border:1px solid #e6dfd4; border-radius:12px; background:#fffdfa; }
+.importFileInfo[hidden] { display:none; }
+.importFileType { padding:10px 7px; border-radius:7px; background:#dff8ea; color:#187747; font-size:12px; font-weight:800; }
+.importFileInfo div { min-width:0; flex:1; }
+.importFileInfo strong, .importFileInfo small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.importFileInfo small { margin-top:4px; color:#6c7b91; font-size:12px; }
+.importFileClear { border:0; background:none; color:#95a2b4; font-size:28px; cursor:pointer; }
+
+.importSettings { padding:20px 2px 0; border-top:1px solid #edf0f4; }
+.importSettings h2 { font-size:16px; }
+.importSettings label { display:block; margin-top:20px; }
+.importSettings label span { display:block; margin-bottom:8px; font-size:13px; font-weight:700; }
+.importSettings select { width:100%; height:48px; padding:0 12px; border:1px solid #dbe2eb; border-radius:10px; background:#fff; color:#031632; font:inherit; }
+.importSettings p { margin-top:14px; color:#708099; font-size:12px; line-height:1.6; }
+.importSettings hr { margin:22px 0 18px; border:0; border-top:1px solid #edf0f4; }
+.importGroupName { width:100%; height:44px; margin-top:8px; padding:0 12px; border:1px solid #dbe2eb; border-radius:10px; outline:0; background:#fff; color:#031632; font:inherit; font-size:13px; }
+.importGroupName[hidden] { display:none; }
+.importGroupName:focus { border-color:#3469c8; box-shadow:0 0 0 3px rgba(52,105,200,.1); }
+.importDuplicateChoices { margin-top:8px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); overflow:hidden; border:1px solid #dbe2eb; border-radius:10px; background:#fff; }
+.importDuplicateChoices button { min-height:44px; border:0; border-right:1px solid #dbe2eb; background:transparent; color:#708099; font:inherit; font-size:12px; font-weight:800; cursor:pointer; }
+.importDuplicateChoices button:last-child { border-right:0; }
+.importDuplicateChoices button.active { background:#eff4fb; color:#031632; box-shadow:inset 0 0 0 2px rgba(3,22,50,.08); }
+
+.importPreview { overflow:hidden; display:flex; flex-direction:column; }
+.importPreviewHeader { min-height:96px; padding:24px 28px; display:flex; align-items:center; justify-content:space-between; gap:18px; border-bottom:1px solid #edf0f4; }
+.importPreviewHeader h2 { display:inline-block; font-size:18px; }
+
+.importMappingStatus { margin-left:10px; padding:5px 9px; border-radius:7px; background:#eef3f8; color:#5f718a; font-size:12px; font-weight:700; }
+.importMappingStatus.ready { background:#e7fbef; color:#168252; }
+
+.importSummary { color:#657a99; font-size:13px; white-space:nowrap; }
+.importTableWrap { min-height:430px; padding:20px 28px; overflow:auto; display:flex; flex:1; flex-direction:column; }
+.importEmpty { min-height:388px; display:grid; flex:1; place-items:center; color:#76869a; text-align:center; line-height:1.7; }
+.importEmpty[hidden] { display:none; }
+
+.importPreview table { width:100%; min-width:700px; border-collapse:separate; border-spacing:0; border:1px solid #e0e7ef; border-radius:10px; overflow:hidden; font-size:13px; }
+.importPreview th, .importPreview td { padding:14px 12px; border-bottom:1px solid #edf0f4; text-align:left; vertical-align:middle; }
+.importPreview th { background:#f7f9fc; color:#677991; font-weight:800; }
+.importPreview tr:last-child td { border-bottom:0; }
+.importPreview td:nth-child(2) { font-weight:800; }
+.importPreview td small { display:block; color:#7b8ca4; }
+.importPreview input[type="checkbox"] { width:17px; height:17px; accent-color:#1376e8; cursor:pointer; }
+.importRowGroup { width:118px; min-width:118px; height:34px; padding:0 8px; border:1px solid #dbe2eb; border-radius:7px; background:#fff; color:#40536d; font:inherit; font-size:12px; }
+
+.importState { display:inline-flex; padding:5px 7px; border:1px solid #9fe8c6; border-radius:6px; color:#168252; background:#effcf5; font-size:11px; font-weight:800; white-space:nowrap; }
+.importState.duplicate { border-color:#facf5d; color:#a46400; background:#fff8de; }
+.importState.invalid { border-color:#f3a7a7; color:#b43d3d; background:#fff2f2; }
+
+.importPreviewFooter { padding:12px 28px; display:flex; justify-content:space-between; border-top:1px solid #edf0f4; color:#647793; font-size:13px; }
+.importPreviewFooter button { border:0; background:none; color:#405e88; font:inherit; text-decoration:underline; cursor:pointer; }
+
+.importActions { padding:20px 28px 28px; display:flex; justify-content:space-between; align-items:center; }
+
+.importCancel, .importSubmit { min-width:94px; height:46px; padding:0 18px; border:1px solid #cbd6e3; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; background:#fff; color:#31445f; font:inherit; font-weight:800; cursor:pointer; }
+.importSubmit { min-width:220px; border-color:#031632; background:#031632; color:#fff; }
+.importSubmit:disabled { cursor:not-allowed; opacity:.42; }
+
+@media (max-width:880px) { .importWorkspace { grid-template-columns:1fr; } .importPreview { min-height:0; } }
+@media (max-width: 680px) { .importMain { padding:32px 16px 54px; } .importTitle h1 { font-size:27px; } .importTitle p { font-size:14px; } .importOptions { padding:0 14px 14px; } .importDropzone { min-height:210px; } .importPreviewHeader, .importTableWrap, .importPreviewFooter, .importActions { padding-left:16px; padding-right:16px; } .importPreviewHeader { align-items:flex-start; flex-direction:column; } .importMappingStatus { display:inline-block; margin:8px 0 0; } .importTableWrap { min-height:310px; } .importEmpty { min-height:268px; } .importSubmit { min-width:0; flex:1; margin-left:10px; } }

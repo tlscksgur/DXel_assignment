@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/cardImport.css">
+  <title>명함 데이터 불러오기 | DXel BCM</title>
+</head>
+<body class="card-import-page">
+  <div class="container">
+    <header>
+      <div class="headerBox1">
+        <div class="logo">명함관리</div>
+        <ul>
+          <li><a href="./index.html">홈</a></li>
+          <li><a href="./BCM.html">명함관리</a></li>
+          <li><a href="./cardImport.html" class="active">명함 데이터 불러오기</a></li>
+        </ul>
+      </div>
+      <div class="headerBox2"><a href="./cardAdd.html" class="cardAdd">+ 명함등록</a></div>
+    </header>
+
+    <main class="importMain">
+      <section class="importTitle">
+        <span class="importEyebrow">DATA IMPORT</span>
+        <h1>명함 데이터 불러오기</h1>
+        <p>CSV 또는 vCard 파일의 연락처 정보를 확인한 뒤 선택한 명함만 저장하세요.</p>
+      </section>
+
+      <section class="importWorkspace" aria-label="명함 데이터 불러오기">
+        <aside class="importOptions">
+          <label class="importDropzone" for="importFile">
+            <span class="importDropIcon" aria-hidden="true">↥</span>
+            <strong>파일을 드래그하거나 클릭하여 업로드</strong>
+            <em>지원 형식: CSV, vCard (.vcf)</em>
+          </label>
+          <input id="importFile" type="file" accept=".csv,.vcf,text/csv,text/vcard" hidden>
+
+          <div class="importFileInfo" hidden>
+            <span class="importFileType">CSV</span>
+            <div><strong class="importFileName"></strong><small class="importFileMeta"></small></div>
+            <button type="button" class="importFileClear" aria-label="선택한 파일 제거">×</button>
+          </div>
+
+          <section class="importSettings" aria-label="불러오기 설정">
+            <h2>기본 설정</h2>
+            <label>
+              <span>기본 그룹</span>
+              <select class="importGroup">
+                <option value="">그룹 지정 안 함</option>
+                <option value="__new__">기타 (새 그룹 만들기)</option>
+              </select>
+            </label>
+            <input class="importGroupName" type="text" maxlength="40" placeholder="새 그룹 이름 입력" hidden>
+            <hr>
+            <label>
+              <span>중복 명함 감지 시 처리</span>
+              <div class="importDuplicateChoices" role="group" aria-label="중복 명함 처리 방식">
+                <button type="button" class="active" data-duplicate-action="skip">건너뛰기</button>
+                <button type="button" data-duplicate-action="add">그래도 추가</button>
+              </div>
+            </label>
+            <p>전화번호 또는 이름·회사 정보가 같은 명함은 중복 의심으로 표시됩니다.</p>
+          </section>
+        </aside>
+
+        <section class="importPreview" aria-live="polite">
+          <div class="importPreviewHeader">
+            <div><h2>명함 미리보기</h2><span class="importMappingStatus">파일을 선택해 주세요</span></div>
+            <p class="importSummary" hidden></p>
+          </div>
+          <div class="importTableWrap">
+            <div class="importEmpty">CSV 또는 vCard 파일을 선택하면<br>저장할 명함 정보를 미리 확인할 수 있습니다.</div>
+            <table hidden>
+              <thead><tr><th><input class="selectAllImportCards" type="checkbox" aria-label="전체 선택"></th><th>이름</th><th>회사</th><th>직책 / 부서</th><th>연락처</th><th>이메일</th><th>그룹</th><th>상태</th></tr></thead>
+              <tbody class="importPreviewRows"></tbody>
+            </table>
+          </div>
+          <div class="importPreviewFooter" hidden>
+            <span class="importSelectedCount">0장 선택됨</span>
+            <button type="button" class="importSelectValid">정상 항목만 선택</button>
+          </div>
+          <div class="importActions">
+            <a href="./BCM.html" class="importCancel">취소</a>
+            <button type="button" class="importSubmit" disabled>선택한 명함 불러오기</button>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footerLeft">(c) 2026 DXEL BUSINESS CARD MANAGER</div>
+      <div class="footerRight">
+        <span class="sync serviceStatus serviceStatusOff" data-service="local-ai"><i></i>Local AI Ready</span>
+        <span class="serviceStatus serviceStatusOff" data-service="sqlite"><i></i>SQLite</span>
+        <span class="csvExport">CSV Export</span>
+        <span class="vcardExport">vCard Export</span>
+      </div>
+    </footer>
+  </div>
+  <script src="./js/footerStatus.js"></script>
+  <script src="./js/cardImport.js"></script>
+</body>
+</html>

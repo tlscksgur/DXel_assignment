@@ -405,6 +405,25 @@ function rejectNonBusinessCard(req, res) {
 }
 
 // ===== 중복 명함 조회 =====
+function cardsAreDuplicates(card, row) {
+  const mobileKeys = new Set(
+    text(card.mobile)
+      .split(/\s*\/\s*/)
+      .map(phoneIdentity)
+      .filter(Boolean)
+  );
+  const rowMobileKeys = text(row.mobile)
+    .split(/\s*\/\s*/)
+    .map(phoneIdentity)
+    .filter(Boolean);
+  const sameMobile = [...mobileKeys].some((key) => rowMobileKeys.includes(key));
+  const samePerson = card.name && card.company
+    && card.name === row.name
+    && card.company === row.company;
+
+  return sameMobile || samePerson;
+}
+
 function checkDuplicate(card, excludeId, callback) {
   const sql = `
     SELECT *
@@ -416,23 +435,7 @@ function checkDuplicate(card, excludeId, callback) {
   db.all(sql, [excludeId || 0], (error, rows = []) => {
     if (error) return callback(error);
 
-    const mobileKeys = new Set(
-      text(card.mobile)
-        .split(/\s*\/\s*/)
-        .map(phoneIdentity)
-        .filter(Boolean)
-    );
-    const duplicates = rows.filter((row) => {
-      const rowMobileKeys = text(row.mobile)
-        .split(/\s*\/\s*/)
-        .map(phoneIdentity)
-        .filter(Boolean);
-      const sameMobile = [...mobileKeys].some((key) => rowMobileKeys.includes(key));
-      const samePerson = card.name && card.company
-        && card.name === row.name
-        && card.company === row.company;
-      return sameMobile || samePerson;
-    });
+    const duplicates = rows.filter((row) => cardsAreDuplicates(card, row));
 
     callback(null, duplicates);
   });
@@ -617,6 +620,150 @@ function saveCard(req, res) {
 
 app.post("/api/cards", saveCard);
 app.post("/api/cardStorage", saveCard);
+
+// ===== 명함 데이터 파일 미리보기·일괄 불러오기 =====
+function parseImportCards(value, defaultGroupName = "") {
+  if (!Array.isArray(value) || value.length === 0) {
+    return { error: "불러올 명함 데이터를 선택해 주세요." };
+  }
+
+  if (value.length > 500) {
+    return { error: "한 번에 최대 500장까지 불러올 수 있습니다." };
+  }
+
+  const rows = value.map((raw, index) => {
+    const card = makeCard(raw);
+    const groupName = singleLineText(
+      Object.prototype.hasOwnProperty.call(raw || {}, "groupName")
+        ? raw.groupName
+        : defaultGroupName
+    );
+    return {
+      index,
+      card,
+      groupName,
+      error: validateCard(card) || (groupName.length > 40 ? "그룹 이름은 40자 이내로 입력해 주세요." : "")
+    };
+  });
+
+  return { rows };
+}
+
+app.post("/api/cards/import/preview", (req, res) => {
+  const parsed = parseImportCards(req.body?.cards);
+  if (parsed.error) {
+    return res.status(400).json({ success: false, message: parsed.error });
+  }
+
+  db.all("SELECT * FROM business_cards ORDER BY created_at DESC", (error, existingCards) => {
+    if (error) {
+      return res.status(500).json({ success: false, message: "중복 확인에 실패했습니다." });
+    }
+
+    const cards = parsed.rows.map(({ index, card, error: validationError }) => {
+      const duplicates = validationError
+        ? []
+        : existingCards.filter((existing) => cardsAreDuplicates(card, existing));
+      return {
+        index,
+        ...card,
+        valid: !validationError,
+        message: validationError || "",
+        duplicateIds: duplicates.map((duplicate) => duplicate.id)
+      };
+    });
+
+    res.json({ success: true, cards });
+  });
+});
+
+app.post("/api/cards/import", (req, res) => {
+  const defaultGroupName = singleLineText(req.body?.groupName);
+  const parsed = parseImportCards(req.body?.cards, defaultGroupName);
+  const importDuplicates = req.body?.duplicateAction === "add";
+  if (parsed.error) {
+    return res.status(400).json({ success: false, message: parsed.error });
+  }
+  if (defaultGroupName.length > 40) {
+    return res.status(400).json({ success: false, message: "그룹 이름은 40자 이내로 입력해 주세요." });
+  }
+
+  db.all("SELECT * FROM business_cards ORDER BY created_at DESC", (selectError, existingCards) => {
+    if (selectError) {
+      return res.status(500).json({ success: false, message: "중복 확인에 실패했습니다." });
+    }
+
+    const skipped = [];
+    const pendingCards = [];
+    const acceptedCards = [];
+    parsed.rows.forEach(({ index, card, groupName, error }) => {
+      if (error) {
+        skipped.push({ index, reason: error });
+        return;
+      }
+
+      const duplicate = existingCards.some((existing) => cardsAreDuplicates(card, existing))
+        || acceptedCards.some((accepted) => cardsAreDuplicates(card, accepted));
+      if (duplicate && !importDuplicates) {
+        skipped.push({ index, reason: "기존 명함과 중복" });
+        return;
+      }
+
+      acceptedCards.push(card);
+      pendingCards.push({ index, card, groupName });
+    });
+
+    if (pendingCards.length === 0) {
+      return res.json({ success: true, savedCount: 0, skipped });
+    }
+
+    const insertSql = `
+      INSERT INTO business_cards (
+        name, company, department, position, mobile, phone,
+        email, address, website, image_path, group_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const savedIds = [];
+    let cursor = 0;
+
+    db.run("BEGIN TRANSACTION", (beginError) => {
+      if (beginError) {
+        return res.status(500).json({ success: false, message: "명함 저장을 시작하지 못했습니다." });
+      }
+
+      const rollback = () => db.run("ROLLBACK", () => {
+        res.status(500).json({ success: false, message: "명함 데이터 불러오기에 실패했습니다." });
+      });
+      const insertNext = () => {
+        if (cursor >= pendingCards.length) {
+          return db.run("COMMIT", (commitError) => {
+            if (commitError) return rollback();
+            res.status(201).json({
+              success: true,
+              savedCount: savedIds.length,
+              savedIds,
+              skipped
+            });
+          });
+        }
+
+        const { card, groupName } = pendingCards[cursor];
+        cursor += 1;
+        db.run(insertSql, [
+          card.name, card.company, card.department, card.position,
+          card.mobile, card.phone, card.email, card.address,
+          card.website, card.image_path, groupName
+        ], function (insertError) {
+          if (insertError) return rollback();
+          savedIds.push(this.lastID);
+          insertNext();
+        });
+      };
+
+      insertNext();
+    });
+  });
+});
 
 // ===== 전체 주소록 CSV·vCard 내보내기 API =====
 app.get("/api/cards/export/csv", (req, res) => {
