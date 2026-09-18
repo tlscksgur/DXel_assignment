@@ -26,6 +26,13 @@ function singleLineText(value) {
   return text(value).replace(/\s+/g, " ");
 }
 
+const MEETING_PURPOSE_MAX_LENGTH = 50;
+const MEETING_NOTE_MAX_LENGTH = 500;
+
+function limitText(value, maxLength) {
+  return Array.from(text(value)).slice(0, maxLength).join("");
+}
+
 function normalizeAddress(value) {
   const address = singleLineText(value);
   const headOfficeMarker = /(?:^|\s)(?:본사|본점|headquarters|head office|hq)\s*[:：.]?\s*/i;
@@ -243,7 +250,17 @@ function makeCard(body = {}) {
     email: normalizeEmails(body.email),
     address: normalizeAddress(body.address),
     website: normalizeWebsite(body.website),
-    image_path: text(body.image_path || body.imagePath)
+    image_path: text(body.image_path || body.imagePath),
+    meeting_date: text(body.meeting_date || body.meetingDate),
+    meeting_place: singleLineText(body.meeting_place || body.meetingPlace),
+    meeting_purpose: limitText(
+      singleLineText(body.meeting_purpose || body.meetingPurpose),
+      MEETING_PURPOSE_MAX_LENGTH
+    ),
+    meeting_note: limitText(
+      body.meeting_note || body.meetingNote,
+      MEETING_NOTE_MAX_LENGTH
+    )
   });
 }
 
@@ -585,9 +602,10 @@ function saveCard(req, res) {
     const sql = `
       INSERT INTO business_cards (
         name, company, department, position, mobile, phone,
-        email, address, website, image_path
+        email, address, website, image_path,
+        meeting_date, meeting_place, meeting_purpose, meeting_note
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.run(sql, [
@@ -600,7 +618,11 @@ function saveCard(req, res) {
       card.email,
       card.address,
       card.website,
-      card.image_path
+      card.image_path,
+      card.meeting_date,
+      card.meeting_place,
+      card.meeting_purpose,
+      card.meeting_note
     ], function (error) {
       if (error) {
         return res.status(500).json({
@@ -720,8 +742,9 @@ app.post("/api/cards/import", (req, res) => {
     const insertSql = `
       INSERT INTO business_cards (
         name, company, department, position, mobile, phone,
-        email, address, website, image_path, group_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        email, address, website, image_path, group_name,
+        meeting_date, meeting_place, meeting_purpose, meeting_note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const savedIds = [];
     let cursor = 0;
@@ -752,7 +775,9 @@ app.post("/api/cards/import", (req, res) => {
         db.run(insertSql, [
           card.name, card.company, card.department, card.position,
           card.mobile, card.phone, card.email, card.address,
-          card.website, card.image_path, groupName
+          card.website, card.image_path, groupName,
+          card.meeting_date, card.meeting_place,
+          card.meeting_purpose, card.meeting_note
         ], function (insertError) {
           if (insertError) return rollback();
           savedIds.push(this.lastID);
@@ -1042,7 +1067,11 @@ app.put("/api/cards/:id", (req, res) => {
           email = ?,
           address = ?,
           website = ?,
-          image_path = ?
+          image_path = ?,
+          meeting_date = ?,
+          meeting_place = ?,
+          meeting_purpose = ?,
+          meeting_note = ?
       WHERE id = ?
     `;
 
@@ -1057,6 +1086,10 @@ app.put("/api/cards/:id", (req, res) => {
       card.address,
       card.website,
       card.image_path,
+      card.meeting_date,
+      card.meeting_place,
+      card.meeting_purpose,
+      card.meeting_note,
       req.params.id
     ], function (error) {
       if (error) {
@@ -1168,7 +1201,11 @@ app.post("/api/cards/merge-group", (req, res) => {
       "email",
       "address",
       "website",
-      "image_path"
+      "image_path",
+      "meeting_date",
+      "meeting_place",
+      "meeting_purpose",
+      "meeting_note"
     ];
     const mergedCard = Object.fromEntries(
       mergeFields.map((field) => {
@@ -1187,7 +1224,11 @@ app.post("/api/cards/merge-group", (req, res) => {
           email = ?,
           address = ?,
           website = ?,
-          image_path = ?
+          image_path = ?,
+          meeting_date = ?,
+          meeting_place = ?,
+          meeting_purpose = ?,
+          meeting_note = ?
       WHERE id = ?
     `;
     const deletePlaceholders = duplicateIds.map(() => "?").join(", ");
@@ -1218,6 +1259,10 @@ app.post("/api/cards/merge-group", (req, res) => {
           mergedCard.address,
           mergedCard.website,
           mergedCard.image_path,
+          mergedCard.meeting_date,
+          mergedCard.meeting_place,
+          mergedCard.meeting_purpose,
+          mergedCard.meeting_note,
           representative.id
         ], (updateError) => {
           if (updateError) {
@@ -1280,7 +1325,11 @@ app.post("/api/cards/:id/merge", (req, res) => {
       email: newCard.email || oldCard.email || "",
       address: newCard.address || oldCard.address || "",
       website: newCard.website || oldCard.website || "",
-      image_path: newCard.image_path || oldCard.image_path || ""
+      image_path: newCard.image_path || oldCard.image_path || "",
+      meeting_date: newCard.meeting_date || oldCard.meeting_date || "",
+      meeting_place: newCard.meeting_place || oldCard.meeting_place || "",
+      meeting_purpose: newCard.meeting_purpose || oldCard.meeting_purpose || "",
+      meeting_note: newCard.meeting_note || oldCard.meeting_note || ""
     };
     const sql = `
       UPDATE business_cards
@@ -1293,7 +1342,11 @@ app.post("/api/cards/:id/merge", (req, res) => {
           email = ?,
           address = ?,
           website = ?,
-          image_path = ?
+          image_path = ?,
+          meeting_date = ?,
+          meeting_place = ?,
+          meeting_purpose = ?,
+          meeting_note = ?
       WHERE id = ?
     `;
 
@@ -1308,6 +1361,10 @@ app.post("/api/cards/:id/merge", (req, res) => {
       mergedCard.address,
       mergedCard.website,
       mergedCard.image_path,
+      mergedCard.meeting_date,
+      mergedCard.meeting_place,
+      mergedCard.meeting_purpose,
+      mergedCard.meeting_note,
       req.params.id
     ], (updateError) => {
       if (updateError) {

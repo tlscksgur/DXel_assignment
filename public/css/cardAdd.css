@@ -89,7 +89,7 @@
   grid-template-columns: minmax(360px, .9fr) minmax(520px, 1.1fr);
   grid-template-areas:
     "upload extract"
-    "actions extract";
+    "actions meeting";
   column-gap: 34px;
   row-gap: 18px;
   align-items: start;
@@ -393,6 +393,7 @@
   grid-area: extract;
   padding: 30px;
   border-radius: 18px;
+  height: 100%;
 }
 
 .panelHeader{
@@ -477,6 +478,42 @@
 
 .fieldGroup textarea#email.has-multiple-lines {
   height: 72px;
+}
+
+.fieldGroup textarea#meeting_note {
+  min-height: 96px;
+  height: 96px;
+}
+
+.meetingFields {
+  grid-area: meeting;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  margin: 20px 0 0;
+  box-sizing: border-box;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255,255,255,.82);
+  box-shadow: 0 10px 26px rgba(26,43,72,.06);
+}
+
+.meetingFields legend {
+  padding: 0 8px;
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.meetingFieldsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.meetingFields .fieldGroup.wide {
+  grid-column: span 1;
 }
 
 .fieldGroup input:focus,
@@ -564,8 +601,13 @@
     grid-template-areas:
       "upload"
       "extract"
+      "meeting"
       "actions";
     gap: 18px;
+  }
+
+  .extractPanel {
+    height: auto;
   }
 
   .uploadPanel {
@@ -641,6 +683,15 @@
   .extractForm {
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
+  }
+
+  .meetingFields {
+    margin-top: 0;
+    padding: 16px;
+  }
+
+  .meetingFieldsGrid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .fieldGroup.wide {
@@ -720,7 +771,6 @@
   .extractPanel {
     width: min(728px, 100%);
     min-height: 705px;
-    height: max-content;
     padding: 34px;
   }
 
@@ -749,6 +799,11 @@
   .fieldGroup textarea#email:not(.has-multiple-lines) {
     height: 52px;
     min-height: 52px;
+  }
+
+  .fieldGroup textarea#meeting_note {
+    min-height: 88px;
+    height: 88px;
   }
 
   .identity input {

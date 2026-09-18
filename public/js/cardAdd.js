@@ -23,7 +23,11 @@ const fieldIds = [
   "mobile",
   "phone",
   "email",
-  "address"
+  "address",
+  "meeting_date",
+  "meeting_place",
+  "meeting_purpose",
+  "meeting_note"
 ];
 
 const MAX_ANALYSIS_IMAGE_EDGE = 1600;
@@ -485,6 +489,10 @@ function getCardFormData() {
     email: document.querySelector("#email").value.trim(),
     address: document.querySelector("#address").value.trim(),
     website: document.querySelector("#homepage").value.trim(),
+    meeting_date: document.querySelector("#meeting_date").value.trim(),
+    meeting_place: document.querySelector("#meeting_place").value.trim(),
+    meeting_purpose: document.querySelector("#meeting_purpose").value.trim(),
+    meeting_note: document.querySelector("#meeting_note").value.trim(),
     image_path: currentItem?.imagePath || ""
   };
 }

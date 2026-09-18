@@ -1049,7 +1049,7 @@ body.detailOpen {
 }
 
 .cardDetailModal {
-  width: min(920px, calc(100% - 32px));
+  width: min(1120px, calc(100% - 32px));
   max-width: none;
   max-height: calc(100dvh - 32px);
   margin: auto;
@@ -1103,11 +1103,15 @@ body.detailOpen {
   padding: 46px 52px 50px;
   border-radius: 28px;
   transform: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, .8fr);
+  column-gap: 28px;
 }
 
 .cardDetailHeader {
   position: relative;
   padding-right: 58px;
+  grid-column: 1;
 }
 
 .cardDetailCompanyLine {
@@ -1187,11 +1191,63 @@ body.detailOpen {
   color: #e8a814;
 }
 
+.cardDetailSidebar {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: subgrid;
+  overflow: hidden;
+  border: 1px solid rgba(127, 127, 127, .22);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .12);
+}
+
+.cardDetailOriginalImage {
+  position: relative;
+  grid-row: 1;
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.cardDetailOriginalImage img {
+  position: static;
+  /* inset: 12px; */
+  /* top: 20px;  */
+  /* width: calc(100% - 24px);
+  height: calc(100% - 24px); */
+  width: 360px;
+  height: 230px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
+  justify-self: center;
+  align-self: center;
+  display: block;
+  object-fit: cover;
+  border-radius: 15px;
+}
+
+.cardDetailOriginalImage.is-empty {
+  color: inherit;
+  font-size: 12px;
+  opacity: .5;
+}
+
+.cardDetailCard.card-dark .cardDetailSidebar,
+.cardDetailCard.card-dark-grey .cardDetailSidebar {
+  border-color: rgba(255, 255, 255, .22);
+  background: rgba(255, 255, 255, .08);
+}
+
 .cardDetailGrid {
   margin-top: 38px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  grid-column: 1;
+  grid-row: 2;
 }
 
 .cardDetailField {
@@ -1241,8 +1297,121 @@ body.detailOpen {
   grid-column: 1 / -1;
 }
 
+.meetingJournal {
+  position: relative;
+  grid-row: 2;
+  min-width: 0;
+  margin-top: 38px;
+  padding: 18px;
+}
+
+.meetingJournal::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 18px;
+  left: 18px;
+  height: 1px;
+  background: rgba(127, 127, 127, .22);
+}
+
+.meetingJournal > header {
+  height: auto;
+  padding: 0 0 14px;
+  display: flex;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.meetingJournal > header > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.meetingJournalIcon {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(255, 207, 77, .35);
+  color: #9b6800;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.meetingJournal h3 {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.meetingJournal > header span:not(.meetingJournalIcon) {
+  display: block;
+  margin-top: 3px;
+  color: inherit;
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  opacity: .52;
+}
+
+.meetingJournalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.meetingJournalField {
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .24);
+}
+
+.meetingJournalField:nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+
+.meetingJournalField dt {
+  margin-bottom: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: .55;
+}
+
+.meetingJournalField dd {
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.meetingJournalField dd.isEmpty {
+  opacity: .42;
+}
+
+.cardDetailCard.card-dark .meetingJournal,
+.cardDetailCard.card-dark-grey .meetingJournal {
+  color: inherit;
+}
+
+.cardDetailCard.card-dark .meetingJournal::before,
+.cardDetailCard.card-dark-grey .meetingJournal::before {
+  background: rgba(255, 255, 255, .22);
+}
+
+.cardDetailCard.card-dark .meetingJournalField,
+.cardDetailCard.card-dark-grey .meetingJournalField {
+  background: rgba(255, 255, 255, .12);
+}
+
 .cardDetailEditForm .cardDetailField {
   display: block;
+}
+
+.cardDetailCard > .cardDetailEditForm {
+  grid-column: 1 / -1;
 }
 
 .cardDetailEditForm .cardDetailField > span {
@@ -1289,6 +1458,7 @@ textarea.cardDetailInput {
 }
 
 .cardDetailActions {
+  grid-column: 1 / -1;
   margin-top: 24px;
   display: flex;
   flex-wrap: wrap;
@@ -1393,6 +1563,44 @@ textarea.cardDetailInput {
   letter-spacing: 1.8px;
   text-transform: uppercase;
   color: rgba(94, 95, 92, .9);
+}
+
+@media (min-width: 681px) {
+  .cardDetailModal:has(.cardDetailSidebar) {
+    height: calc(100dvh - 32px);
+  }
+
+  .cardDetailContent:has(.cardDetailSidebar) {
+    height: 100%;
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) {
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailGrid {
+    min-height: 0;
+    margin-top: clamp(16px, 3vh, 38px);
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailField {
+    padding-block: clamp(10px, 1.3vh, 15px);
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .meetingJournal {
+    min-height: 0;
+    margin-top: clamp(16px, 3vh, 38px);
+    overflow: hidden;
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailActions {
+    margin-top: clamp(12px, 2vh, 24px);
+  }
 }
 
 @media (max-width: 680px) {
@@ -1532,6 +1740,7 @@ textarea.cardDetailInput {
     min-height: 0;
     padding: 28px 20px 24px;
     border-radius: 22px;
+    display: block;
   }
 
   .cardDetailHeader {
@@ -1558,6 +1767,15 @@ textarea.cardDetailInput {
     font-size: clamp(32px, 11vw, 44px);
   }
 
+  .cardDetailSidebar {
+    display: block;
+    margin-top: 24px;
+  }
+
+  .cardDetailOriginalImage {
+    min-height: 180px;
+  }
+
   .cardDetailGrid {
     margin-top: 26px;
     grid-template-columns: 1fr;
@@ -1565,6 +1783,24 @@ textarea.cardDetailInput {
   }
 
   .cardDetailAddress {
+    grid-column: auto;
+  }
+
+  .meetingJournal {
+    margin-top: 0;
+    padding: 14px;
+  }
+
+  .meetingJournal::before {
+    right: 14px;
+    left: 14px;
+  }
+
+  .meetingJournalGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .meetingJournalField:nth-child(n + 3) {
     grid-column: auto;
   }
 

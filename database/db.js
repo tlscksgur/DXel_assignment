@@ -23,6 +23,10 @@ db.serialize(() => {
       website TEXT,
       image_path TEXT,
       group_name TEXT,
+      meeting_date TEXT,
+      meeting_place TEXT,
+      meeting_purpose TEXT,
+      meeting_note TEXT,
       is_favorite INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -50,6 +54,21 @@ db.serialize(() => {
         }
       });
     }
+
+    [
+      ["meeting_date", "TEXT"],
+      ["meeting_place", "TEXT"],
+      ["meeting_purpose", "TEXT"],
+      ["meeting_note", "TEXT"]
+    ].forEach(([columnName, columnType]) => {
+      if (!columns.some((column) => column.name === columnName)) {
+        db.run(`ALTER TABLE business_cards ADD COLUMN ${columnName} ${columnType}`, (alterError) => {
+          if (alterError) {
+            console.error(alterError.message);
+          }
+        });
+      }
+    });
   });
 });
 

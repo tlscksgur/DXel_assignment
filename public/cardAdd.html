@@ -135,6 +135,32 @@
           </form>
 
         </section>
+
+        <!-- ===== 만남 기록 및 메모 ===== -->
+        <fieldset class="meetingFields">
+          <legend>만남 기록 &amp; 메모</legend>
+          <div class="meetingFieldsGrid">
+            <div class="fieldGroup">
+              <label for="meeting_date">만난 날짜</label>
+              <input type="datetime-local" id="meeting_date">
+            </div>
+
+            <div class="fieldGroup">
+              <label for="meeting_place">만난 장소</label>
+              <input type="text" id="meeting_place" placeholder="예: 코엑스 스마트공장 엑스포">
+            </div>
+
+            <div class="fieldGroup wide">
+              <label for="meeting_purpose">만남 목적</label>
+              <input type="text" id="meeting_purpose" maxlength="50" placeholder="예: 신규 파트너십 협의">
+            </div>
+
+            <div class="fieldGroup wide">
+              <label for="meeting_note">만남 메모</label>
+              <textarea id="meeting_note" rows="3" maxlength="500" placeholder="대화 내용이나 후속 일정을 간단히 기록해 보세요."></textarea>
+            </div>
+          </div>
+        </fieldset>
       </section>
     </main>
 

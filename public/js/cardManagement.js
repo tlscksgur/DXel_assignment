@@ -192,6 +192,18 @@ function createWebsiteLink(value) {
   return `<a class="cardDetailWebsiteLink" href="${safeValue}" target="_blank" rel="noopener noreferrer">${safeValue}</a>`;
 }
 
+function createCardOriginalImage(contact) {
+  const imagePath = String(contact.image_path || "").trim();
+  const safeImagePath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(imagePath)
+    ? escapeHtml(imagePath)
+    : "";
+  const imageContent = safeImagePath
+    ? `<img src="${safeImagePath}" alt="${escapeHtml(contact.name || "명함")} 원본 이미지" loading="lazy">`
+    : "<span>원본 이미지 없음</span>";
+
+  return `<div class="cardDetailOriginalImage${safeImagePath ? "" : " is-empty"}" aria-label="명함 원본 이미지">${imageContent}</div>`;
+}
+
 // ===== 명함 디자인 선택 및 목록 카드 생성 =====
 const cardVariants = [
   "card-light tilt-left",
@@ -235,6 +247,29 @@ function createCard(contact) {
 }
 
 // ===== 명함 상세 보기 및 수정 폼 생성 =====
+function formatMeetingDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s)?(\d{2})?:?(\d{2})?/);
+  if (!match) return raw;
+  const date = `${match[1]}.${match[2]}.${match[3]}`;
+  return match[4] && match[5] ? `${date} ${match[4]}:${match[5]}` : date;
+}
+
+function createMeetingJournal(contact) {
+  const fields = [
+    ["만난 날짜", formatMeetingDate(contact.meeting_date)],
+    ["만난 장소", contact.meeting_place],
+    ["만남 목적", contact.meeting_purpose],
+    ["메모", contact.meeting_note]
+  ];
+  const details = fields.map(([label, value]) => {
+    const content = String(value || "").trim();
+    return `<div class="meetingJournalField"><dt>${label}</dt><dd${content ? "" : ' class="isEmpty"'}>${content ? escapeHtml(content) : "기록 없음"}</dd></div>`;
+  }).join("");
+  return `<section class="meetingJournal" aria-label="만남 기록 및 메모"><header><div><span class="meetingJournalIcon" aria-hidden="true">↗</span><div><h3>만남 기록 &amp; 메모</h3><span>MEETING JOURNAL</span></div></div></header><dl class="meetingJournalGrid">${details}</dl></section>`;
+}
+
 function createCardDetail(contact) {
   const classes = getCardVariant(contact);
   const fields = [
@@ -279,6 +314,10 @@ function createCardDetail(contact) {
         >${Number(contact.is_favorite) ? "★" : "☆"}</button>
       </div>
       <dl class="cardDetailGrid">${details}</dl>
+      <aside class="cardDetailSidebar">
+        ${createCardOriginalImage(contact)}
+        ${createMeetingJournal(contact)}
+      </aside>
       <div class="cardDetailActions">
         <p class="cardDetailStatus" aria-live="polite"></p>
         <button type="button" data-action="edit">수정</button>
@@ -299,17 +338,24 @@ function createCardEditor(contact, statusMessage = "") {
     ["phone", "유선전화", contact.phone],
     ["email", "이메일", contact.email],
     ["website", "홈페이지", contact.website],
-    ["address", "주소", contact.address]
+    ["address", "주소", contact.address],
+    ["meeting_date", "만난 날짜", contact.meeting_date],
+    ["meeting_place", "만난 장소", contact.meeting_place],
+    ["meeting_purpose", "만남 목적", contact.meeting_purpose],
+    ["meeting_note", "만남 메모", contact.meeting_note]
   ];
   const inputs = fields.map(([name, label, value]) => {
     const safeValue = escapeHtml(value);
     const hasMultipleEmailLines = name === "email" && /\r?\n/.test(String(value || ""));
-    const input = name === "address" || name === "email"
-      ? `<textarea class="cardDetailInput" name="${name}" rows="2">${safeValue}</textarea>`
-      : `<input class="cardDetailInput" name="${name}" value="${safeValue}">`;
+    const isTextarea = ["address", "email", "meeting_note"].includes(name);
+    const maxLength = name === "meeting_purpose" ? 50 : name === "meeting_note" ? 500 : null;
+    const maxLengthAttribute = maxLength ? ` maxlength="${maxLength}"` : "";
+    const input = isTextarea
+      ? `<textarea class="cardDetailInput" name="${name}" rows="2"${maxLengthAttribute}>${safeValue}</textarea>`
+      : `<input class="cardDetailInput" name="${name}" type="${name === "meeting_date" ? "datetime-local" : "text"}" value="${safeValue}"${maxLengthAttribute}>`;
 
     return `
-      <label class="cardDetailField${name === "address" ? " cardDetailAddress" : ""}${name === "email" ? ` cardDetailEmails${hasMultipleEmailLines ? " has-multiple-lines" : ""}` : ""}">
+      <label class="cardDetailField${["address", "meeting_purpose", "meeting_note"].includes(name) ? " cardDetailAddress" : ""}${name === "name" ? " cardDetailName" : ""}${name === "email" ? ` cardDetailEmails${hasMultipleEmailLines ? " has-multiple-lines" : ""}` : ""}">
         <span>${label}</span>
         ${input}
       </label>
@@ -494,6 +540,10 @@ async function saveCardEdits(form) {
     email: String(formData.get("email") || "").trim(),
     website: String(formData.get("website") || "").trim(),
     address: String(formData.get("address") || "").trim(),
+    meeting_date: String(formData.get("meeting_date") || "").trim(),
+    meeting_place: String(formData.get("meeting_place") || "").trim(),
+    meeting_purpose: String(formData.get("meeting_purpose") || "").trim(),
+    meeting_note: String(formData.get("meeting_note") || "").trim(),
     image_path: contact.image_path || ""
   };
 
