@@ -216,7 +216,7 @@ function createCardImageLightbox(contact) {
   if (!safeImagePath) return "";
 
   const imageAlt = escapeHtml(contact.name || "명함");
-  return `<div class="cardImageLightbox" hidden role="dialog" aria-modal="true" aria-label="${imageAlt} 원본 이미지 크게 보기"><img src="${safeImagePath}" alt="${imageAlt} 원본 이미지" decoding="async"></div>`;
+  return `<div class="cardImageLightbox" hidden role="dialog" aria-modal="true" aria-label="${imageAlt} 원본 이미지 크게 보기"><button type="button" class="cardImageLightboxClose" data-action="close-image-viewer" aria-label="원본 이미지 닫기">×</button><img src="${safeImagePath}" alt="${imageAlt} 원본 이미지" decoding="async"></div>`;
 }
 
 // ===== 명함 디자인 선택 및 목록 카드 생성 =====
@@ -641,6 +641,7 @@ function openImageLightbox() {
   const lightbox = detailContent.querySelector(".cardImageLightbox");
   if (!lightbox) return;
   lightbox.hidden = false;
+  lightbox.querySelector(".cardImageLightboxClose")?.focus();
 }
 
 function closeImageLightbox() {
@@ -1386,6 +1387,8 @@ detailContent.addEventListener("click", (event) => {
     showCardDetail();
   } else if (action === "view-image") {
     openImageLightbox();
+  } else if (action === "close-image-viewer") {
+    closeImageLightbox();
   } else if (action === "delete") {
     deleteCurrentCard();
   } else if (action === "toggle-favorite") {
