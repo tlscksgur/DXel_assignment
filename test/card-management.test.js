@@ -428,7 +428,8 @@ test("삭제 명함은 휴지통으로 이동하고 복원 또는 영구 삭제�
   const header = html.match(/<header>[\s\S]*?<\/header>/)?.[0] || "";
   assert.doesNotMatch(header, /cardTrash\.html/);
   assert.match(html, /class="trashFooterLink" href="\.\/cardTrash\.html"/);
-  assert.doesNotMatch(html, /Local AI Ready/);
+  assert.match(html, /data-service="local-ai"[\s\S]*Local AI Ready/);
+  assert.doesNotMatch(html, /data-service="sqlite"/);
   assert.match(html, /href="\.\/cardTrash\.html"/);
   assert.match(trashHtml, /class="trashBoard"/);
   assert.match(trashSource, /\/api\/cards\?trash=1/);
