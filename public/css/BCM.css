@@ -1210,6 +1210,11 @@ body.detailOpen {
   display: grid;
   place-items: center;
   overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: zoom-in;
 }
 
 .cardDetailOriginalImage img {
@@ -1228,6 +1233,57 @@ body.detailOpen {
   object-fit: cover;
   border-radius: 7px;
 }
+
+.cardDetailImageHint {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(3, 22, 50, .78);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+.cardDetailOriginalImage:hover .cardDetailImageHint,
+.cardDetailOriginalImage:focus-visible .cardDetailImageHint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cardDetailOriginalImage:focus-visible {
+  outline: 2px solid #5277ae;
+  outline-offset: 3px;
+}
+
+.cardImageLightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  background: rgba(3, 14, 31, .88);
+  cursor: zoom-out;
+}
+
+.cardImageLightbox[hidden] {
+  display: none;
+}
+
+.cardImageLightbox img {
+  max-width: min(92vw, 1200px);
+  max-height: 86dvh;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, .4);
+  cursor: default;
+}
+
 
 .cardDetailOriginalImage.is-empty {
   color: inherit;

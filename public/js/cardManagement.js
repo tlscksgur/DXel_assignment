@@ -201,7 +201,22 @@ function createCardOriginalImage(contact) {
     ? `<img src="${safeImagePath}" alt="${escapeHtml(contact.name || "명함")} 원본 이미지" loading="eager" decoding="async">`
     : "<span>원본 이미지 없음</span>";
 
-  return `<div class="cardDetailOriginalImage${safeImagePath ? "" : " is-empty"}" aria-label="명함 원본 이미지">${imageContent}</div>`;
+  if (!safeImagePath) {
+    return `<div class="cardDetailOriginalImage is-empty" aria-label="명함 원본 이미지">${imageContent}</div>`;
+  }
+
+  return `<button type="button" class="cardDetailOriginalImage" data-action="view-image" aria-label="${escapeHtml(contact.name || "명함")} 원본 이미지 크게 보기">${imageContent}<span class="cardDetailImageHint">원본 크게 보기</span></button>`;
+}
+
+function createCardImageLightbox(contact) {
+  const imagePath = String(contact.image_path || "").trim();
+  const safeImagePath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(imagePath)
+    ? escapeHtml(imagePath)
+    : "";
+  if (!safeImagePath) return "";
+
+  const imageAlt = escapeHtml(contact.name || "명함");
+  return `<div class="cardImageLightbox" hidden role="dialog" aria-modal="true" aria-label="${imageAlt} 원본 이미지 크게 보기"><img src="${safeImagePath}" alt="${imageAlt} 원본 이미지" decoding="async"></div>`;
 }
 
 // ===== 명함 디자인 선택 및 목록 카드 생성 =====
@@ -318,6 +333,7 @@ function createCardDetail(contact) {
         ${createCardOriginalImage(contact)}
         ${createMeetingJournal(contact)}
       </aside>
+      ${createCardImageLightbox(contact)}
       <div class="cardDetailActions">
         <p class="cardDetailStatus" aria-live="polite"></p>
         <button type="button" data-action="edit">수정</button>
@@ -619,6 +635,17 @@ function closeCardDetail() {
   }
   document.body.classList.remove("detailOpen");
   activeCardId = null;
+}
+
+function openImageLightbox() {
+  const lightbox = detailContent.querySelector(".cardImageLightbox");
+  if (!lightbox) return;
+  lightbox.hidden = false;
+}
+
+function closeImageLightbox() {
+  const lightbox = detailContent.querySelector(".cardImageLightbox");
+  if (lightbox) lightbox.hidden = true;
 }
 
 // ===== 전체 명함 및 중복 그룹 화면 렌더링 =====
@@ -1357,6 +1384,8 @@ detailContent.addEventListener("click", (event) => {
     showCardEditor();
   } else if (action === "cancel") {
     showCardDetail();
+  } else if (action === "view-image") {
+    openImageLightbox();
   } else if (action === "delete") {
     deleteCurrentCard();
   } else if (action === "toggle-favorite") {
@@ -1381,6 +1410,10 @@ detailContent.addEventListener("input", (event) => {
   );
 });
 detailModal.addEventListener("click", (event) => {
+  if (event.target.classList?.contains("cardImageLightbox")) {
+    closeImageLightbox();
+    return;
+  }
   if (event.target === detailModal) {
     closeCardDetail();
   }
@@ -1392,7 +1425,9 @@ detailModal.addEventListener("close", () => {
 if (typeof document.addEventListener === "function") {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && detailModal.open) {
-      closeCardDetail();
+      const lightbox = detailContent.querySelector(".cardImageLightbox");
+      if (lightbox && !lightbox.hidden) closeImageLightbox();
+      else closeCardDetail();
     }
   });
 }

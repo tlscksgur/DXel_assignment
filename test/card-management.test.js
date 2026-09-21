@@ -952,6 +952,20 @@ test("명함 상세 팝업은 작은 카드 디자인을 이어받고 빈 필드
   assert.match(detail, /<dd class="isEmpty">없음<\/dd>/);
 });
 
+test("명함 원본 이미지는 상세 화면에서 클릭해 크게 보고 닫을 수 있다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(source, /data-action="view-image"/);
+  assert.match(source, /class="cardImageLightbox" hidden/);
+  assert.match(source, /function openImageLightbox\(\)/);
+  assert.match(source, /function closeImageLightbox\(\)/);
+  assert.match(source, /action === "view-image"/);
+  assert.doesNotMatch(source, /cardImageLightboxClose/);
+  assert.match(css, /\.cardImageLightbox\s*\{[\s\S]*position:\s*fixed;[\s\S]*inset:\s*0;/);
+  assert.match(css, /\.cardImageLightbox img\s*\{[\s\S]*max-width:\s*min\(92vw, 1200px\);/);
+});
+
 test("상세 명함 번호는 닫기 버튼이 아니라 회사명 바로 옆에 정렬한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
