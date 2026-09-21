@@ -323,7 +323,7 @@ test("선택 작업 바는 CSV·vCard 내보내기와 그룹 지정·삭제를 �
   assert.match(actionBar, /data-selection-action="export-vcard"[^>]*>[\s\S]*vCard/);
   assert.match(actionBar, /data-selection-action="group"[^>]*>[\s\S]*그룹 지정/);
   assert.match(actionBar, /data-selection-action="remove-from-group"[^>]*hidden[\s\S]*그룹에서 제거/);
-  assert.match(actionBar, /data-selection-action="delete"[^>]*>[\s\S]*삭제/);
+  assert.match(actionBar, /data-selection-action="delete"[^>]*>[\s\S]*휴지통으로 이동/);
   assert.equal((actionBar.match(/<button/g) || []).length, 5);
   assert.equal((actionBar.match(/<svg/g) || []).length, 5);
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
@@ -406,6 +406,34 @@ test("그룹 저장소와 선택 명함 일괄 처리 API를 제공한다", () =
   assert.match(serverSource, /typeof req\.body\.groupName !== "string"/);
   assert.match(serverSource, /app\.post\("\/api\/cards\/bulk-delete"/);
   assert.match(serverSource, /req\.query\.ids/);
+});
+
+test("삭제 명함은 휴지통으로 이동하고 복원 또는 영구 삭제할 수 있다", () => {
+  const databaseSource = fs.readFileSync(path.join(projectRoot, "database/db.js"), "utf8");
+  const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+  const html = fs.readFileSync(path.join(projectRoot, "public/BCM.html"), "utf8");
+  const trashHtml = fs.readFileSync(path.join(projectRoot, "public/cardTrash.html"), "utf8");
+  const trashSource = fs.readFileSync(path.join(projectRoot, "public/js/cardTrash.js"), "utf8");
+
+  assert.match(databaseSource, /deleted_at TEXT/);
+  assert.match(databaseSource, /ALTER TABLE business_cards ADD COLUMN deleted_at TEXT/);
+  assert.match(serverSource, /const trashOnly = req\.query\.trash === "1"/);
+  assert.match(serverSource, /WHERE deleted_at IS NULL/);
+  assert.match(serverSource, /deleted_at IS NOT NULL/);
+  assert.match(serverSource, /app\.patch\("\/api\/cards\/:id\/restore"/);
+  assert.match(serverSource, /app\.post\("\/api\/cards\/bulk-restore"/);
+  assert.match(serverSource, /app\.delete\("\/api\/cards\/:id\/permanent"/);
+  assert.match(serverSource, /app\.post\("\/api\/cards\/bulk-permanent-delete"/);
+  assert.match(serverSource, /UPDATE business_cards SET deleted_at = CURRENT_TIMESTAMP/);
+  const header = html.match(/<header>[\s\S]*?<\/header>/)?.[0] || "";
+  assert.doesNotMatch(header, /cardTrash\.html/);
+  assert.match(html, /class="trashFooterLink" href="\.\/cardTrash\.html"/);
+  assert.doesNotMatch(html, /Local AI Ready/);
+  assert.match(html, /href="\.\/cardTrash\.html"/);
+  assert.match(trashHtml, /class="trashBoard"/);
+  assert.match(trashSource, /\/api\/cards\?trash=1/);
+  assert.match(trashSource, /data-trash-action="restore"/);
+  assert.match(trashSource, /data-trash-action="permanent-delete"/);
 });
 
 test("선택 명함의 그룹 지정과 삭제 요청은 ID 전체를 전송한다", async () => {

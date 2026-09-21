@@ -1226,7 +1226,7 @@ body.detailOpen {
   align-self: center;
   display: block;
   object-fit: cover;
-  border-radius: 15px;
+  border-radius: 7px;
 }
 
 .cardDetailOriginalImage.is-empty {
@@ -1295,6 +1295,13 @@ body.detailOpen {
 
 .cardDetailAddress {
   grid-column: 1 / -1;
+}
+
+.cardDetailAddress dd {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .meetingJournal {
@@ -1389,6 +1396,22 @@ body.detailOpen {
 
 .meetingJournalField dd.isEmpty {
   opacity: .42;
+}
+
+.meetingJournalField:last-child {
+  height: 240px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.meetingJournalField:last-child dd {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(127, 127, 127, .55) transparent;
 }
 
 .cardDetailCard.card-dark .meetingJournal,
@@ -1565,27 +1588,232 @@ textarea.cardDetailInput {
   color: rgba(94, 95, 92, .9);
 }
 
-@media (min-width: 681px) {
-  .cardDetailModal:has(.cardDetailSidebar) {
-    height: calc(100dvh - 32px);
-  }
+/* ===== 휴지통 ===== */
+.trashMain {
+  width: min(1280px, calc(100% - 48px));
+  min-height: calc(100vh - 180px);
+  margin: 0 auto;
+  padding: 54px 0 90px;
+}
 
+.trashIntro {
+  padding-bottom: 26px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 1px solid rgba(3, 22, 50, .12);
+}
+
+.trashEyebrow {
+  margin-bottom: 8px;
+  color: #70809a;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2.4px;
+}
+
+.trashIntro h1 {
+  font-size: clamp(32px, 4vw, 48px);
+  letter-spacing: -1.8px;
+}
+
+.trashIntro p:not(.trashEyebrow) {
+  margin-top: 10px;
+  color: #68748a;
+  font-size: 15px;
+}
+
+.trashCount {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border: 1px solid rgba(3, 22, 50, .14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .76);
+  color: #314361;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.trashToolbar {
+  margin-top: 24px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(3, 22, 50, .12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .62);
+}
+
+.trashSelectAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #243855;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.trashSelectAll input,
+.trashCardSelect input {
+  width: 18px;
+  height: 18px;
+  accent-color: #031632;
+  cursor: pointer;
+}
+
+.trashBulkActions,
+.trashCardActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trashBulkActions button,
+.trashCardActions button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #031632;
+  border-radius: 10px;
+  background: #031632;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.trashBulkActions button:last-child,
+.trashCardActions button:last-child {
+  border-color: #a94b3f;
+  background: rgba(255, 255, 255, .88);
+  color: #9c3c33;
+}
+
+.trashBulkActions button:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+
+.trashBoard {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.trashCard {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid rgba(3, 22, 50, .13);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 0 10px 28px rgba(3, 22, 50, .05);
+}
+
+.trashCard.is-selected {
+  border-color: rgba(3, 22, 50, .54);
+  box-shadow: 0 0 0 2px rgba(3, 22, 50, .1);
+}
+
+.trashCardInfo {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(120px, .45fr) minmax(160px, .55fr) minmax(160px, .65fr) minmax(150px, .65fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.trashCardInfo > span {
+  overflow: hidden;
+  color: #64738b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trashCardInfo h2 {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+}
+
+.trashCardInfo p,
+.trashCardInfo small,
+.trashCardInfo time {
+  color: #596b83;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.trashCardInfo time {
+  font-size: 12px;
+}
+
+.trashEmpty {
+  padding: 92px 24px;
+  border: 1px dashed rgba(3, 22, 50, .2);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .45);
+  color: #64738b;
+  text-align: center;
+}
+
+.trashEmpty strong {
+  display: block;
+  color: #031632;
+  font-size: 18px;
+}
+
+.trashEmpty p { margin-top: 8px; }
+.trashEmpty a { display: inline-block; margin-top: 18px; color: #031632; font-weight: 800; text-decoration: underline; }
+
+@media (min-width: 681px) {
   .cardDetailContent:has(.cardDetailSidebar) {
-    height: 100%;
-    max-height: none;
-    overflow: hidden;
+    overflow-y: auto;
   }
 
   .cardDetailCard:has(.cardDetailSidebar) {
-    height: 100%;
-    min-height: 0;
-    box-sizing: border-box;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: 180px auto auto;
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailSidebar {
+    grid-template-rows: 180px auto;
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailOriginalImage {
+    min-height: 180px;
+    height: 180px;
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailOriginalImage img {
+    width: min(280px, calc(100% - 24px));
+    height: auto;
+    aspect-ratio: 36 / 23;
+    max-height: calc(100% - 16px);
+    object-fit: cover;
   }
 
   .cardDetailCard:has(.cardDetailSidebar) .cardDetailGrid {
+    margin-top: clamp(8px, 1.2vh, 12px);
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailHeader {
     min-height: 0;
-    margin-top: clamp(16px, 3vh, 38px);
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailEyebrow {
+    margin-top: 16px;
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailHeader h2 {
+    margin-top: 4px;
   }
 
   .cardDetailCard:has(.cardDetailSidebar) .cardDetailField {
@@ -1593,13 +1821,11 @@ textarea.cardDetailInput {
   }
 
   .cardDetailCard:has(.cardDetailSidebar) .meetingJournal {
-    min-height: 0;
-    margin-top: clamp(16px, 3vh, 38px);
-    overflow: hidden;
+    margin-top: clamp(8px, 1.2vh, 12px);
   }
 
   .cardDetailCard:has(.cardDetailSidebar) .cardDetailActions {
-    margin-top: clamp(12px, 2vh, 24px);
+    margin-top: clamp(8px, 1.5vh, 16px);
   }
 }
 
@@ -1828,6 +2054,38 @@ textarea.cardDetailInput {
 
   .cardDetailActions button {
     flex: 1 1 120px;
+  }
+
+  .trashMain {
+    width: min(100% - 32px, 620px);
+    min-height: calc(100vh - 146px);
+    padding: 30px 0 50px;
+  }
+
+  .trashIntro,
+  .trashToolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .trashIntro h1 { font-size: 32px; }
+  .trashIntro p:not(.trashEyebrow) { font-size: 14px; line-height: 1.5; }
+  .trashBulkActions { width: 100%; }
+  .trashBulkActions button { flex: 1 1 0; padding: 0 8px; }
+
+  .trashCard {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .trashCardInfo {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .trashCardActions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
   }
 }
 

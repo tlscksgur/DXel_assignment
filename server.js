@@ -307,13 +307,14 @@ function selectCardsForExport(req, res, callback) {
     return;
   }
 
-  const where = hasSelection
-    ? `WHERE id IN (${cardIds.map(() => "?").join(", ")})`
-    : "";
+  const whereParts = ["deleted_at IS NULL"];
+  if (hasSelection) {
+    whereParts.push(`id IN (${cardIds.map(() => "?").join(", ")})`);
+  }
   const sql = `
     SELECT *
     FROM business_cards
-    ${where}
+    WHERE ${whereParts.join(" AND ")}
     ORDER BY created_at DESC
   `;
 
@@ -445,7 +446,7 @@ function checkDuplicate(card, excludeId, callback) {
   const sql = `
     SELECT *
     FROM business_cards
-    WHERE id != ?
+    WHERE id != ? AND deleted_at IS NULL
     ORDER BY created_at DESC
   `;
 
@@ -677,7 +678,7 @@ app.post("/api/cards/import/preview", (req, res) => {
     return res.status(400).json({ success: false, message: parsed.error });
   }
 
-  db.all("SELECT * FROM business_cards ORDER BY created_at DESC", (error, existingCards) => {
+  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL ORDER BY created_at DESC", (error, existingCards) => {
     if (error) {
       return res.status(500).json({ success: false, message: "중복 확인에 실패했습니다." });
     }
@@ -710,7 +711,7 @@ app.post("/api/cards/import", (req, res) => {
     return res.status(400).json({ success: false, message: "그룹 이름은 40자 이내로 입력해 주세요." });
   }
 
-  db.all("SELECT * FROM business_cards ORDER BY created_at DESC", (selectError, existingCards) => {
+  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL ORDER BY created_at DESC", (selectError, existingCards) => {
     if (selectError) {
       return res.status(500).json({ success: false, message: "중복 확인에 실패했습니다." });
     }
@@ -863,14 +864,17 @@ app.get("/api/cards/duplicates", (req, res) => {
 // ===== 명함 목록 및 검색 API =====
 app.get("/api/cards", (req, res) => {
   const keyword = String(req.query.q || req.query.keyword || "").trim();
+  const trashOnly = req.query.trash === "1";
   let sql = "SELECT * FROM business_cards";
   const params = [];
+  const whereParts = [trashOnly ? "deleted_at IS NOT NULL" : "deleted_at IS NULL"];
 
   if (keyword) {
-    sql += " WHERE name LIKE ? OR company LIKE ?";
+    whereParts.push("(name LIKE ? OR company LIKE ?)");
     params.push(`%${keyword}%`, `%${keyword}%`);
   }
 
+  sql += ` WHERE ${whereParts.join(" AND ")}`;
   sql += " ORDER BY created_at DESC";
 
   db.all(sql, params, (error, rows) => {
@@ -889,7 +893,7 @@ app.get("/api/cards", (req, res) => {
 });
 
 app.get("/api/cardSelect", (req, res) => {
-  db.all("SELECT * FROM business_cards ORDER BY created_at DESC", (error, rows) => {
+  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL ORDER BY created_at DESC", (error, rows) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -907,7 +911,7 @@ app.get("/api/cardSelect", (req, res) => {
 // ===== 선택 명함 그룹 지정·일괄 삭제 API =====
 app.get("/api/cards/groups", (req, res) => {
   db.all(
-    "SELECT DISTINCT group_name FROM business_cards WHERE TRIM(COALESCE(group_name, '')) <> '' ORDER BY group_name COLLATE NOCASE",
+    "SELECT DISTINCT group_name FROM business_cards WHERE deleted_at IS NULL AND TRIM(COALESCE(group_name, '')) <> '' ORDER BY group_name COLLATE NOCASE",
     (error, rows) => {
       if (error) {
         return res.status(500).json({
@@ -941,7 +945,7 @@ app.patch("/api/cards/groups", (req, res) => {
 
   const placeholders = cardIds.map(() => "?").join(", ");
   db.run(
-    `UPDATE business_cards SET group_name = ? WHERE id IN (${placeholders})`,
+    `UPDATE business_cards SET group_name = ? WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
     [groupName, ...cardIds],
     function (error) {
       if (error) {
@@ -979,13 +983,13 @@ app.post("/api/cards/bulk-delete", (req, res) => {
 
   const placeholders = cardIds.map(() => "?").join(", ");
   db.run(
-    `DELETE FROM business_cards WHERE id IN (${placeholders})`,
+    `UPDATE business_cards SET deleted_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
     cardIds,
     function (error) {
       if (error) {
         return res.status(500).json({
           success: false,
-          message: "선택한 명함 삭제에 실패했습니다."
+          message: "선택한 명함을 휴지통으로 옮기지 못했습니다."
         });
       }
 
@@ -998,7 +1002,7 @@ app.post("/api/cards/bulk-delete", (req, res) => {
 
       res.json({
         success: true,
-        message: "선택한 명함 삭제 완료",
+        message: "선택한 명함을 휴지통으로 옮겼습니다.",
         deletedCount: this.changes
       });
     }
@@ -1007,7 +1011,7 @@ app.post("/api/cards/bulk-delete", (req, res) => {
 
 // ===== 명함 단건 조회·수정 API =====
 app.get("/api/cards/:id", (req, res) => {
-  db.get("SELECT * FROM business_cards WHERE id = ?", [req.params.id], (error, row) => {
+  db.get("SELECT * FROM business_cards WHERE id = ? AND deleted_at IS NULL", [req.params.id], (error, row) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -1072,7 +1076,7 @@ app.put("/api/cards/:id", (req, res) => {
           meeting_place = ?,
           meeting_purpose = ?,
           meeting_note = ?
-      WHERE id = ?
+      WHERE id = ? AND deleted_at IS NULL
     `;
 
     db.run(sql, [
@@ -1125,7 +1129,7 @@ app.patch("/api/cards/:id/favorite", (req, res) => {
 
   const isFavorite = req.body.isFavorite ? 1 : 0;
   db.run(
-    "UPDATE business_cards SET is_favorite = ? WHERE id = ?",
+    "UPDATE business_cards SET is_favorite = ? WHERE id = ? AND deleted_at IS NULL",
     [isFavorite, req.params.id],
     function (error) {
       if (error) {
@@ -1170,7 +1174,7 @@ app.post("/api/cards/merge-group", (req, res) => {
   const selectSql = `
     SELECT *
     FROM business_cards
-    WHERE id IN (${placeholders})
+    WHERE id IN (${placeholders}) AND deleted_at IS NULL
     ORDER BY datetime(created_at) DESC, id DESC
   `;
 
@@ -1299,7 +1303,7 @@ app.post("/api/cards/merge-group", (req, res) => {
 
 // ===== 명함 단건 병합 및 삭제 API =====
 app.post("/api/cards/:id/merge", (req, res) => {
-  db.get("SELECT * FROM business_cards WHERE id = ?", [req.params.id], (error, oldCard) => {
+  db.get("SELECT * FROM business_cards WHERE id = ? AND deleted_at IS NULL", [req.params.id], (error, oldCard) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -1347,7 +1351,7 @@ app.post("/api/cards/:id/merge", (req, res) => {
           meeting_place = ?,
           meeting_purpose = ?,
           meeting_note = ?
-      WHERE id = ?
+      WHERE id = ? AND deleted_at IS NULL
     `;
 
     db.run(sql, [
@@ -1382,25 +1386,77 @@ app.post("/api/cards/:id/merge", (req, res) => {
   });
 });
 
+app.post("/api/cards/bulk-restore", (req, res) => {
+  const cardIds = parseCardIds(req.body.cardIds);
+  if (cardIds.length === 0) {
+    return res.status(400).json({ success: false, message: "복원할 명함을 올바르게 선택해 주세요." });
+  }
+
+  const placeholders = cardIds.map(() => "?").join(", ");
+  db.run(
+    `UPDATE business_cards SET deleted_at = NULL WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL`,
+    cardIds,
+    function (error) {
+      if (error) return res.status(500).json({ success: false, message: "명함 복원에 실패했습니다." });
+      if (this.changes !== cardIds.length) return res.status(404).json({ success: false, message: "복원할 명함 일부를 찾을 수 없습니다." });
+      res.json({ success: true, restoredCount: this.changes, message: "명함을 복원했습니다." });
+    }
+  );
+});
+
+app.post("/api/cards/bulk-permanent-delete", (req, res) => {
+  const cardIds = parseCardIds(req.body.cardIds);
+  if (cardIds.length === 0) {
+    return res.status(400).json({ success: false, message: "영구 삭제할 명함을 올바르게 선택해 주세요." });
+  }
+
+  const placeholders = cardIds.map(() => "?").join(", ");
+  db.run(
+    `DELETE FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL`,
+    cardIds,
+    function (error) {
+      if (error) return res.status(500).json({ success: false, message: "명함 영구 삭제에 실패했습니다." });
+      if (this.changes !== cardIds.length) return res.status(404).json({ success: false, message: "영구 삭제할 명함 일부를 찾을 수 없습니다." });
+      res.json({ success: true, deletedCount: this.changes, message: "명함을 영구 삭제했습니다." });
+    }
+  );
+});
+
+app.patch("/api/cards/:id/restore", (req, res) => {
+  db.run("UPDATE business_cards SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL", [req.params.id], function (error) {
+    if (error) return res.status(500).json({ success: false, message: "명함 복원에 실패했습니다." });
+    if (this.changes === 0) return res.status(404).json({ success: false, message: "복원할 명함을 찾을 수 없습니다." });
+    res.json({ success: true, message: "명함을 복원했습니다." });
+  });
+});
+
+app.delete("/api/cards/:id/permanent", (req, res) => {
+  db.run("DELETE FROM business_cards WHERE id = ? AND deleted_at IS NOT NULL", [req.params.id], function (error) {
+    if (error) return res.status(500).json({ success: false, message: "명함 영구 삭제에 실패했습니다." });
+    if (this.changes === 0) return res.status(404).json({ success: false, message: "영구 삭제할 명함을 찾을 수 없습니다." });
+    res.json({ success: true, message: "명함을 영구 삭제했습니다." });
+  });
+});
+
 app.delete("/api/cards/:id", (req, res) => {
-  db.run("DELETE FROM business_cards WHERE id = ?", [req.params.id], function (error) {
+  db.run("UPDATE business_cards SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL", [req.params.id], function (error) {
     if (error) {
       return res.status(500).json({
         success: false,
-        message: "명함 삭제 실패"
+        message: "명함을 휴지통으로 옮기지 못했습니다."
       });
     }
 
     if (this.changes === 0) {
       return res.status(404).json({
         success: false,
-        message: "삭제할 명함을 찾을 수 없습니다."
+        message: "휴지통으로 옮길 명함을 찾을 수 없습니다."
       });
     }
 
     res.json({
       success: true,
-      message: "명함 삭제 완료"
+      message: "명함을 휴지통으로 옮겼습니다."
     });
   });
 });

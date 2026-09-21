@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/BCM.css">
+  <title>명함 휴지통 | DXel BCM</title>
+</head>
+<body class="bcm-page trash-page">
+  <div class="container">
+    <header>
+      <div class="headerBox1">
+        <div class="logo">명함관리</div>
+        <ul>
+          <li><a href="./index.html">홈</a></li>
+          <li><a href="./BCM.html">명함관리</a></li>
+          <li><a href="./cardImport.html">명함 데이터 불러오기</a></li>
+        </ul>
+      </div>
+      <div class="headerBox2"><a href="./cardAdd.html" class="cardAdd">+ 명함등록</a></div>
+    </header>
+
+    <main class="trashMain">
+      <section class="trashIntro">
+        <div>
+          <p class="trashEyebrow">RECOVERY CENTER</p>
+          <h1>명함 휴지통</h1>
+          <p>삭제한 명함은 여기서 복원할 수 있습니다. 영구 삭제하면 다시 되돌릴 수 없습니다.</p>
+        </div>
+        <span class="trashCount" aria-live="polite">0장 보관 중</span>
+      </section>
+
+      <section class="trashToolbar" aria-label="휴지통 작업">
+        <label class="trashSelectAll"><input type="checkbox" class="trashSelectAllInput"> <span>전체 선택</span></label>
+        <div class="trashBulkActions">
+          <button type="button" data-trash-bulk="restore" disabled>선택한 명함 복원</button>
+          <button type="button" data-trash-bulk="permanent-delete" disabled>선택한 명함 영구 삭제</button>
+        </div>
+      </section>
+
+      <section class="trashBoard" aria-label="삭제된 명함 목록"></section>
+    </main>
+
+    <footer>
+      <div class="footerLeft">(c) 2026 DXEL BUSINESS CARD MANAGER</div>
+      <div class="footerRight">
+        <a class="trashFooterLink" href="./cardTrash.html" aria-label="휴지통으로 이동" title="휴지통"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6" /></svg><span>휴지통</span></a>
+        <span class="footerDivider" aria-hidden="true"></span>
+        <span class="serviceStatus serviceStatusOff" data-service="sqlite"><i></i>SQLite</span>
+        <span class="csvExport">CSV Export</span>
+        <span class="vcardExport">vCard Export</span>
+      </div>
+    </footer>
+  </div>
+  <script src="./js/footerStatus.js"></script>
+  <script src="./js/cardTrash.js"></script>
+</body>
+</html>

@@ -198,7 +198,7 @@ function createCardOriginalImage(contact) {
     ? escapeHtml(imagePath)
     : "";
   const imageContent = safeImagePath
-    ? `<img src="${safeImagePath}" alt="${escapeHtml(contact.name || "명함")} 원본 이미지" loading="lazy">`
+    ? `<img src="${safeImagePath}" alt="${escapeHtml(contact.name || "명함")} 원본 이미지" loading="eager" decoding="async">`
     : "<span>원본 이미지 없음</span>";
 
   return `<div class="cardDetailOriginalImage${safeImagePath ? "" : " is-empty"}" aria-label="명함 원본 이미지">${imageContent}</div>`;
@@ -321,7 +321,7 @@ function createCardDetail(contact) {
       <div class="cardDetailActions">
         <p class="cardDetailStatus" aria-live="polite"></p>
         <button type="button" data-action="edit">수정</button>
-        <button type="button" class="danger" data-action="delete">삭제</button>
+        <button type="button" class="danger" data-action="delete">휴지통으로 이동</button>
       </div>
     </article>
   `;
@@ -578,11 +578,11 @@ async function saveCardEdits(form) {
 
 async function deleteCurrentCard() {
   const contact = getActiveCard();
-  if (!contact || !window.confirm(`'${contact.name || "-"}' 명함을 삭제할까요?`)) {
+  if (!contact || !window.confirm(`'${contact.name || "-"}' 명함을 휴지통으로 옮길까요?\n휴지통에서 다시 복원할 수 있습니다.`)) {
     return;
   }
 
-  setDetailStatus("삭제 중입니다.");
+  setDetailStatus("휴지통으로 옮기는 중입니다.");
 
   try {
     await requestCardDelete(activeCardId);
@@ -590,7 +590,7 @@ async function deleteCurrentCard() {
     await loadCards();
   } catch (error) {
     console.error(error);
-    setDetailStatus(error.message || "명함을 삭제하지 못했습니다.");
+    setDetailStatus(error.message || "명함을 휴지통으로 옮기지 못했습니다.");
   }
 }
 
@@ -854,7 +854,7 @@ async function requestBulkDelete(cardIds) {
   const result = await response.json();
 
   if (!response.ok) {
-    throw new Error(result.message || "선택한 명함을 삭제하지 못했습니다.");
+    throw new Error(result.message || "선택한 명함을 휴지통으로 옮기지 못했습니다.");
   }
 
   return result;
@@ -1024,7 +1024,7 @@ async function deleteSelectedCards() {
   const cardIds = selectedIds();
   if (
     cardIds.length === 0 ||
-    !window.confirm(`선택한 명함 ${cardIds.length}장을 삭제할까요?`)
+    !window.confirm(`선택한 명함 ${cardIds.length}장을 휴지통으로 옮길까요?\n휴지통에서 다시 복원할 수 있습니다.`)
   ) {
     return;
   }

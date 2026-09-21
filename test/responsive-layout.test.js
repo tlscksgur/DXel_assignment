@@ -158,6 +158,44 @@ test("대형 명함관리 화면에서 검색 도구와 명함 카드가 확대�
   );
 });
 
+test("상세 모달은 내용 높이를 따르고 긴 메모만 내부 스크롤한다", () => {
+  const css = read("public/css/BCM.css");
+  const desktopLayout = css.slice(
+    css.indexOf("@media (min-width: 681px)"),
+    css.indexOf("@media (max-width: 680px)")
+  );
+
+  assert.match(
+    desktopLayout,
+    /grid-template-rows:\s*180px\s+auto\s+auto;/
+  );
+  assert.match(
+    desktopLayout,
+    /\.cardDetailCard:has\(\.cardDetailSidebar\) \.cardDetailSidebar\s*\{[^}]*grid-template-rows:\s*180px\s+auto;/
+  );
+  assert.match(
+    desktopLayout,
+    /\.cardDetailContent:has\(\.cardDetailSidebar\)\s*\{[^}]*overflow-y:\s*auto;/
+  );
+  assert.doesNotMatch(desktopLayout, /\.cardDetailGrid\s*\{[^}]*overflow-y:\s*auto;/);
+  assert.doesNotMatch(desktopLayout, /\.cardDetailHeader\s*\{[^}]*overflow-y:\s*auto;/);
+  assert.doesNotMatch(desktopLayout, /\.meetingJournal\s*\{[^}]*overflow-y:\s*auto;/);
+  assert.doesNotMatch(desktopLayout, /\.cardDetailModal:has\(\.cardDetailSidebar\)\s*\{[^}]*height:/);
+  assert.doesNotMatch(desktopLayout, /\.cardDetailContent:has\(\.cardDetailSidebar\)\s*\{[^}]*height:\s*100%;/);
+  assert.match(
+    css,
+    /\.meetingJournalField:last-child\s*\{[^}]*height:\s*240px;[^}]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\);/
+  );
+  assert.match(
+    css,
+    /\.meetingJournalField:last-child dd\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/
+  );
+  assert.match(
+    desktopLayout,
+    /\.cardDetailOriginalImage img\s*\{[^}]*aspect-ratio:\s*36 \/ 23;[^}]*object-fit:\s*cover;/
+  );
+});
+
 test("대형 명함등록 화면에서 업로드 영역과 입력 폼이 확대된다", () => {
   const css = read("public/css/cardAdd.css");
 
