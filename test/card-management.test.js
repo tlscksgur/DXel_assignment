@@ -434,6 +434,8 @@ test("삭제 명함은 휴지통으로 이동하고 복원 또는 영구 삭제�
   assert.match(trashSource, /\/api\/cards\?trash=1/);
   assert.match(trashSource, /data-trash-action="restore"/);
   assert.match(trashSource, /data-trash-action="permanent-delete"/);
+  assert.match(trashSource, /window\.confirm\(`선택한 명함 \$\{cardIds\.length\}장을 복원할까요\?`\)/);
+  assert.match(trashSource, /if \(selectedTrashIds\.size > 0\) selectedTrashIds\.clear\(\);/);
 });
 
 test("선택 명함의 그룹 지정과 삭제 요청은 ID 전체를 전송한다", async () => {

@@ -74,7 +74,7 @@ async function loadTrash() {
 }
 
 async function restoreCards(cardIds) {
-  if (cardIds.length === 0) return;
+  if (cardIds.length === 0 || !window.confirm(`선택한 명함 ${cardIds.length}장을 복원할까요?`)) return;
   if (cardIds.length === 1) {
     await requestTrash(`/api/cards/${encodeURIComponent(cardIds[0])}/restore`, { method: "PATCH" });
   } else {
@@ -119,8 +119,8 @@ trashBoard.addEventListener("click", async (event) => {
 });
 
 trashSelectAllInput.addEventListener("change", () => {
-  if (trashSelectAllInput.checked) trashedCards.forEach((card) => selectedTrashIds.add(Number(card.id)));
-  else selectedTrashIds.clear();
+  if (selectedTrashIds.size > 0) selectedTrashIds.clear();
+  else trashedCards.forEach((card) => selectedTrashIds.add(Number(card.id)));
   renderTrash();
 });
 
