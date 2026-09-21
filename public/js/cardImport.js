@@ -15,6 +15,7 @@ const previewFooter = document.querySelector(".importPreviewFooter");
 const selectedCount = document.querySelector(".importSelectedCount");
 const selectValid = document.querySelector(".importSelectValid");
 const importSubmit = document.querySelector(".importSubmit");
+const importCancel = document.querySelector(".importCancel");
 const importGroup = document.querySelector(".importGroup");
 const importGroupName = document.querySelector(".importGroupName");
 const duplicateChoices = document.querySelector(".importDuplicateChoices");
@@ -184,7 +185,8 @@ previewRows.addEventListener("change", (event) => {
   updateSelection();
 });
 selectAll.addEventListener("change", () => { previewCards.forEach((card) => { if (card.valid) card.selected = selectAll.checked; }); renderPreview(); });
-selectValid.addEventListener("click", () => { previewCards.forEach((card) => { card.selected = card.valid; }); renderPreview(); });
+selectValid.addEventListener("click", () => { previewCards.forEach((card) => { card.selected = card.valid && card.duplicateIds.length === 0; }); renderPreview(); });
+importCancel.addEventListener("click", resetImport);
 duplicateChoices.addEventListener("click", (event) => {
   const button = event.target.closest("[data-duplicate-action]");
   if (!button) return;

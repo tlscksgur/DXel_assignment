@@ -438,6 +438,17 @@ test("삭제 명함은 휴지통으로 이동하고 복원 또는 영구 삭제�
   assert.match(trashSource, /if \(selectedTrashIds\.size > 0\) selectedTrashIds\.clear\(\);/);
 });
 
+test("명함 데이터 불러오기는 중복 의심을 제외해 선택하고 취소 시 현재 입력을 초기화한다", () => {
+  const importHtml = fs.readFileSync(path.join(projectRoot, "public/cardImport.html"), "utf8");
+  const importSource = fs.readFileSync(path.join(projectRoot, "public/js/cardImport.js"), "utf8");
+
+  assert.match(importHtml, /class="importSelectValid">중복 제외하고 선택/);
+  assert.match(importHtml, /<button type="button" class="importCancel">취소<\/button>/);
+  assert.doesNotMatch(importHtml, /<a href="\.\/BCM\.html" class="importCancel">취소<\/a>/);
+  assert.match(importSource, /card\.selected = card\.valid && card\.duplicateIds\.length === 0/);
+  assert.match(importSource, /importCancel\.addEventListener\("click", resetImport\)/);
+});
+
 test("선택 명함의 그룹 지정과 삭제 요청은 ID 전체를 전송한다", async () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const inertElement = {
