@@ -73,5 +73,11 @@
 .importSubmit { min-width:220px; border-color:#031632; background:#031632; color:#fff; }
 .importSubmit:disabled { cursor:not-allowed; opacity:.42; }
 
+@media (min-width: 1600px) and (min-height: 900px) {
+  .importMain { display:flex; flex-direction:column; padding-bottom:18px; }
+  .importTitle { margin-bottom:0; }
+  .importWorkspace { flex:1; margin:30px auto 0; }
+}
+
 @media (max-width:880px) { .importWorkspace { grid-template-columns:1fr; } .importPreview { min-height:0; } }
 @media (max-width: 680px) { .importMain { padding:32px 16px 54px; } .importTitle h1 { font-size:27px; } .importTitle p { font-size:14px; } .importOptions { padding:0 14px 14px; } .importDropzone { min-height:210px; } .importPreviewHeader, .importTableWrap, .importPreviewFooter, .importActions { padding-left:16px; padding-right:16px; } .importPreviewHeader { align-items:flex-start; flex-direction:column; } .importMappingStatus { display:inline-block; margin:8px 0 0; } .importTableWrap { min-height:310px; } .importEmpty { min-height:268px; } .importSubmit { min-width:0; flex:1; margin-left:10px; } }
