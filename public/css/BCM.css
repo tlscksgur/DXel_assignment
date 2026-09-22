@@ -1675,6 +1675,7 @@ textarea.cardDetailInput {
   justify-content: flex-end;
   align-items: center;
   gap: 10px;
+  transform: translateY(30px);
 }
 
 .cardDetailStatus {
