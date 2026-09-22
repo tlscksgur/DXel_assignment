@@ -183,6 +183,20 @@ body.bcm-page .bcmBoard {
   box-shadow: 0 2px 6px rgba(3, 22, 50, .06);
 }
 
+.tagFilterSelect {
+  min-width: 104px;
+  height: 31px;
+  padding: 0 28px 0 11px;
+  border: 1px solid rgba(3, 22, 50, .2);
+  border-radius: 8px;
+  background: #fff;
+  color: #031632;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .sortDirectionControls {
   overflow: hidden;
   border: 1px solid rgba(3, 22, 50, .1);
@@ -359,6 +373,32 @@ body.bcm-page .bcmBoard {
   color: #031632;
 }
 
+.tagGroup {
+  --tag-color: #c94a43;
+  border-color: color-mix(in srgb, var(--tag-color) 28%, transparent);
+}
+
+.tagGroup .cardGroupHeader strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tagGroupSwatch {
+  width: 9px;
+  height: 9px;
+  display: block;
+  border-radius: 50%;
+  background: var(--tag-color);
+}
+
+.tagGroup-1 { --tag-color: #e17d24; }
+.tagGroup-2 { --tag-color: #d8b511; }
+.tagGroup-3 { --tag-color: #24a566; }
+.tagGroup-4 { --tag-color: #21aebb; }
+.tagGroup-5 { --tag-color: #2c63c9; }
+.tagGroup-6 { --tag-color: #a24ed7; }
+
 .groupedCards,
 .duplicateCards {
   --group-card-width: 305px;
@@ -518,6 +558,31 @@ body.bcm-page .bcmBoard {
   filter: drop-shadow(0 1px 1px rgba(3, 22, 50, .22));
   pointer-events: none;
 }
+
+.profileCardTags {
+  position: absolute;
+  bottom: 0;
+  left: 24px;
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.profileCardTag {
+  --tag-color: #c94a43;
+  width: 5px;
+  height: 12px;
+  border-radius: 5px 5px 0 0;
+  background: var(--tag-color);
+}
+
+.profileCardTag-1 { --tag-color: #e17d24; }
+.profileCardTag-2 { --tag-color: #d8b511; }
+.profileCardTag-3 { --tag-color: #24a566; }
+.profileCardTag-4 { --tag-color: #21aebb; }
+.profileCardTag-5 { --tag-color: #2c63c9; }
+.profileCardTag-6 { --tag-color: #a24ed7; }
 
 .selectionActionBar {
   position: fixed;
@@ -1098,6 +1163,7 @@ body.detailOpen {
 }
 
 .cardDetailCard {
+  position: relative;
   width: 100%;
   min-height: 560px;
   padding: 46px 52px 50px;
@@ -1304,6 +1370,71 @@ body.detailOpen {
   gap: 14px;
   grid-column: 1;
   grid-row: 2;
+}
+
+.cardTagDrawer {
+  position: absolute;
+  bottom: 0;
+  left: 52px;
+  z-index: 2;
+  max-width: calc(65% - 52px);
+}
+
+.cardTagRail {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  padding: 0 2px;
+}
+
+.cardTag {
+  --tag-color: #c94a43;
+  flex: 0 0 auto;
+  min-width: 56px;
+  height: 36px;
+  padding: 0 8px;
+  border: 2px solid var(--tag-color);
+  border-radius: 12px 12px 0 0;
+  background: #fff;
+  color: var(--tag-color);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transform: translateY(22px);
+  transition: background .18s ease, color .18s ease, transform .18s ease;
+}
+
+.cardTagDrawer:hover .cardTag {
+  transform: translateY(0);
+}
+
+.cardTagDrawer:hover .cardTag:hover,
+.cardTag:focus-visible {
+  transform: translateY(-3px);
+  outline: none;
+}
+
+.cardTag:focus-visible {
+  box-shadow: 0 0 0 3px rgba(3, 22, 50, .2);
+}
+
+.cardTag.is-selected {
+  transform: translateY(0);
+  background: var(--tag-color);
+  color: #fff;
+}
+
+.cardTag-1 { --tag-color: #e17d24; }
+.cardTag-2 { --tag-color: #d8b511; }
+.cardTag-3 { --tag-color: #24a566; }
+.cardTag-4 { --tag-color: #21aebb; }
+.cardTag-5 { --tag-color: #2c63c9; }
+.cardTag-6 { --tag-color: #a24ed7; }
+
+.cardDetailCard.card-dark .cardTag.is-selected,
+.cardDetailCard.card-dark-grey .cardTag.is-selected {
+  background: var(--tag-color);
 }
 
 .cardDetailField {
@@ -2023,6 +2154,28 @@ textarea.cardDetailInput {
     padding: 28px 20px 24px;
     border-radius: 22px;
     display: block;
+  }
+
+  .cardTagDrawer {
+    position: static;
+    max-width: none;
+    margin-top: 22px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .cardTagDrawer::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cardTagRail {
+    width: max-content;
+    padding-bottom: 4px;
+    transform: none;
+  }
+
+  .cardTag {
+    transform: translateY(0);
   }
 
   .cardDetailHeader {

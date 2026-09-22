@@ -28,6 +28,7 @@ function singleLineText(value) {
 
 const MEETING_PURPOSE_MAX_LENGTH = 50;
 const MEETING_NOTE_MAX_LENGTH = 500;
+const CARD_TAGS = ["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"];
 
 function limitText(value, maxLength) {
   return Array.from(text(value)).slice(0, maxLength).join("");
@@ -1150,6 +1151,28 @@ app.patch("/api/cards/:id/favorite", (req, res) => {
         success: true,
         is_favorite: isFavorite
       });
+    }
+  );
+});
+
+// ===== 명함 분류 태그 API =====
+app.patch("/api/cards/:id/tags", (req, res) => {
+  if (!Array.isArray(req.body.tags)) {
+    return res.status(400).json({ success: false, message: "태그 정보를 확인해 주세요." });
+  }
+
+  const tags = [...new Set(req.body.tags.map(singleLineText).filter(Boolean))];
+  if (tags.some((tag) => !CARD_TAGS.includes(tag))) {
+    return res.status(400).json({ success: false, message: "지원하지 않는 태그가 포함되어 있습니다." });
+  }
+
+  db.run(
+    "UPDATE business_cards SET tags = ? WHERE id = ? AND deleted_at IS NULL",
+    [JSON.stringify(tags), req.params.id],
+    function (error) {
+      if (error) return res.status(500).json({ success: false, message: "태그를 저장하지 못했습니다." });
+      if (this.changes === 0) return res.status(404).json({ success: false, message: "태그를 지정할 명함을 찾을 수 없습니다." });
+      res.json({ success: true, tags });
     }
   );
 });

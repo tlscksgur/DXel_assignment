@@ -44,6 +44,7 @@
           <div class="viewModeControls" aria-label="명함 보기 방식">
             <button class="allViewToggle active" type="button" aria-pressed="true">전체</button>
             <button class="groupViewToggle" type="button" aria-pressed="false">그룹별 보기</button>
+            <button class="tagViewToggle" type="button" aria-pressed="false">태그별 보기</button>
             <button class="duplicateToggle" type="button" aria-pressed="false">
               중복 의심 보기
               <span class="duplicateCountBadge" hidden>0</span>
@@ -54,6 +55,16 @@
               <option value="recent">최근 등록순</option>
               <option value="name">이름순</option>
               <option value="company">회사순</option>
+            </select>
+            <select class="tagFilterSelect" hidden aria-label="표시할 태그">
+              <option value="">전체 태그</option>
+              <option value="고객">고객</option>
+              <option value="잠재 고객">잠재 고객</option>
+              <option value="협력사">협력사</option>
+              <option value="공급업체">공급업체</option>
+              <option value="파트너사">파트너사</option>
+              <option value="내부">내부</option>
+              <option value="기타">기타</option>
             </select>
             <div class="sortDirectionControls" aria-label="정렬 방향">
               <button class="sortDirectionButton" type="button" data-sort-direction="asc" aria-pressed="false">오름차순</button>

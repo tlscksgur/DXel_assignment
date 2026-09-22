@@ -27,6 +27,7 @@ db.serialize(() => {
       meeting_place TEXT,
       meeting_purpose TEXT,
       meeting_note TEXT,
+      tags TEXT NOT NULL DEFAULT '[]',
       is_favorite INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       deleted_at TEXT
@@ -58,6 +59,14 @@ db.serialize(() => {
 
     if (!columns.some((column) => column.name === "deleted_at")) {
       db.run("ALTER TABLE business_cards ADD COLUMN deleted_at TEXT", (alterError) => {
+        if (alterError) {
+          console.error(alterError.message);
+        }
+      });
+    }
+
+    if (!columns.some((column) => column.name === "tags")) {
+      db.run("ALTER TABLE business_cards ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'", (alterError) => {
         if (alterError) {
           console.error(alterError.message);
         }

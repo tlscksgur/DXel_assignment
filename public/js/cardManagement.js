@@ -3,9 +3,11 @@ const searchForm = document.querySelector(".cardSearchForm");
 const searchInput = document.querySelector("#cardSearch");
 const allViewToggle = document.querySelector(".allViewToggle");
 const groupViewToggle = document.querySelector(".groupViewToggle");
+const tagViewToggle = document.querySelector(".tagViewToggle");
 const duplicateToggle = document.querySelector(".duplicateToggle");
 const duplicateCountBadge = document.querySelector(".duplicateCountBadge");
 const cardSortSelect = document.querySelector(".cardSortSelect");
+const tagFilterSelect = document.querySelector(".tagFilterSelect");
 const favoriteViewToggle = document.querySelector(".favoriteViewToggle");
 const sortDirectionButtons = [
   document.querySelector('[data-sort-direction="asc"]'),
@@ -33,15 +35,18 @@ let viewMode = "all";
 let sortKey = "recent";
 let sortDirection = "desc";
 let favoritesOnly = false;
+let tagFilter = "";
 const selectionModeByView = new Map([
   ["all", false],
   ["groups", false],
+  ["tags", false],
   ["duplicates", false]
 ]);
 let selectionMode = selectionModeByView.get(viewMode);
 const selectedCardIdsByView = new Map([
   ["all", new Set()],
   ["groups", new Set()],
+  ["tags", new Set()],
   ["duplicates", new Set()]
 ]);
 let selectedCardIds = selectedCardIdsByView.get(viewMode);
@@ -49,6 +54,8 @@ let searchTimer;
 let requestSequence = 0;
 let activeCardId = null;
 let cardOpenTimer;
+let hasPendingTagViewUpdate = false;
+const CARD_TAG_OPTIONS = ["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"];
 
 function usesFinePointer() {
   return Boolean(
@@ -182,6 +189,49 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+function parseCardTags(value) {
+  try {
+    const tags = JSON.parse(String(value || "[]"));
+    return Array.isArray(tags)
+      ? tags.filter((tag) => CARD_TAG_OPTIONS.includes(tag))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function createCardTagDrawer(contact) {
+  const selectedTags = parseCardTags(contact.tags);
+  const buttons = CARD_TAG_OPTIONS.map((tag, index) => {
+    const selected = selectedTags.includes(tag);
+    return `<button type="button" class="cardTag cardTag-${index}${selected ? " is-selected" : ""}" data-action="toggle-tag" data-tag="${tag}" aria-pressed="${selected}"><span>${tag}</span></button>`;
+  }).join("");
+
+  return `<section class="cardTagDrawer${selectedTags.length ? " has-selected" : ""}" aria-label="명함 분류 태그"><div class="cardTagRail">${buttons}</div></section>`;
+}
+
+function createProfileCardTags(contact) {
+  const selectedTags = parseCardTags(contact.tags);
+  if (selectedTags.length === 0) return "";
+
+  const markers = selectedTags.map((tag) => {
+    const index = CARD_TAG_OPTIONS.indexOf(tag);
+    return `<span class="profileCardTag profileCardTag-${index}" title="${tag}" aria-label="${tag}"></span>`;
+  }).join("");
+
+  return `<div class="profileCardTags" aria-label="선택된 명함 태그">${markers}</div>`;
+}
+
+function syncProfileCardTags(cardId, tags) {
+  document.querySelectorAll(".profileCard").forEach((card) => {
+    if (Number(card.dataset.cardId) !== Number(cardId)) return;
+
+    card.querySelector(".profileCardTags")?.remove();
+    const markers = createProfileCardTags({ tags: JSON.stringify(tags) });
+    if (markers) card.insertAdjacentHTML("beforeend", markers);
+  });
+}
+
 function createWebsiteLink(value) {
   const website = String(value || "").trim();
   const safeValue = escapeHtml(website);
@@ -216,7 +266,7 @@ function createCardImageLightbox(contact) {
   if (!safeImagePath) return "";
 
   const imageAlt = escapeHtml(contact.name || "명함");
-  return `<div class="cardImageLightbox" hidden role="dialog" aria-modal="true" aria-label="${imageAlt} 원본 이미지 크게 보기"><button type="button" class="cardImageLightboxClose" data-action="close-image-viewer" aria-label="원본 이미지 닫기">×</button><img src="${safeImagePath}" alt="${imageAlt} 원본 이미지" decoding="async"></div>`;
+  return `<div class="cardImageLightbox" hidden role="dialog" aria-modal="true" aria-label="${imageAlt} 원본 이미지 크게 보기"><img src="${safeImagePath}" alt="${imageAlt} 원본 이미지" decoding="async"></div>`;
 }
 
 // ===== 명함 디자인 선택 및 목록 카드 생성 =====
@@ -257,6 +307,7 @@ function createCard(contact) {
       <p class="role">${[position, company].filter(Boolean).join(" · ")}</p>
       ${mobile ? `<p class="meta strong">${mobile}</p>` : ""}
       ${email ? `<p class="meta emailMeta">${email}</p>` : ""}
+      ${createProfileCardTags(contact)}
     </article>
   `;
 }
@@ -329,6 +380,7 @@ function createCardDetail(contact) {
         >${Number(contact.is_favorite) ? "★" : "☆"}</button>
       </div>
       <dl class="cardDetailGrid">${details}</dl>
+      ${createCardTagDrawer(contact)}
       <aside class="cardDetailSidebar">
         ${createCardOriginalImage(contact)}
         ${createMeetingJournal(contact)}
@@ -451,6 +503,31 @@ async function requestFavoriteUpdate(cardId, isFavorite) {
   return result;
 }
 
+async function requestTagUpdate(cardId, tags) {
+  const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}/tags`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ tags })
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.message || "태그를 저장하지 못했습니다.");
+  return result;
+}
+
+function syncCardTagDrawer(tags) {
+  const drawer = detailContent.querySelector(".cardTagDrawer");
+  if (!drawer) return;
+
+  drawer.classList.toggle("has-selected", tags.length > 0);
+  drawer.querySelectorAll('[data-action="toggle-tag"]').forEach((button) => {
+    const selected = tags.includes(button.dataset.tag);
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
 // ===== 상세 모달 조회·수정·삭제 동작 =====
 function getActiveCard() {
   return visibleCards.find((card) => Number(card.id) === Number(activeCardId));
@@ -536,6 +613,27 @@ async function toggleFavorite(cardId) {
   } catch (error) {
     console.error(error);
     setDetailStatus(error.message || "즐겨찾기를 변경하지 못했습니다.");
+  }
+}
+
+async function toggleCardTag(tag) {
+  const contact = getActiveCard();
+  if (!contact || !CARD_TAG_OPTIONS.includes(tag)) return;
+
+  const currentTags = parseCardTags(contact.tags);
+  const tags = currentTags.includes(tag)
+    ? currentTags.filter((currentTag) => currentTag !== tag)
+    : [...currentTags, tag];
+
+  try {
+    const result = await requestTagUpdate(contact.id, tags);
+    contact.tags = JSON.stringify(result.tags);
+    syncCardTagDrawer(result.tags);
+    syncProfileCardTags(contact.id, result.tags);
+    hasPendingTagViewUpdate = true;
+  } catch (error) {
+    console.error(error);
+    setDetailStatus(error.message || "태그를 저장하지 못했습니다.");
   }
 }
 
@@ -635,13 +733,16 @@ function closeCardDetail() {
   }
   document.body.classList.remove("detailOpen");
   activeCardId = null;
+  if (hasPendingTagViewUpdate) {
+    hasPendingTagViewUpdate = false;
+    renderCurrentView();
+  }
 }
 
 function openImageLightbox() {
   const lightbox = detailContent.querySelector(".cardImageLightbox");
   if (!lightbox) return;
   lightbox.hidden = false;
-  lightbox.querySelector(".cardImageLightboxClose")?.focus();
 }
 
 function closeImageLightbox() {
@@ -653,12 +754,12 @@ function closeImageLightbox() {
 function renderEmptyCards(message) {
   const isSearching = Boolean(String(searchInput.value || "").trim());
   const emptyMessage = isSearching ? "검색 결과가 없습니다." : message;
-  board.classList.remove("duplicateMode", "groupMode");
+  board.classList.remove("duplicateMode", "groupMode", "tagMode");
   board.innerHTML = `<p class="emptyCards">${escapeHtml(emptyMessage)}</p>`;
 }
 
 function renderAllCards(cards) {
-  board.classList.remove("duplicateMode", "groupMode");
+  board.classList.remove("duplicateMode", "groupMode", "tagMode");
   board.innerHTML = "";
 
   if (cards.length === 0) {
@@ -688,6 +789,18 @@ function groupCardsByName(cards) {
   return groups;
 }
 
+function groupCardsByTag(cards) {
+  const groups = new Map(CARD_TAG_OPTIONS.map((tag) => [tag, []]));
+
+  cards.forEach((card) => {
+    parseCardTags(card.tags).forEach((tag) => {
+      groups.get(tag)?.push(card);
+    });
+  });
+
+  return new Map(Array.from(groups).filter(([, taggedCards]) => taggedCards.length > 0));
+}
+
 function groupCardChunkSize() {
   const viewportWidth = Number(globalThis.innerWidth) || 1280;
   const cardWidth = viewportWidth >= 2200
@@ -708,7 +821,7 @@ function groupCardChunkSize() {
 }
 
 function renderGroupedCards(cards) {
-  board.classList.remove("duplicateMode");
+  board.classList.remove("duplicateMode", "tagMode");
   board.classList.add("groupMode");
   board.innerHTML = "";
   const groups = groupCardsByName(cards);
@@ -747,8 +860,48 @@ function renderGroupedCards(cards) {
   });
 }
 
+function renderTagGroups(cards) {
+  board.classList.remove("duplicateMode");
+  board.classList.add("groupMode", "tagMode");
+  board.innerHTML = "";
+  const allGroups = groupCardsByTag(cards);
+  const groups = tagFilter && allGroups.has(tagFilter)
+    ? new Map([[tagFilter, allGroups.get(tagFilter)]])
+    : tagFilter
+      ? new Map()
+      : allGroups;
+
+  if (groups.size === 0) {
+    renderEmptyCards(cards.length === 0 ? "등록된 명함이 없습니다." : "태그가 지정된 명함이 없습니다.");
+    return;
+  }
+
+  groups.forEach((taggedCards, tag) => {
+    const tagIndex = CARD_TAG_OPTIONS.indexOf(tag);
+    const cardsPerChunk = groupCardChunkSize();
+    const primaryCards = taggedCards.slice(0, cardsPerChunk);
+    const overflowCards = taggedCards.slice(cardsPerChunk);
+    const cardsMarkup = primaryCards.map((card) => createCard(card)).join("");
+    const overflowCardsMarkup = overflowCards.map((card) => createCard(card)).join("");
+
+    board.insertAdjacentHTML(
+      "beforeend",
+      `
+        <section class="cardGroup tagGroup tagGroup-${tagIndex}" aria-label="${escapeHtml(tag)} 태그">
+          <div class="cardGroupHeader">
+            <strong><i class="tagGroupSwatch" aria-hidden="true"></i>${escapeHtml(tag)}</strong>
+            <div class="cardGroupMeta"><span>${taggedCards.length}장</span></div>
+          </div>
+          <div class="groupedCards">${cardsMarkup}</div>
+          ${overflowCardsMarkup ? `<div class="groupedCards groupedCardsOverflow" style="--group-column-count:${cardsPerChunk / 2}">${overflowCardsMarkup}</div>` : ""}
+        </section>
+      `
+    );
+  });
+}
+
 function renderDuplicateGroups(groups) {
-  board.classList.remove("groupMode");
+  board.classList.remove("groupMode", "tagMode");
   board.classList.add("duplicateMode");
   board.innerHTML = "";
 
@@ -1147,6 +1300,9 @@ function renderCurrentView() {
   allViewToggle.setAttribute("aria-pressed", String(viewMode === "all"));
   groupViewToggle.classList.toggle("active", viewMode === "groups");
   groupViewToggle.setAttribute("aria-pressed", String(viewMode === "groups"));
+  tagViewToggle.classList.toggle("active", viewMode === "tags");
+  tagViewToggle.setAttribute("aria-pressed", String(viewMode === "tags"));
+  tagFilterSelect.hidden = viewMode !== "tags";
   duplicateToggle.classList.toggle("active", viewMode === "duplicates");
   duplicateToggle.setAttribute("aria-pressed", String(viewMode === "duplicates"));
   favoriteViewToggle.classList.toggle("active", favoritesOnly);
@@ -1171,6 +1327,24 @@ function renderCurrentView() {
       .reduce((total, cards) => total + cards.length, 0);
     renderGroupedCards(sortedCards);
     resultSummary.textContent = `그룹 ${groups.size}개 · ${groupedCardCount}장`;
+    return;
+  }
+
+  if (viewMode === "tags") {
+    const allGroups = groupCardsByTag(sortedCards);
+    if (tagFilter) {
+      const taggedCards = allGroups.get(tagFilter) || [];
+      renderAllCards(taggedCards);
+      resultSummary.textContent = `${tagFilter} ${taggedCards.length}장`;
+      return;
+    }
+
+    const groups = allGroups;
+    const taggedCardIds = new Set(
+      Array.from(groups.values()).flat().map((card) => Number(card.id))
+    );
+    renderTagGroups(sortedCards);
+    resultSummary.textContent = `태그 ${groups.size}개 · ${taggedCardIds.size}장`;
     return;
   }
 
@@ -1224,7 +1398,7 @@ async function loadCards() {
   } catch (error) {
     console.error(error);
     visibleCards = [];
-    board.classList.remove("duplicateMode", "groupMode");
+    board.classList.remove("duplicateMode", "groupMode", "tagMode");
     board.innerHTML = `<p class="emptyCards">${escapeHtml(error.message)}</p>`;
     resultSummary.textContent = "목록 조회 실패";
   }
@@ -1247,6 +1421,17 @@ allViewToggle.addEventListener("click", () => {
 
 groupViewToggle.addEventListener("click", () => {
   setViewMode(viewMode === "groups" ? "all" : "groups");
+});
+
+tagViewToggle.addEventListener("click", () => {
+  setViewMode(viewMode === "tags" ? "all" : "tags");
+});
+
+tagFilterSelect.addEventListener("change", () => {
+  tagFilter = tagFilterSelect.value;
+  if (viewMode === "tags") {
+    renderCurrentView();
+  }
 });
 
 duplicateToggle.addEventListener("click", () => {
@@ -1393,6 +1578,8 @@ detailContent.addEventListener("click", (event) => {
     deleteCurrentCard();
   } else if (action === "toggle-favorite") {
     toggleFavorite(activeCardId);
+  } else if (action === "toggle-tag") {
+    toggleCardTag(actionButton.dataset.tag);
   }
 });
 detailContent.addEventListener("submit", (event) => {

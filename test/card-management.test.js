@@ -14,6 +14,8 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   assert.match(html, /class="resultSummary"/);
   assert.match(html, /class="allViewToggle active"[^>]*>[\s\S]*전체/);
   assert.match(html, /class="groupViewToggle"[^>]*>[\s\S]*그룹별 보기/);
+  assert.match(html, /class="tagViewToggle"[^>]*>[\s\S]*태그별 보기/);
+  assert.match(html, /class="tagFilterSelect"[^>]*hidden[^>]*aria-label="표시할 태그"/);
   assert.match(html, /class="duplicateToggle"/);
   assert.match(html, /중복 의심 보기/);
   assert.match(html, /class="duplicateCountBadge"/);
@@ -30,6 +32,25 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   const searchForm = html.match(/<form class="cardSearchForm"[\s\S]*?<\/form>/)?.[0] || "";
   assert.doesNotMatch(searchForm, /class="duplicateToggle"/);
   assert.doesNotMatch(html, /총\s*\d+개\s*보관/);
+});
+
+test("태그별 보기는 선택된 태그마다 명함을 묶고 보기 전환 상태를 별도로 관리한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(source, /\["tags", false\]/);
+  assert.match(source, /function groupCardsByTag\(cards\)/);
+  assert.match(source, /function renderTagGroups\(cards\)/);
+  assert.match(source, /let tagFilter = "";/);
+  assert.match(source, /tagFilterSelect\.hidden = viewMode !== "tags"/);
+  assert.match(source, /tagFilterSelect\.addEventListener\("change"/);
+  assert.match(
+    source,
+    /if \(tagFilter\) \{[\s\S]*const taggedCards = allGroups\.get\(tagFilter\) \|\| \[\];[\s\S]*renderAllCards\(taggedCards\);/
+  );
+  assert.match(source, /viewMode === "tags"/);
+  assert.match(source, /tagViewToggle\.addEventListener\("click", \(\) => \{[\s\S]*setViewMode\(viewMode === "tags" \? "all" : "tags"\)/);
+  assert.match(css, /\.tagGroup\s*\{/);
 });
 
 test("즐겨찾기는 DB에 저장하고 단건 토글 API로 변경한다", () => {
@@ -104,11 +125,11 @@ test("명함 목록을 새로 불러오면 모든 보기의 삭제된 선택 상
   assert.match(loadCards, /pruneSelectedCardIds\(visibleIds\)/);
 });
 
-test("목록 요청 실패 시 그룹 보기 클래스도 제거해 빈 안내를 정상 크기로 표시한다", () => {
+test("목록 요청 실패 시 그룹·태그 보기 클래스를 제거해 빈 안내를 정상 크기로 표시한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const loadCards = source.match(/async function loadCards\(\)[\s\S]*?\n}\n\n\/\/ ===== 검색/)?.[0] || "";
 
-  assert.match(loadCards, /board\.classList\.remove\("duplicateMode", "groupMode"\)/);
+  assert.match(loadCards, /board\.classList\.remove\("duplicateMode", "groupMode", "tagMode"\)/);
 });
 
 test("명함 목록은 선택한 기준과 방향으로 정렬한다", () => {
@@ -307,7 +328,7 @@ test("빈 명함 목록은 검색 여부와 보기 방식에 맞는 동일 크�
   assert.match(source, /검색 결과가 없습니다\./);
   assert.match(source, /renderEmptyCards\(cards\.length === 0/);
   assert.match(source, /renderEmptyCards\(visibleCards\.length === 0/);
-  assert.match(source, /function renderEmptyCards\(message\)[\s\S]*board\.classList\.remove\("duplicateMode", "groupMode"\)/);
+  assert.match(source, /function renderEmptyCards\(message\)[\s\S]*board\.classList\.remove\("duplicateMode", "groupMode", "tagMode"\)/);
   assert.doesNotMatch(css, /\.bcmBoard\.groupMode \.emptyCards|\.bcmBoard\.duplicateMode \.emptyCards/);
   assert.match(css, /\.emptyCards\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/);
 });
@@ -964,6 +985,43 @@ test("명함 원본 이미지는 상세 화면에서 클릭해 크게 보고 닫
   assert.doesNotMatch(source, /cardImageLightboxClose/);
   assert.match(css, /\.cardImageLightbox\s*\{[\s\S]*position:\s*fixed;[\s\S]*inset:\s*0;/);
   assert.match(css, /\.cardImageLightbox img\s*\{[\s\S]*max-width:\s*min\(92vw, 1200px\);/);
+});
+
+test("명함은 여러 분류 태그를 저장하고 상세 하단 태그 탭에서 선택할 수 있다", () => {
+  const databaseSource = fs.readFileSync(path.join(projectRoot, "database/db.js"), "utf8");
+  const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+
+  assert.match(databaseSource, /tags TEXT NOT NULL DEFAULT '\[\]'/);
+  assert.match(databaseSource, /ALTER TABLE business_cards ADD COLUMN tags TEXT NOT NULL DEFAULT '\[\]'/);
+  assert.match(serverSource, /app\.patch\("\/api\/cards\/:id\/tags"/);
+  assert.match(serverSource, /\["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"\]/);
+  assert.match(source, /function createCardTagDrawer\(contact\)/);
+  assert.match(source, /function createProfileCardTags\(contact\)/);
+  assert.match(source, /function syncProfileCardTags\(cardId, tags\)/);
+  assert.match(source, /class="profileCardTags"/);
+  assert.match(source, /data-action="toggle-tag"/);
+  assert.match(source, /function syncCardTagDrawer\(tags\)/);
+  assert.match(source, /function toggleCardTag\(tag\)/);
+  assert.match(source, /let hasPendingTagViewUpdate = false;/);
+  assert.match(
+    source,
+    /function closeCardDetail\(\) \{[\s\S]*if \(hasPendingTagViewUpdate\) \{[\s\S]*renderCurrentView\(\);/
+  );
+  assert.doesNotMatch(
+    source.match(/async function toggleCardTag\(tag\) \{[\s\S]*?\n\}/)?.[0] || "",
+    /showCardDetail\(\)/
+  );
+  assert.match(css, /\.cardTagDrawer\s*\{[\s\S]*position:\s*absolute;[\s\S]*bottom:\s*0;/);
+  assert.match(css, /\.cardTag\s*\{[\s\S]*transform:\s*translateY\(22px\);/);
+  assert.match(css, /\.cardTag\.is-selected\s*\{[\s\S]*transform:\s*translateY\(0\);/);
+  assert.match(css, /\.cardTagDrawer:hover \.cardTag/);
+  assert.match(css, /\.cardTag\s*\{[\s\S]*background:\s*#fff;/);
+  assert.match(css, /\.profileCardTags\s*\{[\s\S]*position:\s*absolute;[\s\S]*bottom:\s*0;/);
+  assert.match(css, /\.profileCardTag\s*\{[\s\S]*height:\s*12px;/);
+  assert.doesNotMatch(css, /\.cardTagDrawer:focus-within \.cardTag/);
+  assert.match(css, /min-width:\s*56px;/);
 });
 
 test("상세 명함 번호는 닫기 버튼이 아니라 회사명 바로 옆에 정렬한다", () => {
