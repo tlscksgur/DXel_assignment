@@ -1964,7 +1964,7 @@ textarea.cardDetailInput {
 
 @media (min-width: 681px) {
   .cardDetailContent:has(.cardDetailSidebar) {
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .cardDetailCard:has(.cardDetailSidebar) {
@@ -2006,6 +2006,10 @@ textarea.cardDetailInput {
 
   .cardDetailCard:has(.cardDetailSidebar) .cardDetailField {
     padding-block: clamp(10px, 1.3vh, 15px);
+  }
+
+  .cardDetailCard:has(.cardDetailSidebar) .cardDetailAddress {
+    padding-bottom: calc(clamp(10px, 1.3vh, 15px) + 8px);
   }
 
   .cardDetailCard:has(.cardDetailSidebar) .meetingJournal {
