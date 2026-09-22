@@ -250,6 +250,48 @@ async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
   }
 }
 
+async function cropImageToBounds(blob, bounds, filename) {
+  if (!bounds || typeof createImageBitmap !== "function") return null;
+
+  const image = await createImageBitmap(blob, { imageOrientation: "from-image" });
+  try {
+    const sourceX = Math.round(image.width * bounds.x);
+    const sourceY = Math.round(image.height * bounds.y);
+    const sourceWidth = Math.round(image.width * bounds.width);
+    const sourceHeight = Math.round(image.height * bounds.height);
+    if (sourceWidth < 1 || sourceHeight < 1) return null;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = sourceWidth;
+    canvas.height = sourceHeight;
+    canvas.getContext("2d").drawImage(
+      image,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      sourceWidth,
+      sourceHeight
+    );
+
+    const croppedBlob = await new Promise((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (result) {
+          resolve(result);
+          return;
+        }
+        reject(new Error("명함 이미지를 자르지 못했습니다."));
+      }, "image/jpeg", 0.94);
+    });
+    const nameWithoutExtension = filename.replace(/\.[^.]+$/, "");
+    return { blob: croppedBlob, filename: `${nameWithoutExtension}-card.jpg` };
+  } finally {
+    image.close();
+  }
+}
+
 // ===== Local AI 분석 및 큐 이동 =====
 async function analyzeCurrentCard() {
   const item = uploadQueue[currentQueueIndex];
@@ -309,8 +351,37 @@ async function analyzeCurrentCard() {
       throw new Error(result.message || "업로드에 실패했습니다.");
     }
 
+    let imagePath = result.file.path;
+    if (result.cropBounds) {
+      try {
+        const croppedImage = await cropImageToBounds(
+          preparedImage.blob,
+          result.cropBounds,
+          preparedImage.filename
+        );
+        if (croppedImage) {
+          const croppedFormData = new FormData();
+          croppedFormData.append("image", croppedImage.blob, croppedImage.filename);
+          croppedFormData.append("originalPath", result.file.path);
+          const croppedResponse = await fetch("/api/cards/cropped-image", {
+            method: "POST",
+            body: croppedFormData
+          });
+          const croppedResult = await croppedResponse.json();
+          if (!croppedResponse.ok) {
+            throw new Error(croppedResult.message || "크롭한 이미지를 저장하지 못했습니다.");
+          }
+          imagePath = croppedResult.file.path;
+          URL.revokeObjectURL(item.previewUrl);
+          item.previewUrl = URL.createObjectURL(croppedImage.blob);
+        }
+      } catch (cropError) {
+        console.warn("명함 자동 크롭에 실패해 원본 이미지를 사용합니다:", cropError);
+      }
+    }
+
     item.status = "ready";
-    item.imagePath = result.file.path;
+    item.imagePath = imagePath;
     item.extracted = result.extracted;
     item.analysisDurationMs = Date.now() - analysisStartedAt;
 

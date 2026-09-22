@@ -34,6 +34,23 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   assert.doesNotMatch(html, /총\s*\d+개\s*보관/);
 });
 
+test("명함 분석은 AI 크롭 좌표를 받아 Canvas 크롭본으로 원본을 안전하게 교체한다", () => {
+  const aiSource = fs.readFileSync(path.join(projectRoot, "localAi.js"), "utf8");
+  const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+  const addSource = fs.readFileSync(path.join(projectRoot, "public/js/cardAdd.js"), "utf8");
+
+  assert.match(aiSource, /crop_bounds/);
+  assert.match(aiSource, /x:\s*\{ type: "number" \}/);
+  assert.match(aiSource, /normalized 0-1000 coordinates/i);
+  assert.match(serverSource, /function normalizeCropBounds\(value\)/);
+  assert.match(serverSource, /cropBounds:\s*normalizeCropBounds\(parsed\.crop_bounds\)/);
+  assert.match(serverSource, /app\.post\("\/api\/cards\/cropped-image", upload\.single\("image"\)/);
+  assert.match(addSource, /async function cropImageToBounds\(blob, bounds, filename\)/);
+  assert.match(addSource, /fetch\("\/api\/cards\/cropped-image"/);
+  assert.match(addSource, /imagePath = croppedResult\.file\.path/);
+  assert.match(addSource, /catch \(cropError\) \{[\s\S]*원본 이미지를 사용합니다/);
+});
+
 test("태그별 보기는 선택된 태그마다 명함을 묶고 보기 전환 상태를 별도로 관리한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");

@@ -399,6 +399,30 @@ function sanitizeExtractedCard(value = {}) {
   });
 }
 
+function normalizeCropBounds(value) {
+  const x = Number(value?.x);
+  const y = Number(value?.y);
+  const width = Number(value?.width);
+  const height = Number(value?.height);
+  const values = [x, y, width, height];
+
+  if (!values.every(Number.isFinite) || width < 160 || height < 100) {
+    return null;
+  }
+
+  const safeX = Math.max(0, Math.min(999, x));
+  const safeY = Math.max(0, Math.min(999, y));
+  const safeWidth = Math.min(1000 - safeX, Math.max(1, width));
+  const safeHeight = Math.min(1000 - safeY, Math.max(1, height));
+
+  return {
+    x: safeX / 1000,
+    y: safeY / 1000,
+    width: safeWidth / 1000,
+    height: safeHeight / 1000
+  };
+}
+
 function hasBusinessCardEvidence(card) {
   const hasIdentity = Boolean(card.name || card.company);
   const hasContact = Boolean(
@@ -562,6 +586,7 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
         path: `/uploads/${req.file.filename}`,
         size: req.file.size
       },
+      cropBounds: normalizeCropBounds(parsed.crop_bounds),
       extracted
     });
   } catch (error) {
@@ -571,6 +596,41 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
       message: "명함 이미지 분석에 실패했습니다."
     });
   }
+});
+
+app.post("/api/cards/cropped-image", upload.single("image"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: "크롭한 이미지 파일이 없습니다."
+    });
+  }
+
+  const originalPath = text(req.body?.originalPath);
+  const originalFilename = originalPath.match(/^\/uploads\/([A-Za-z0-9._-]+)$/)?.[1];
+  if (!originalFilename) {
+    fs.unlink(req.file.path, () => {});
+    return res.status(400).json({
+      success: false,
+      message: "교체할 원본 이미지 경로가 올바르지 않습니다."
+    });
+  }
+
+  fs.unlink(`${UPLOAD_DIR}/${originalFilename}`, (error) => {
+    if (error && error.code !== "ENOENT") {
+      console.warn("원본 명함 이미지 삭제 실패:", error.message);
+    }
+  });
+
+  return res.json({
+    success: true,
+    file: {
+      originalName: req.file.originalname,
+      filename: req.file.filename,
+      path: `/uploads/${req.file.filename}`,
+      size: req.file.size
+    }
+  });
 });
 
 // ===== 명함 저장 API =====
