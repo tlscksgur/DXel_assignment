@@ -116,10 +116,6 @@ header {
   .headerBox1 ul li a { font-size: 12px; }
 }
 
-@media (max-width: 680px) {
-  .headerBox1 ul li:nth-child(3) { display: none; }
-}
-
 main {
   width: 100%;
   padding-top: 90px;
@@ -490,6 +486,17 @@ footer {
   .headerBox1 ul li a {
     font-size: 12px;
     white-space: nowrap;
+  }
+
+  .headerBox1 ul li:nth-child(3) { display: block; }
+
+  .headerBox1 ul li:nth-child(3) a {
+    font-size: 0;
+  }
+
+  .headerBox1 ul li:nth-child(3) a::after {
+    content: "불러오기";
+    font-size: 12px;
   }
 
   .headerBox2 {

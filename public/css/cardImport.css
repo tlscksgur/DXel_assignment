@@ -74,7 +74,7 @@
 .importSubmit:disabled { cursor:not-allowed; opacity:.42; }
 
 @media (min-width: 1600px) and (min-height: 900px) {
-  .importMain { display:flex; flex-direction:column; padding-bottom:18px; }
+  .importMain { display:flex; flex-direction:column; padding-bottom:96px; }
   .importTitle { margin-bottom:0; }
   .importWorkspace { flex:1; margin:30px auto 0; }
 }

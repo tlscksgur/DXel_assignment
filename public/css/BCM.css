@@ -1448,10 +1448,35 @@ body.detailOpen {
 
 .cardDetailField dt {
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.6px;
   opacity: .58;
+}
+
+.cardDetailCopyButton {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, .12);
+  color: inherit;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  opacity: .75;
+  cursor: pointer;
+}
+
+.cardDetailCopyButton:hover,
+.cardDetailCopyButton:focus-visible {
+  opacity: 1;
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
 }
 
 .cardDetailField dd {
@@ -1703,6 +1728,12 @@ textarea.cardDetailInput {
 .cardDetailActions button.danger {
   background: rgba(255, 255, 255, .82);
   color: #031632;
+}
+
+.cardDetailActions .cardDetailCopyAllButton {
+  border-color: currentColor;
+  background: transparent;
+  color: inherit;
 }
 
 .cardDetailCard.card-dark .cardDetailActions button:not(.danger),

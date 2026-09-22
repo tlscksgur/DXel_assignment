@@ -54,6 +54,7 @@ let searchTimer;
 let requestSequence = 0;
 let activeCardId = null;
 let cardOpenTimer;
+let detailStatusTimer;
 let hasPendingTagViewUpdate = false;
 const CARD_TAG_OPTIONS = ["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"];
 
@@ -242,6 +243,46 @@ function createWebsiteLink(value) {
   return `<a class="cardDetailWebsiteLink" href="${safeValue}" target="_blank" rel="noopener noreferrer">${safeValue}</a>`;
 }
 
+async function copyText(value) {
+  const content = String(value || "").trim();
+  if (!content) return false;
+
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(content);
+    return true;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = content;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  return copied;
+}
+
+function createCopyAllCardText(contact) {
+  const fields = [
+    ["이름", contact.name],
+    ["회사", contact.company],
+    ["부서", contact.department],
+    ["직책", contact.position],
+    ["휴대폰", contact.mobile],
+    ["유선전화", contact.phone],
+    ["이메일", contact.email],
+    ["홈페이지", contact.website],
+    ["주소", contact.address]
+  ];
+
+  return fields
+    .filter(([, value]) => String(value || "").trim())
+    .map(([label, value]) => `${label}: ${String(value).trim()}`)
+    .join("\n");
+}
+
 function createCardOriginalImage(contact) {
   const imagePath = String(contact.image_path || "").trim();
   const safeImagePath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(imagePath)
@@ -338,6 +379,7 @@ function createMeetingJournal(contact) {
 
 function createCardDetail(contact) {
   const classes = getCardVariant(contact);
+  const copyableLabels = new Set(["휴대폰", "유선전화", "이메일", "홈페이지", "주소"]);
   const fields = [
     ["이름", contact.name],
     ["회사", contact.company],
@@ -351,12 +393,15 @@ function createCardDetail(contact) {
   ];
   const details = fields.map(([label, value]) => {
     const content = String(value || "").trim();
+    const copyButton = copyableLabels.has(label) && content
+      ? `<button type="button" class="cardDetailCopyButton" data-action="copy-field" data-copy-value="${escapeHtml(content)}" aria-label="${label} 복사">복사</button>`
+      : "";
     const displayValue = label === "홈페이지"
       ? createWebsiteLink(content)
       : escapeHtml(content);
     return `
       <div class="cardDetailField${label === "주소" ? " cardDetailAddress" : ""}${label === "이메일" ? " cardDetailEmails" : ""}">
-        <dt>${label}</dt>
+        <dt><span>${label}</span>${copyButton}</dt>
         <dd${content ? "" : ' class="isEmpty"'}>${content ? displayValue : "없음"}</dd>
       </div>
     `;
@@ -388,6 +433,7 @@ function createCardDetail(contact) {
       ${createCardImageLightbox(contact)}
       <div class="cardDetailActions">
         <p class="cardDetailStatus" aria-live="polite"></p>
+        <button type="button" class="cardDetailCopyAllButton" data-action="copy-all">전체 정보 복사</button>
         <button type="button" data-action="edit">수정</button>
         <button type="button" class="danger" data-action="delete">휴지통으로 이동</button>
       </div>
@@ -567,6 +613,26 @@ function setDetailStatus(message) {
   const status = detailContent.querySelector(".cardDetailStatus");
   if (status) {
     status.textContent = message;
+  }
+}
+
+async function copyFromDetail(button, value) {
+  const originalLabel = button.textContent;
+  try {
+    const copied = await copyText(value);
+    if (!copied) throw new Error("복사에 실패했습니다.");
+    button.textContent = "복사됨";
+    setDetailStatus("클립보드에 복사되었습니다.");
+    window.clearTimeout(detailStatusTimer);
+    detailStatusTimer = window.setTimeout(() => {
+      setDetailStatus("");
+    }, 2000);
+    window.setTimeout(() => {
+      button.textContent = originalLabel;
+    }, 1400);
+  } catch (error) {
+    console.error(error);
+    setDetailStatus("복사하지 못했습니다. 브라우저 권한을 확인해 주세요.");
   }
 }
 
@@ -1578,6 +1644,11 @@ detailContent.addEventListener("click", (event) => {
     deleteCurrentCard();
   } else if (action === "toggle-favorite") {
     toggleFavorite(activeCardId);
+  } else if (action === "copy-field") {
+    copyFromDetail(actionButton, actionButton.dataset.copyValue);
+  } else if (action === "copy-all") {
+    const contact = getActiveCard();
+    if (contact) copyFromDetail(actionButton, createCopyAllCardText(contact));
   } else if (action === "toggle-tag") {
     toggleCardTag(actionButton.dataset.tag);
   }
