@@ -771,6 +771,7 @@
   .extractPanel {
     width: min(728px, 100%);
     min-height: 705px;
+    height: max-content;
     padding: 34px;
   }
 

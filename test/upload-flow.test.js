@@ -318,7 +318,8 @@ ${JSON.stringify({
         "phone",
         "email",
         "address",
-        "website"
+        "website",
+        "crop_bounds"
       ]
     );
     assert.equal(

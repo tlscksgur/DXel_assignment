@@ -175,7 +175,7 @@ test("상세 모달은 내용 높이를 따르고 긴 메모만 내부 스크롤
   );
   assert.match(
     desktopLayout,
-    /\.cardDetailContent:has\(\.cardDetailSidebar\)\s*\{[^}]*overflow-y:\s*auto;/
+    /\.cardDetailContent:has\(\.cardDetailSidebar\)\s*\{[^}]*overflow:\s*hidden;/
   );
   assert.doesNotMatch(desktopLayout, /\.cardDetailGrid\s*\{[^}]*overflow-y:\s*auto;/);
   assert.doesNotMatch(desktopLayout, /\.cardDetailHeader\s*\{[^}]*overflow-y:\s*auto;/);
