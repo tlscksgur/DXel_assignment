@@ -1378,6 +1378,7 @@ body.detailOpen {
   left: 52px;
   z-index: 2;
   max-width: calc(65% - 52px);
+  overflow: clip;
 }
 
 .cardTagRail {
@@ -1411,12 +1412,17 @@ body.detailOpen {
 
 .cardTagDrawer:hover .cardTag:hover,
 .cardTag:focus-visible {
-  transform: translateY(-3px);
+  transform: translateY(0);
   outline: none;
 }
 
 .cardTag:focus-visible {
-  box-shadow: 0 0 0 3px rgba(3, 22, 50, .2);
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--tag-color);
+}
+
+.cardTag:focus {
+  outline: none;
 }
 
 .cardTag.is-selected {
