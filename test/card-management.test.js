@@ -114,6 +114,43 @@ test("로고 영역은 바로 아래 인쇄된 웹 주소를 포함하지 않도
   assert.match(ai, /logo_bounds[\s\S]*website[\s\S]*www\.dxel\.co\.kr/i);
 });
 
+test("멀리 떨어진 인증 마크 대신 독립된 회사 심볼 하나를 로고로 고른다", () => {
+  const ai = fs.readFileSync(path.join(projectRoot, "localAi.js"), "utf8");
+
+  assert.match(ai, /abstract (?:company )?symbol[\s\S]*logo_bounds/i);
+  assert.match(ai, /KOSDAQ[\s\S]*separate[\s\S]*logo_bounds/i);
+});
+
+test("AI가 글자를 똑바로 읽기 위한 회전 각도를 명함 영역과 함께 반환한다", () => {
+  const ai = fs.readFileSync(path.join(projectRoot, "localAi.js"), "utf8");
+  const server = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+
+  assert.match(ai, /upright_rotation[\s\S]*clockwise/i);
+  assert.match(ai, /upright_rotation:\s*\{\s*type:\s*"integer",\s*enum:\s*\[0, 90, 180, 270\]/);
+  assert.match(server, /uprightRotation:\s*normalizeUprightRotation\(parsed\.upright_rotation\)/);
+});
+
+test("명함 경계에 걸친 로고도 로고 좌표 전체와 여유를 보존한다", () => {
+  const server = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+  const start = server.indexOf("function normalizeLogoBounds(");
+  const end = server.indexOf("\nfunction hasBusinessCardEvidence", start);
+  assert.ok(start >= 0 && end > start);
+  const normalizeLogoBounds = vm.runInNewContext(
+    `${server.slice(start, end)}\nnormalizeLogoBounds`
+  );
+
+  const result = normalizeLogoBounds(
+    { x: 860, y: 720, width: 50, height: 90 },
+    { x: 100, y: 100, width: 800, height: 700 }
+  );
+  assert.deepEqual({ ...result }, {
+    x: 0.848,
+    y: 0.708,
+    width: 0.074,
+    height: 0.114
+  });
+});
+
 test("상세 명함은 연락처 필드와 전체 정보를 빠르게 복사할 수 있다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");

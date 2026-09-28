@@ -454,10 +454,11 @@ function normalizeLogoBounds(value, cardBounds) {
   }
 
   const padding = 12;
-  const safeX = Math.max(0, cardX, x - padding);
-  const safeY = Math.max(0, cardY, y - padding);
-  const safeRight = Math.min(1000, cardX + cardWidth, x + width + padding);
-  const safeBottom = Math.min(1000, cardY + cardHeight, y + height + padding);
+  // The card edge is an AI estimate too; do not trim a valid logo against it.
+  const safeX = Math.max(0, x - padding);
+  const safeY = Math.max(0, y - padding);
+  const safeRight = Math.min(1000, x + width + padding);
+  const safeBottom = Math.min(1000, y + height + padding);
   if (safeRight <= safeX || safeBottom <= safeY) return null;
 
   return {
@@ -466,6 +467,11 @@ function normalizeLogoBounds(value, cardBounds) {
     width: (safeRight - safeX) / 1000,
     height: (safeBottom - safeY) / 1000
   };
+}
+
+function normalizeUprightRotation(value) {
+  const degrees = Number(value);
+  return [0, 90, 180, 270].includes(degrees) ? degrees : 0;
 }
 
 function hasBusinessCardEvidence(card) {
@@ -622,6 +628,10 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
       return rejectNonBusinessCard(req, res);
     }
 
+    if (req.body?.temporary === "true") {
+      await fs.promises.unlink(req.file.path);
+    }
+
     res.json({
       success: true,
       message: "명함 분석 완료",
@@ -633,9 +643,13 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
       },
       cropBounds: normalizeCropBounds(parsed.crop_bounds),
       logoBounds: normalizeLogoBounds(parsed.logo_bounds, parsed.crop_bounds),
+      uprightRotation: normalizeUprightRotation(parsed.upright_rotation),
       extracted
     });
   } catch (error) {
+    if (req.body?.temporary === "true") {
+      fs.unlink(req.file.path, () => {});
+    }
     console.error(error);
     res.status(502).json({
       success: false,

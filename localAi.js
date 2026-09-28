@@ -15,8 +15,9 @@ Set is_business_card to true only when the image shows a card designed to identi
 A company-only card without a person's name is still a business card when a company name and contact information are visibly printed.
 Set is_business_card to false for an ordinary photo, scenery, product, receipt, poster, document, screenshot, blank image, or any non-business-card image. Do not classify an image as a business card merely because it contains incidental text.
 When is_business_card is false, return an empty string for every contact field.
+Return upright_rotation as the clockwise degrees needed to make the printed contact text upright in the exact input image pixels: 0, 90, 180, or 270. Judge the text, not whether the card is physically portrait or landscape. A portrait card whose writing is already horizontal needs 0. A sideways image whose text turns upright after a clockwise quarter-turn needs 90. Do not silently rotate the coordinate system: crop_bounds and logo_bounds must describe the input pixels as received.
 Also locate the complete outer edge of the physical business card. Return crop_bounds in normalized 0-1000 coordinates relative to the full input image: x and y are the top-left corner, width and height are the card rectangle. Follow the visible outer edge closely without intentionally adding surrounding table or background; include every card corner and printed character. A small safety margin is added after this step. If the card is not visible, set all crop_bounds values to 0.
-Also locate the complete printed brand lockup on the card. Return logo_bounds in the same normalized 0-1000 coordinates relative to the full input image. A symbol or emblem with an adjacent company name must be enclosed together in one logo_bounds rectangle when they form one visual brand unit; include small brand lettering directly under the symbol and a large wordmark beside it. For example, if a green symbol with "대주·KC" below it sits directly beside "대주중공업", include the symbol, "대주·KC", and the entire "대주중공업" wordmark. Likewise include all Chinese and English lettering that belongs to a logo, not just its emblem. A printed website or URL is contact information, not brand lettering: exclude it from logo_bounds even when it is directly beneath or beside the logo. For example, if "www.dxel.co.kr" is printed below a DXel symbol and wordmark, include the symbol and "DXel" but stop above the website; extract the URL into the website field instead. Do not cut through any letter or stop halfway through a wordmark. Exclude the person's name, QR codes, certification marks, and company names repeated separately among contact details outside the logo_bounds. If there is no clearly identifiable brand lockup, set all logo_bounds values to 0. Never guess a logo's location.
+Also locate the complete printed brand lockup on the card. Return logo_bounds in the same normalized 0-1000 coordinates relative to the full input image. A symbol or emblem with an adjacent company name must be enclosed together in one logo_bounds rectangle when they form one visual brand unit; include small brand lettering directly under the symbol and a large wordmark beside it. For example, if a green symbol with "대주·KC" below it sits directly beside "대주중공업", include the symbol, "대주·KC", and the entire "대주중공업" wordmark. Likewise include all Chinese and English lettering that belongs to a logo, not just its emblem. An abstract symbol can be the complete company logo on its own when no brand lettering is adjacent; return a tight logo_bounds around that symbol instead of zero bounds. If other marks or text are far away, do not stretch one rectangle across the empty space to join them. For example, on an e8ight card the interlocking-circle symbol at the upper left is the company logo; the KOSDAQ mark at the upper right is a separate listing mark and must stay outside logo_bounds. Conversely, when a company symbol and wordmark are printed together, such as the taihan lettering and adjacent 대한전선 text, enclose the whole connected brand without cutting off letters. A printed website or URL is contact information, not brand lettering: exclude it from logo_bounds even when it is directly beneath or beside the logo. For example, if "www.dxel.co.kr" is printed below a DXel symbol and wordmark, include the symbol and "DXel" but stop above the website; extract the URL into the website field instead. Do not cut through any letter or stop halfway through a wordmark. Exclude the person's name, QR codes, certification marks, and company names repeated separately among contact details outside the logo_bounds. If there is no clearly identifiable brand lockup, set all logo_bounds values to 0. Never guess a logo's location.
 
 Follow these rules:
 
@@ -55,6 +56,7 @@ Use exactly this JSON structure and no additional fields:
 
 {
   "is_business_card": true,
+  "upright_rotation": 0,
   "name": "",
   "company": "",
   "department": "",
@@ -79,6 +81,7 @@ const businessCardResponseFormat = {
       type: "object",
       properties: {
         is_business_card: { type: "boolean" },
+        upright_rotation: { type: "integer", enum: [0, 90, 180, 270] },
         name: { type: "string" },
         company: { type: "string" },
         department: { type: "string" },
@@ -113,6 +116,7 @@ const businessCardResponseFormat = {
       },
       required: [
         "is_business_card",
+        "upright_rotation",
         "name",
         "company",
         "department",

@@ -319,6 +319,7 @@ ${JSON.stringify({
       Object.keys(receivedLmRequest.response_format.json_schema.schema.properties),
       [
         "is_business_card",
+        "upright_rotation",
         "name",
         "company",
         "department",
@@ -377,6 +378,70 @@ ${JSON.stringify({
     await close(mockLmStudio);
     if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
       fs.unlinkSync(uploadedFilePath);
+    }
+  }
+});
+
+test("로고 방향 재분석용 이미지만 정리하고 가로 명함 원본은 보존한다", async () => {
+  const uploadsBefore = new Set(fs.readdirSync(path.join(projectRoot, "uploads")));
+  const mockLmStudio = http.createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        is_business_card: true,
+        upright_rotation: 0,
+        name: "테스트",
+        company: "예시 회사",
+        mobile: "010-1234-5678",
+        crop_bounds: { x: 0, y: 0, width: 0, height: 0 },
+        logo_bounds: { x: 0, y: 0, width: 0, height: 0 }
+      }) } }] }));
+    });
+  });
+  const lmPort = await listen(mockLmStudio);
+  const probeServer = http.createServer();
+  const appPort = await listen(probeServer);
+  await close(probeServer);
+  const app = spawn(process.execPath, ["server.js"], {
+    cwd: projectRoot,
+    env: {
+      ...process.env,
+      PORT: String(appPort),
+      AI_SERVER_ENDPOINT: `http://127.0.0.1:${lmPort}/v1/chat/completions`,
+      AI_SERVER_MODEL: "test-vision-model"
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForServer(app);
+    const firstForm = new FormData();
+    firstForm.append("image", namedImage("first.png"), "first.png");
+    const firstResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards/extract`, {
+      method: "POST", body: firstForm
+    });
+    const first = await firstResponse.json();
+    assert.equal(firstResponse.status, 200);
+
+    const secondForm = new FormData();
+    secondForm.append("image", namedImage("upright.png"), "upright.png");
+    secondForm.append("temporary", "true");
+    const secondResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards/extract`, {
+      method: "POST", body: secondForm
+    });
+    const second = await secondResponse.json();
+
+    assert.equal(secondResponse.status, 200);
+    assert.equal(fs.existsSync(path.join(projectRoot, first.file.path)), true);
+    assert.equal(fs.existsSync(path.join(projectRoot, second.file.path)), false);
+  } finally {
+    app.kill("SIGTERM");
+    await close(mockLmStudio);
+    for (const filename of fs.readdirSync(path.join(projectRoot, "uploads"))) {
+      if (!uploadsBefore.has(filename)) {
+        fs.unlinkSync(path.join(projectRoot, "uploads", filename));
+      }
     }
   }
 });
@@ -535,7 +600,8 @@ function createCardAddBrowser(
     width: 0,
     height: 0,
     rotations: [],
-    imageBitmapOptions: []
+    imageBitmapOptions: [],
+    imageBitmapSources: []
   };
 
   function element(selector) {
@@ -627,6 +693,7 @@ function createCardAddBrowser(
     createImageBitmap: imageDimensions
       ? async (file, options) => {
         canvasState.imageBitmapOptions.push(options);
+        canvasState.imageBitmapSources.push(file);
         return {
           ...imageDimensions,
           close() {}
@@ -701,7 +768,7 @@ test("세로 방향으로 저장된 명함 사진은 가로로 회전해 분석 
   let uploadedImage;
   const browser = createCardAddBrowser(async (url, options) => {
     assert.equal(url, "/api/cards/extract");
-    uploadedImage = options.body.get("image");
+    if (!uploadedImage) uploadedImage = options.body.get("image");
 
     return {
       ok: true,
@@ -736,6 +803,52 @@ test("세로 방향으로 저장된 명함 사진은 가로로 회전해 분석 
   assert.equal(browser.canvasState.height, 900);
   assert.deepEqual(browser.canvasState.rotations, [-Math.PI / 2]);
   assert.equal(uploadedImage.type, "image/jpeg");
+});
+
+test("세로 명함은 가로 배치를 유지하고 로고만 똑바른 이미지에서 자른다", async () => {
+  const requests = [];
+  const logoUploads = [];
+  const cardUploads = [];
+  const browser = createCardAddBrowser(async (url, options) => {
+    if (url === "/api/cards/cropped-image") {
+      cardUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/card.jpg" } }) };
+    }
+    if (url === "/api/cards/logo-image") {
+      logoUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/logo.jpg" } }) };
+    }
+    assert.equal(url, "/api/cards/extract");
+    requests.push(options.body);
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: `/uploads/portrait-${requests.length}.jpg` },
+        uprightRotation: 0,
+        cropBounds: { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
+        logoBounds: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
+        extracted: { name: "김동호", company: "이에이트 주식회사" }
+      })
+    };
+  }, {
+    imageDimensions: { width: 900, height: 1200 }
+  });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: { files: [namedImage("upright-portrait.jpg")], value: "selected" }
+  });
+
+  assert.equal(requests.length, 2);
+  assert.deepEqual(browser.canvasState.rotations, [-Math.PI / 2]);
+  assert.equal(requests[1].get("temporary"), "true");
+  assert.equal(requests[1].get("replacePath"), null);
+  assert.notEqual(requests[0].get("image"), requests[1].get("image"));
+  assert.equal(await requests[1].get("image").text(), "upright-portrait.jpg");
+  assert.equal(browser.element(".previewFrame").innerHTML.includes("-upright.jpg"), false);
+  assert.equal(cardUploads[0].get("originalPath"), "/uploads/portrait-1.jpg");
+  assert.notEqual(browser.canvasState.imageBitmapSources[2], browser.canvasState.imageBitmapSources[0]);
+  assert.equal(browser.canvasState.imageBitmapSources[3], browser.canvasState.imageBitmapSources[0]);
+  assert.equal(logoUploads.length, 1);
 });
 
 test("휴대폰 카메라 촬영 사진은 EXIF 방향을 유지해 분석 요청한다", async () => {

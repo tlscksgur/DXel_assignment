@@ -185,7 +185,8 @@ async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
   if (typeof createImageBitmap !== "function") {
     return {
       blob: file,
-      filename: file.name
+      filename: file.name,
+      rotatedPortrait: false
     };
   }
 
@@ -204,7 +205,8 @@ async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
     if (!shouldRotate && !shouldResize) {
       return {
         blob: file,
-        filename: file.name
+        filename: file.name,
+        rotatedPortrait: false
       };
     }
 
@@ -246,11 +248,61 @@ async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
 
     return {
       blob,
-      filename: `${nameWithoutExtension}.jpg`
+      filename: `${nameWithoutExtension}.jpg`,
+      rotatedPortrait: shouldRotate
     };
   } finally {
     image.close();
   }
+}
+
+async function rotatePreparedImage(preparedImage, degrees) {
+  const image = await createImageBitmap(preparedImage.blob, {
+    imageOrientation: "from-image"
+  });
+
+  try {
+    const quarterTurn = degrees === 90 || degrees === 270;
+    const canvas = document.createElement("canvas");
+    canvas.width = quarterTurn ? image.height : image.width;
+    canvas.height = quarterTurn ? image.width : image.height;
+
+    const context = canvas.getContext("2d");
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate(degrees * Math.PI / 180);
+    context.drawImage(image, -image.width / 2, -image.height / 2);
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (result) resolve(result);
+        else reject(new Error("이미지 방향을 바로잡지 못했습니다."));
+      }, "image/jpeg", 0.92);
+    });
+
+    return {
+      blob,
+      filename: preparedImage.filename.replace(/\.[^.]+$/, "-upright.jpg")
+    };
+  } finally {
+    image.close();
+  }
+}
+
+async function requestCardAnalysis(preparedImage, temporary = false) {
+  const formData = new FormData();
+  formData.append("image", preparedImage.blob, preparedImage.filename);
+  if (temporary) formData.append("temporary", "true");
+
+  const response = await fetch("/api/cards/extract", {
+    method: "POST",
+    body: formData
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result.message || "업로드에 실패했습니다.");
+  }
+
+  return result;
 }
 
 async function cropImageToBounds(blob, bounds, filename) {
@@ -336,22 +388,22 @@ async function analyzeCurrentCard() {
       showQueueItem(item);
     }
 
-    const formData = new FormData();
-    formData.append(
-      "image",
-      preparedImage.blob,
-      preparedImage.filename
-    );
     runningBadge.textContent = "이미지 분석 중";
+    const result = await requestCardAnalysis(preparedImage);
+    let logoImageSource = preparedImage;
+    let logoBounds = result.logoBounds;
+    let logoRotation = 0;
 
-    const response = await fetch("/api/cards/extract", {
-      method: "POST",
-      body: formData
-    });
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "업로드에 실패했습니다.");
+    if (preparedImage.rotatedPortrait) {
+      logoBounds = null;
+      try {
+        logoImageSource = await prepareImageForAnalysis(item.file, false);
+        const logoAnalysis = await requestCardAnalysis(logoImageSource, true);
+        logoBounds = logoAnalysis.logoBounds;
+        logoRotation = logoAnalysis.uprightRotation;
+      } catch (logoError) {
+        console.warn("로고 방향 확인에 실패해 명함 정보만 사용합니다:", logoError);
+      }
     }
 
     let imagePath = result.file.path;
@@ -384,16 +436,17 @@ async function analyzeCurrentCard() {
     }
 
     let logoPath = "";
-    if (result.logoBounds) {
+    if (logoBounds) {
       try {
-        const logoImage = await cropImageToBounds(
-          preparedImage.blob,
-          result.logoBounds,
-          preparedImage.filename
+        let logoImage = await cropImageToBounds(
+          logoImageSource.blob,
+          logoBounds,
+          logoImageSource.filename
         );
         if (logoImage) {
+          if (logoRotation) logoImage = await rotatePreparedImage(logoImage, logoRotation);
           const logoFormData = new FormData();
-          logoFormData.append("image", logoImage.blob, logoImage.filename.replace(/-card\.jpg$/, "-logo.jpg"));
+          logoFormData.append("image", logoImage.blob, logoImageSource.filename.replace(/\.[^.]+$/, "-logo.jpg"));
           const logoResponse = await fetch("/api/cards/logo-image", {
             method: "POST",
             body: logoFormData
