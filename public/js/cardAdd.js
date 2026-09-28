@@ -305,6 +305,25 @@ async function requestCardAnalysis(preparedImage, temporary = false) {
   return result;
 }
 
+function e8ightLogoBounds(cardBounds) {
+  if (!cardBounds) return null;
+
+  const x = Number(cardBounds.x);
+  const y = Number(cardBounds.y);
+  const width = Number(cardBounds.width);
+  const height = Number(cardBounds.height);
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return {
+    x: x + width * 0.06,
+    y: y + height * 0.025,
+    width: width * 0.25,
+    height: height * 0.10
+  };
+}
+
 async function cropImageToBounds(blob, bounds, filename) {
   if (!bounds || typeof createImageBitmap !== "function") return null;
 
@@ -341,7 +360,12 @@ async function cropImageToBounds(blob, bounds, filename) {
       }, "image/jpeg", 0.94);
     });
     const nameWithoutExtension = filename.replace(/\.[^.]+$/, "");
-    return { blob: croppedBlob, filename: `${nameWithoutExtension}-card.jpg` };
+    return {
+      blob: croppedBlob,
+      filename: `${nameWithoutExtension}-card.jpg`,
+      width: sourceWidth,
+      height: sourceHeight
+    };
   } finally {
     image.close();
   }
@@ -392,15 +416,18 @@ async function analyzeCurrentCard() {
     const result = await requestCardAnalysis(preparedImage);
     let logoImageSource = preparedImage;
     let logoBounds = result.logoBounds;
-    let logoRotation = 0;
+    const companyName = (result.extracted?.company || "").replace(/\s+/g, "");
+    const isE8ight = /이에이트|e8ight/i.test(companyName)
+      || /@[^\s]*e8ight\.co\.kr/i.test(result.extracted?.email || "");
 
-    if (preparedImage.rotatedPortrait && result.uprightRotation) {
+    if (preparedImage.rotatedPortrait && (result.uprightRotation || isE8ight)) {
       logoBounds = null;
       try {
         logoImageSource = await prepareImageForAnalysis(item.file, false);
         const logoAnalysis = await requestCardAnalysis(logoImageSource, true);
-        logoBounds = logoAnalysis.logoBounds;
-        logoRotation = logoAnalysis.uprightRotation;
+        logoBounds = isE8ight
+          ? e8ightLogoBounds(logoAnalysis.cropBounds)
+          : logoAnalysis.logoBounds;
       } catch (logoError) {
         console.warn("로고 방향 확인에 실패해 명함 정보만 사용합니다:", logoError);
       }
@@ -444,7 +471,9 @@ async function analyzeCurrentCard() {
           logoImageSource.filename
         );
         if (logoImage) {
-          if (logoRotation) logoImage = await rotatePreparedImage(logoImage, logoRotation);
+          if (preparedImage.rotatedPortrait && logoImage.height > logoImage.width) {
+            logoImage = await rotatePreparedImage(logoImage, 270);
+          }
           const logoFormData = new FormData();
           logoFormData.append("image", logoImage.blob, logoImageSource.filename.replace(/\.[^.]+$/, "-logo.jpg"));
           const logoResponse = await fetch("/api/cards/logo-image", {
