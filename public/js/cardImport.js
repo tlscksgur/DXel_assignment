@@ -115,7 +115,16 @@ function renderPreview() {
   importSummary.textContent = `총 ${previewCards.length}건 · 중복 의심 ${duplicateCount}건`;
   previewRows.innerHTML = previewCards.map((card) => {
     const state = !card.valid ? ["invalid", card.message] : card.duplicateIds.length ? ["duplicate", "중복 의심"] : ["", "정상"];
-    return `<tr><td><input data-import-index="${card.index}" type="checkbox" ${card.selected ? "checked" : ""} ${card.valid ? "" : "disabled"}></td><td>${escapeHtml(card.name || "-")}</td><td>${escapeHtml(card.company || "-")}</td><td>${escapeHtml([card.position, card.department].filter(Boolean).join(" / ") || "-")}</td><td>${escapeHtml(card.mobile || card.phone || "-")}</td><td>${escapeHtml(card.email || "-")}</td><td><select class="importRowGroup" data-import-group-index="${card.index}" aria-label="${escapeHtml(card.name || "명함")} 그룹">${groupOptions(card.groupName)}</select></td><td><span class="importState ${state[0]}">${escapeHtml(state[1])}</span></td></tr>`;
+    return `<tr>
+      <td><input data-import-index="${card.index}" type="checkbox" aria-label="${escapeHtml(card.name || "명함")} 선택" ${card.selected ? "checked" : ""} ${card.valid ? "" : "disabled"}></td>
+      <td>${escapeHtml(card.name || "-")}</td>
+      <td data-label="회사">${escapeHtml(card.company || "-")}</td>
+      <td data-label="직책 / 부서">${escapeHtml([card.position, card.department].filter(Boolean).join(" / ") || "-")}</td>
+      <td data-label="연락처">${escapeHtml(card.mobile || card.phone || "-")}</td>
+      <td data-label="이메일">${escapeHtml(card.email || "-")}</td>
+      <td data-label="그룹"><select class="importRowGroup" data-import-group-index="${card.index}" aria-label="${escapeHtml(card.name || "명함")} 그룹">${groupOptions(card.groupName)}</select></td>
+      <td data-label="상태"><span class="importState ${state[0]}">${escapeHtml(state[1])}</span></td>
+    </tr>`;
   }).join("");
   updateSelection();
 }

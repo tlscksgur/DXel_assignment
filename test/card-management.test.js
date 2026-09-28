@@ -432,13 +432,28 @@ test("명함 선택은 목록을 다시 렌더링하지 않아 현재 스크롤 
   assert.doesNotMatch(toggleSelectionBody, /renderCurrentView\(\)/);
 });
 
-test("모바일 보기 전환 배지와 선택 작업 바가 줄바꿈·안전 영역 없이 표시된다", () => {
+test("모바일 보기 전환 배지와 선택 작업 바가 화면 너비와 안전 영역 안에 표시된다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 
   assert.match(css, /\.viewModeControls \.duplicateToggle\s*\{[\s\S]*display:\s*inline-flex;[\s\S]*white-space:\s*nowrap;/);
   assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.selectionActionBar\s*\{[\s\S]*bottom:\s*env\(safe-area-inset-bottom\);/);
-  assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.selectionActionBar\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*max-content repeat\(4, max-content\);/);
+  assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.selectionActionBar\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/);
+  assert.match(css, /@media \(max-width: 680px\)\s*\{[\s\S]*\.selectionActionBar button\s*\{[^}]*white-space:\s*normal;/);
+  const mobileLayout = css.slice(css.indexOf("@media (max-width: 680px)"), css.indexOf("@media (max-width: 360px)"));
+  for (const [selector, column, row] of [
+    [".selectionBarCount", 1, "1 / 3"],
+    ['.selectionActionBar button[data-selection-action="export-csv"]', 2, 1],
+    ['.selectionActionBar button[data-selection-action="export-vcard"]', 3, 1],
+    ['.selectionActionBar button[data-selection-action="group"]', 2, 2],
+    ['.selectionActionBar button[data-selection-action="remove-from-group"]', 2, 3],
+    ['.selectionActionBar button[data-selection-action="delete"]', 3, 2]
+  ]) {
+    const rule = mobileLayout.slice(mobileLayout.indexOf(`${selector} {`)).split("}")[0];
+    assert.match(rule, new RegExp(`grid-column:\\s*${column};`), selector);
+    assert.match(rule, new RegExp(`grid-row:\\s*${row};`), selector);
+  }
+  assert.match(mobileLayout, /\.selectionActionBar:has\(button\[data-selection-action="remove-from-group"\]:not\(\[hidden\]\)\) \.selectionBarCount\s*\{[^}]*grid-row:\s*1 \/ 4;/);
   assert.match(css, /\.selectionBarCount\s*\{[\s\S]*height:\s*34px;/);
   assert.match(css, /\.selectionActionBar svg\s*\{[\s\S]*display:\s*block;/);
   assert.match(source, /setTimeout\(\(\) => \{[\s\S]*openCardDetail\(card\.dataset\.cardId\);[\s\S]*\}, 200\);/);

@@ -88,6 +88,20 @@ test("명함 등록 업로드 패널은 콘텐츠가 커져도 작업 버튼과 
   );
 });
 
+test("모바일 명함 불러오기 미리보기는 가로 표 대신 정보 카드로 표시된다", () => {
+  const css = read("public/css/cardImport.css");
+  const source = read("public/js/cardImport.js");
+  const mobileLayout = css.slice(css.lastIndexOf("@media (max-width: 680px)"));
+
+  assert.match(mobileLayout, /\.importPreview table\s*\{[^}]*min-width:\s*0;[^}]*display:\s*block;/);
+  assert.match(mobileLayout, /\.importPreviewRows\s*\{[^}]*display:\s*grid;/);
+  assert.match(mobileLayout, /\.importPreviewRows tr\s*\{[^}]*display:\s*grid;/);
+  assert.match(mobileLayout, /\.importPreview td\[data-label\]::before\s*\{[^}]*content:\s*attr\(data-label\);/);
+  assert.match(source, /<td data-label="회사">/);
+  assert.match(source, /<td data-label="연락처">/);
+  assert.match(source, /<td data-label="상태">/);
+});
+
 test("명함관리 도구와 중복 그룹이 모바일 너비에 맞는다", () => {
   const css = read("public/css/BCM.css");
 
@@ -194,6 +208,18 @@ test("상세 모달은 내용 높이를 따르고 긴 메모만 내부 스크롤
     desktopLayout,
     /\.cardDetailOriginalImage img\s*\{[^}]*aspect-ratio:\s*36 \/ 23;[^}]*object-fit:\s*cover;/
   );
+});
+
+test("모바일 상세 모달의 작업 버튼은 경계 안에 있고 태그는 작은 크기로 표시된다", () => {
+  const css = read("public/css/BCM.css");
+  const mobileLayout = css.slice(
+    css.indexOf("@media (max-width: 680px)"),
+    css.indexOf("@media (max-width: 360px)")
+  );
+
+  assert.match(mobileLayout, /\.cardDetailActions\s*\{[^}]*transform:\s*none;/);
+  assert.match(mobileLayout, /\.cardTagRail\s*\{[^}]*width:\s*100%;[^}]*flex-wrap:\s*wrap;/);
+  assert.match(mobileLayout, /\.cardTag\s*\{[^}]*height:\s*30px;[^}]*font-size:\s*11px;/);
 });
 
 test("대형 명함등록 화면에서 업로드 영역과 입력 폼이 확대된다", () => {

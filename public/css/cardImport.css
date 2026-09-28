@@ -81,3 +81,22 @@
 
 @media (max-width:880px) { .importWorkspace { grid-template-columns:1fr; } .importPreview { min-height:0; } }
 @media (max-width: 680px) { .importMain { padding:32px 16px 54px; } .importTitle h1 { font-size:27px; } .importTitle p { font-size:14px; } .importOptions { padding:0 14px 14px; } .importDropzone { min-height:210px; } .importPreviewHeader, .importTableWrap, .importPreviewFooter, .importActions { padding-left:16px; padding-right:16px; } .importPreviewHeader { align-items:flex-start; flex-direction:column; } .importMappingStatus { display:inline-block; margin:8px 0 0; } .importTableWrap { min-height:310px; } .importEmpty { min-height:268px; } .importSubmit { min-width:0; flex:1; margin-left:10px; } }
+
+@media (max-width: 680px) {
+  .importTableWrap { overflow: visible; }
+  .importPreview table { width: 100%; min-width: 0; display: block; border: 0; overflow: visible; }
+  .importPreview table[hidden] { display: none; }
+  .importPreview thead { display: block; }
+  .importPreview thead tr { display: block; margin-bottom: 10px; }
+  .importPreview th { display: none; }
+  .importPreview th:first-child { display: inline-flex; align-items: center; gap: 8px; padding: 0; background: transparent; }
+  .importPreview th:first-child::after { content: "전체 선택"; color: #40536d; font-size: 12px; }
+  .importPreviewRows { display: grid; gap: 12px; }
+  .importPreviewRows tr { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px 10px; padding: 14px; border: 1px solid #e0e7ef; border-radius: 12px; background: #fff; }
+  .importPreview td { min-width: 0; padding: 0; border: 0; overflow-wrap: anywhere; }
+  .importPreview td:first-child { grid-column: 1; grid-row: 1; align-self: center; }
+  .importPreview td:nth-child(2) { grid-column: 2; grid-row: 1; font-size: 15px; }
+  .importPreview td[data-label] { grid-column: 1 / -1; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; }
+  .importPreview td[data-label]::before { content: attr(data-label); color: #728198; font-size: 11px; font-weight: 700; }
+  .importRowGroup { width: 100%; min-width: 0; }
+}
