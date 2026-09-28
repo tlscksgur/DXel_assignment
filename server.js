@@ -413,7 +413,7 @@ function normalizeCropBounds(value) {
   // Vision models can place a tight box just inside a card edge. Add a small
   // safety margin so the last printed characters and rounded corners survive
   // the crop while still keeping the surrounding background minimal.
-  const edgePadding = 30;
+  const edgePadding = 12;
   const safeX = Math.max(0, Math.min(999, x - edgePadding));
   const safeY = Math.max(0, Math.min(999, y - edgePadding));
   const safeRight = Math.min(1000, x + width + edgePadding);
