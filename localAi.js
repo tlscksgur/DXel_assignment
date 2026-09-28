@@ -15,7 +15,7 @@ Set is_business_card to true only when the image shows a card designed to identi
 A company-only card without a person's name is still a business card when a company name and contact information are visibly printed.
 Set is_business_card to false for an ordinary photo, scenery, product, receipt, poster, document, screenshot, blank image, or any non-business-card image. Do not classify an image as a business card merely because it contains incidental text.
 When is_business_card is false, return an empty string for every contact field.
-Also locate the complete outer edge of the physical business card. Return crop_bounds in normalized 0-1000 coordinates relative to the full input image: x and y are the top-left corner, width and height are the card rectangle. Include the full card but no surrounding table or background. If the card is not visible, set all crop_bounds values to 0.
+Also locate the complete outer edge of the physical business card. Return crop_bounds in normalized 0-1000 coordinates relative to the full input image: x and y are the top-left corner, width and height are the card rectangle. Include the full card but no surrounding table or background. When an edge is uncertain, bias the rectangle outward so no printed character, phone/fax number, or card corner is clipped. If the card is not visible, set all crop_bounds values to 0.
 
 Follow these rules:
 

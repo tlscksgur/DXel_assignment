@@ -410,10 +410,16 @@ function normalizeCropBounds(value) {
     return null;
   }
 
-  const safeX = Math.max(0, Math.min(999, x));
-  const safeY = Math.max(0, Math.min(999, y));
-  const safeWidth = Math.min(1000 - safeX, Math.max(1, width));
-  const safeHeight = Math.min(1000 - safeY, Math.max(1, height));
+  // Vision models can place a tight box just inside a card edge. Add a small
+  // safety margin so the last printed characters and rounded corners survive
+  // the crop while still keeping the surrounding background minimal.
+  const edgePadding = 30;
+  const safeX = Math.max(0, Math.min(999, x - edgePadding));
+  const safeY = Math.max(0, Math.min(999, y - edgePadding));
+  const safeRight = Math.min(1000, x + width + edgePadding);
+  const safeBottom = Math.min(1000, y + height + edgePadding);
+  const safeWidth = Math.max(1, safeRight - safeX);
+  const safeHeight = Math.max(1, safeBottom - safeY);
 
   return {
     x: safeX / 1000,
