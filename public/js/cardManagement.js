@@ -441,6 +441,7 @@ function createCardDetail(contact) {
         </div>
         <p class="cardDetailEyebrow">BUSINESS CARD DETAIL</p>
         <h2 id="cardDetailTitle">${escapeHtml(contact.name || "-")}</h2>
+        <button type="button" class="cardDetailCopyAllButton" data-action="copy-all">전체 복사</button>
         <button
           class="cardDetailFavoriteButton${Number(contact.is_favorite) ? " is-favorite" : ""}"
           type="button"
@@ -458,7 +459,6 @@ function createCardDetail(contact) {
       ${createCardImageLightbox(contact)}
       <div class="cardDetailActions">
         <p class="cardDetailStatus" aria-live="polite"></p>
-        <button type="button" class="cardDetailCopyAllButton" data-action="copy-all">전체 정보 복사</button>
         <button type="button" data-action="edit">수정</button>
         <button type="button" class="danger" data-action="delete">휴지통으로 이동</button>
       </div>

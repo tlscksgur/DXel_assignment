@@ -1730,10 +1730,35 @@ textarea.cardDetailInput {
   color: #031632;
 }
 
-.cardDetailActions .cardDetailCopyAllButton {
-  border-color: currentColor;
+.cardDetailHeader .cardDetailCopyAllButton {
+  min-width: 0;
+  margin-top: 40px;
+  margin-left: 5px;
+  padding: 0;
+  border: 0;
   background: transparent;
-  color: inherit;
+  color: #50627b;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cardDetailHeader .cardDetailCopyAllButton:hover,
+.cardDetailHeader .cardDetailCopyAllButton:focus-visible {
+  color: #031632;
+}
+
+.cardDetailCard.card-dark .cardDetailCopyAllButton,
+.cardDetailCard.card-dark-grey .cardDetailCopyAllButton {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.cardDetailCard.card-dark .cardDetailCopyAllButton:hover,
+.cardDetailCard.card-dark .cardDetailCopyAllButton:focus-visible,
+.cardDetailCard.card-dark-grey .cardDetailCopyAllButton:hover,
+.cardDetailCard.card-dark-grey .cardDetailCopyAllButton:focus-visible {
+  color: #fff;
 }
 
 .cardDetailCard.card-dark .cardDetailActions button:not(.danger),

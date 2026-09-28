@@ -70,11 +70,20 @@ test("상세 명함은 연락처 필드와 전체 정보를 빠르게 복사할 
   assert.match(source, /function createCopyAllCardText\(contact\)/);
   assert.match(source, /data-action="copy-field"/);
   assert.match(source, /data-action="copy-all"/);
+  assert.match(
+    source,
+    /<div class="cardDetailHeader">[\s\S]*class="cardDetailCopyAllButton" data-action="copy-all">전체 복사<\/[\s\S]*?<\/div>\s*<dl class="cardDetailGrid">/
+  );
+  assert.doesNotMatch(
+    source,
+    /<div class="cardDetailActions">[\s\S]*cardDetailCopyAllButton/
+  );
   assert.match(source, /action === "copy-field"/);
   assert.match(source, /action === "copy-all"/);
   assert.match(source, /setDetailStatus\("클립보드에 복사되었습니다\."\)/);
   assert.match(source, /window\.setTimeout\(\(\) => \{[\s\S]*setDetailStatus\(""\);[\s\S]*\}, 2000\);/);
   assert.match(css, /\.cardDetailCopyButton\s*\{/);
+  assert.match(css, /\.cardDetailHeader \.cardDetailCopyAllButton\s*\{/);
 });
 
 test("태그별 보기는 선택된 태그마다 명함을 묶고 보기 전환 상태를 별도로 관리한다", () => {
