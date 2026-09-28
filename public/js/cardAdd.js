@@ -394,7 +394,7 @@ async function analyzeCurrentCard() {
     let logoBounds = result.logoBounds;
     let logoRotation = 0;
 
-    if (preparedImage.rotatedPortrait) {
+    if (preparedImage.rotatedPortrait && result.uprightRotation) {
       logoBounds = null;
       try {
         logoImageSource = await prepareImageForAnalysis(item.file, false);

@@ -824,7 +824,7 @@ test("세로 명함은 가로 배치를 유지하고 로고만 똑바른 이미�
       ok: true,
       json: async () => ({
         file: { path: `/uploads/portrait-${requests.length}.jpg` },
-        uprightRotation: 0,
+        uprightRotation: requests.length === 1 ? 90 : 0,
         cropBounds: { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
         logoBounds: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
         extracted: { name: "김동호", company: "이에이트 주식회사" }
@@ -849,6 +849,40 @@ test("세로 명함은 가로 배치를 유지하고 로고만 똑바른 이미�
   assert.notEqual(browser.canvasState.imageBitmapSources[2], browser.canvasState.imageBitmapSources[0]);
   assert.equal(browser.canvasState.imageBitmapSources[3], browser.canvasState.imageBitmapSources[0]);
   assert.equal(logoUploads.length, 1);
+});
+
+test("명함 방향이 이미 맞으면 원본 재분석이나 로고 회전을 하지 않는다", async () => {
+  const analysisRequests = [];
+  const logoUploads = [];
+  const browser = createCardAddBrowser(async (url, options) => {
+    if (url === "/api/cards/logo-image") {
+      logoUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/logo.jpg" } }) };
+    }
+    if (url === "/api/cards/cropped-image") {
+      return { ok: true, json: async () => ({ file: { path: "/uploads/card.jpg" } }) };
+    }
+    analysisRequests.push(options.body);
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: "/uploads/card-source.jpg" },
+        uprightRotation: 0,
+        cropBounds: { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
+        logoBounds: { x: 0.7, y: 0.1, width: 0.2, height: 0.1 },
+        extracted: { name: "김학연", company: "대한전선" }
+      })
+    };
+  }, { imageDimensions: { width: 900, height: 1200 } });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: { files: [namedImage("namecard-19.jpg")], value: "selected" }
+  });
+
+  assert.equal(analysisRequests.length, 1);
+  assert.equal(logoUploads.length, 1);
+  assert.deepEqual(browser.canvasState.rotations, [-Math.PI / 2]);
+  assert.equal(browser.canvasState.imageBitmapSources[2], browser.canvasState.imageBitmapSources[1]);
 });
 
 test("휴대폰 카메라 촬영 사진은 EXIF 방향을 유지해 분석 요청한다", async () => {
