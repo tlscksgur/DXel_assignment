@@ -10,7 +10,7 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   const html = fs.readFileSync(path.join(projectRoot, "public/BCM.html"), "utf8");
 
   assert.match(html, /id="cardSearch"/);
-  assert.match(html, /이름·회사·연락처·이메일·태그 검색/);
+  assert.match(html, /이름\s*·\s*회사\s*·\s*연락처\s*·\s*이메일\s*·\s*태그 검색/);
   assert.match(html, /placeholder="이름·회사·연락처·이메일·태그로 검색"/);
   assert.match(html, /class="cardListControls"/);
   assert.match(html, /class="resultSummary"/);
@@ -23,6 +23,7 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   assert.match(html, /class="duplicateCountBadge"/);
   assert.match(html, /class="cardSortSelect"/);
   assert.match(html, /value="recent"[^>]*>최근 등록순/);
+  assert.match(html, /value="meeting"[^>]*>최근 만남순/);
   assert.match(html, /value="name"[^>]*>이름순/);
   assert.match(html, /value="company"[^>]*>회사순/);
   assert.match(html, /class="sortDirectionButton active"[^>]*data-sort-direction="desc"[^>]*>내림차순/);
@@ -219,6 +220,20 @@ test("명함 목록은 선택한 기준과 방향으로 정렬한다", () => {
   assert.deepEqual(
     Array.from(context.sortCards(cards, "company", "desc"), (card) => card.id),
     [3, 1, 2]
+  );
+  const meetingCards = [
+    { id: 1, meeting_date: "" },
+    { id: 2, meeting_date: "2026-09-10T10:00" },
+    { id: 3, meeting_date: "2026-09-22T14:30" },
+    { id: 4, meeting_date: "기록 없음" }
+  ];
+  assert.deepEqual(
+    Array.from(context.sortCards(meetingCards, "meeting", "desc"), (card) => card.id),
+    [3, 2, 4, 1]
+  );
+  assert.deepEqual(
+    Array.from(context.sortCards(meetingCards, "meeting", "asc"), (card) => card.id),
+    [2, 3, 1, 4]
   );
 });
 

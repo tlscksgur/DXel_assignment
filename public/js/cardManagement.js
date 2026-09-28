@@ -103,11 +103,36 @@ function normalizedText(value) {
   return String(value || "").trim().toLocaleLowerCase();
 }
 
+function meetingTimestamp(value) {
+  const meetingDate = String(value || "").trim();
+  if (!meetingDate) return null;
+
+  const timestamp = Date.parse(meetingDate);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
 function sortCards(cards, key = sortKey, direction = sortDirection) {
   const directionMultiplier = direction === "asc" ? 1 : -1;
 
   return [...cards].sort((first, second) => {
     if (key === "recent") {
+      return (Number(first.id) - Number(second.id)) * directionMultiplier;
+    }
+
+    if (key === "meeting") {
+      const firstTimestamp = meetingTimestamp(first.meeting_date);
+      const secondTimestamp = meetingTimestamp(second.meeting_date);
+      const firstHasMeeting = firstTimestamp !== null;
+      const secondHasMeeting = secondTimestamp !== null;
+
+      if (firstHasMeeting !== secondHasMeeting) {
+        return firstHasMeeting ? -1 : 1;
+      }
+
+      if (firstHasMeeting && firstTimestamp !== secondTimestamp) {
+        return (firstTimestamp - secondTimestamp) * directionMultiplier;
+      }
+
       return (Number(first.id) - Number(second.id)) * directionMultiplier;
     }
 
