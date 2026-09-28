@@ -931,8 +931,8 @@ app.get("/api/cards", (req, res) => {
   const whereParts = [trashOnly ? "deleted_at IS NOT NULL" : "deleted_at IS NULL"];
 
   if (keyword) {
-    whereParts.push("(name LIKE ? OR company LIKE ?)");
-    params.push(`%${keyword}%`, `%${keyword}%`);
+    whereParts.push("(name LIKE ? OR company LIKE ? OR mobile LIKE ? OR phone LIKE ? OR email LIKE ? OR tags LIKE ?)");
+    params.push(...Array(6).fill(`%${keyword}%`));
   }
 
   sql += ` WHERE ${whereParts.join(" AND ")}`;

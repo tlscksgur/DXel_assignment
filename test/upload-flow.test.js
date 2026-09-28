@@ -1111,7 +1111,9 @@ test("명함 목록, CSV, vCard, 단건 조회 API 경로를 유지한다", asyn
       body: JSON.stringify({
         name: "홍길동",
         company: "한글회사",
-        mobile: "010-1234-5678",
+        mobile: "010-9182-7364",
+        phone: "02-7845-1236",
+        email: "hong.search@example.com",
         allowDuplicate: true
       })
     });
@@ -1124,6 +1126,26 @@ test("명함 목록, CSV, vCard, 단건 조회 API 경로를 유지한다", asyn
     assert.equal(listResponse.status, 200);
     assert.equal(listResult.success, true);
     assert.equal(Array.isArray(listResult.cards), true);
+
+    const tagResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards/${createdCardId}/tags`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags: ["협력사"] })
+    });
+    assert.equal(tagResponse.status, 200);
+
+    for (const keyword of ["010-9182-7364", "02-7845-1236", "hong.search@example.com", "협력사"]) {
+      const searchResponse = await fetch(
+        `http://127.0.0.1:${appPort}/api/cards?q=${encodeURIComponent(keyword)}`
+      );
+      const searchResult = await searchResponse.json();
+      assert.equal(searchResponse.status, 200);
+      assert.equal(
+        searchResult.cards.some((card) => Number(card.id) === Number(createdCardId)),
+        true,
+        `${keyword} 검색 결과에 생성한 명함이 있어야 합니다.`
+      );
+    }
 
     const csvResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards/export/csv`);
     assert.equal(csvResponse.status, 200);

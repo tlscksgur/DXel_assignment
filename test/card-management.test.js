@@ -10,6 +10,8 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   const html = fs.readFileSync(path.join(projectRoot, "public/BCM.html"), "utf8");
 
   assert.match(html, /id="cardSearch"/);
+  assert.match(html, /이름·회사·연락처·이메일·태그 검색/);
+  assert.match(html, /placeholder="이름·회사·연락처·이메일·태그로 검색"/);
   assert.match(html, /class="cardListControls"/);
   assert.match(html, /class="resultSummary"/);
   assert.match(html, /class="allViewToggle active"[^>]*>[\s\S]*전체/);
