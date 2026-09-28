@@ -61,6 +61,51 @@ test("명함 분석은 AI 크롭 좌표를 받아 Canvas 크롭본으로 원본�
   assert.match(addSource, /catch \(cropError\) \{[\s\S]*원본 이미지를 사용합니다/);
 });
 
+test("신규 명함은 로고 좌표를 추출하고 별도 저장해 목록에 표시한다", () => {
+  const ai = fs.readFileSync(path.join(projectRoot, "localAi.js"), "utf8");
+  const server = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+  const add = fs.readFileSync(path.join(projectRoot, "public/js/cardAdd.js"), "utf8");
+  const management = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const database = fs.readFileSync(path.join(projectRoot, "database/db.js"), "utf8");
+
+  assert.match(ai, /logo_bounds/);
+  assert.match(server, /logoBounds:\s*normalizeLogoBounds\(parsed\.logo_bounds/);
+  assert.match(server, /app\.post\("\/api\/cards\/logo-image", upload\.single\("image"\)/);
+  assert.match(add, /fetch\("\/api\/cards\/logo-image"/);
+  assert.match(add, /logo_path:\s*currentItem\?\.logoPath/);
+  assert.match(database, /logo_path TEXT/);
+  assert.match(server, /logo_path = COALESCE\(\?, logo_path\)/);
+
+  const inertElement = {
+    value: "", innerHTML: "", classList: { add() {}, remove() {}, toggle() {} },
+    addEventListener() {}, insertAdjacentHTML() {}, setAttribute() {}
+  };
+  const context = {
+    console,
+    document: { querySelector: () => inertElement },
+    fetch: async () => ({ ok: true, json: async () => ({ success: true, cards: [] }) }),
+    setTimeout, clearTimeout
+  };
+  vm.runInNewContext(management, context);
+  assert.match(context.createCard({ id: 1, name: "홍길동", logo_path: "/uploads/logo.jpg" }), /class="profileCardLogo"[^>]*src="\/uploads\/logo\.jpg"/);
+  assert.doesNotMatch(context.createCard({ id: 2, name: "홍길동", logo_path: "javascript:alert(1)" }), /profileCardLogo/);
+});
+
+test("목록 로고는 카드 오른쪽 아래에 배치하고 흰 배경 박스를 두지 않는다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+  const logoRule = css.match(/\.profileCardLogo\s*\{([^}]+)\}/)?.[1] || "";
+
+  assert.match(logoRule, /position:\s*absolute/);
+  assert.match(logoRule, /right:\s*\d+px/);
+  assert.match(logoRule, /bottom:\s*\d+px/);
+  assert.match(logoRule, /width:\s*auto/);
+  assert.match(logoRule, /height:\s*40px/);
+  assert.match(logoRule, /max-width:\s*80px/);
+  assert.match(logoRule, /object-position:\s*right center/);
+  assert.doesNotMatch(logoRule, /top:|background:\s*#fff|border:/);
+  assert.doesNotMatch(css, /\.profileCard:has\(\.profileCardLogo\) h2/);
+});
+
 test("상세 명함은 연락처 필드와 전체 정보를 빠르게 복사할 수 있다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");

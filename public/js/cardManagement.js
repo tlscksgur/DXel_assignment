@@ -363,12 +363,17 @@ function createCard(contact) {
   const position = escapeHtml(contact.position);
   const mobile = escapeHtml(contact.mobile);
   const email = escapeHtml(contact.email);
+  const logoPath = String(contact.logo_path || "").trim();
+  const safeLogoPath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(logoPath)
+    ? escapeHtml(logoPath)
+    : "";
 
   return `
     <article class="profileCard ${classes}${isSelected ? " is-selected" : ""}${isFavorite ? " has-favorite" : ""}" data-card-id="${cardId}" tabindex="0" role="button" aria-pressed="${isSelected}" aria-label="${name} 명함 ${selectionMode ? "선택" : "상세 보기"}">
       ${isFavorite ? '<span class="profileCardFavoriteMarker" aria-hidden="true">★</span>' : ""}
       <span class="pill">${company || "BUSINESS CARD"}</span>
       <span class="cardId">#${cardId || "-"}</span>
+      ${safeLogoPath ? `<img class="profileCardLogo" src="${safeLogoPath}" alt="${company || name} 로고" loading="lazy" decoding="async">` : ""}
       <h2>${name}</h2>
       <p class="role">${[position, company].filter(Boolean).join(" · ")}</p>
       ${mobile ? `<p class="meta strong">${mobile}</p>` : ""}
@@ -749,7 +754,8 @@ async function saveCardEdits(form) {
     meeting_place: String(formData.get("meeting_place") || "").trim(),
     meeting_purpose: String(formData.get("meeting_purpose") || "").trim(),
     meeting_note: String(formData.get("meeting_note") || "").trim(),
-    image_path: contact.image_path || ""
+    image_path: contact.image_path || "",
+    logo_path: contact.logo_path || ""
   };
 
   setEditorBusy(form, true, "저장 중입니다.");

@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const http = require("node:http");
+const os = require("node:os");
 const path = require("node:path");
 const vm = require("node:vm");
 const { spawn } = require("node:child_process");
@@ -200,7 +201,9 @@ ${JSON.stringify({
   mobile: "+46 70 588 96 45",
   phone: "+46 141 20 36 30 / 010 1234 5678",
   email: "HONG@EXAMPLE.COM",
-  website: "example.com"
+  website: "example.com",
+  crop_bounds: { x: 100, y: 100, width: 800, height: 700 },
+  logo_bounds: { x: 700, y: 130, width: 150, height: 90 }
 })}
 \`\`\``;
 
@@ -260,10 +263,16 @@ ${JSON.stringify({
     );
     assert.equal(result.extracted.website, "https://example.com");
     assert.match(result.file.path, /^\/uploads\//);
+    assert.deepEqual(result.logoBounds, { x: 0.688, y: 0.118, width: 0.174, height: 0.114 });
     assert.equal(receivedLmRequests.length, 2);
     const receivedLmRequest = receivedLmRequests[0];
     const systemPrompt = receivedLmRequest.messages[0].content;
     assert.match(systemPrompt, /only text that is actually visible/i);
+    assert.match(systemPrompt, /symbol[\s\S]*adjacent company name[\s\S]*one logo_bounds rectangle/i);
+    assert.match(systemPrompt, /대주중공업/);
+    assert.match(systemPrompt, /do not cut through any letter/i);
+    assert.match(systemPrompt, /contact details[\s\S]*outside the logo_bounds/i);
+    assert.doesNotMatch(systemPrompt, /Do not select ordinary company-name text/);
     assert.match(systemPrompt, /never guess/i);
     assert.match(systemPrompt, /valid JSON object/i);
     assert.match(systemPrompt, /same physical address[\s\S]*single space/i);
@@ -319,7 +328,8 @@ ${JSON.stringify({
         "email",
         "address",
         "website",
-        "crop_bounds"
+        "crop_bounds",
+        "logo_bounds"
       ]
     );
     assert.equal(
@@ -368,6 +378,55 @@ ${JSON.stringify({
     if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
       fs.unlinkSync(uploadedFilePath);
     }
+  }
+});
+
+test("신규 명함 로고를 저장하고 수정 후에도 유지한다", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "card-logo-test-"));
+  fs.mkdirSync(path.join(tempDir, "database"));
+  const probeServer = http.createServer();
+  const appPort = await listen(probeServer);
+  await close(probeServer);
+  const app = spawn(process.execPath, [path.join(projectRoot, "server.js")], {
+    cwd: tempDir,
+    env: { ...process.env, PORT: String(appPort) },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  let logoFile = "";
+
+  try {
+    await waitForServer(app);
+    const form = new FormData();
+    form.append("image", new Blob([Buffer.from("fake-logo")], { type: "image/jpeg" }), "logo.jpg");
+    const uploaded = await fetch(`http://127.0.0.1:${appPort}/api/cards/logo-image`, {
+      method: "POST", body: form
+    });
+    assert.equal(uploaded.status, 200);
+    const logoPath = (await uploaded.json()).file.path;
+    logoFile = path.join(projectRoot, logoPath);
+
+    const saved = await fetch(`http://127.0.0.1:${appPort}/api/cards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "로고 테스트", company: "예시 회사", email: "logo@example.com", logo_path: logoPath })
+    });
+    assert.equal(saved.status, 201);
+    const id = (await saved.json()).id;
+    const read = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`);
+    assert.equal((await read.json()).card.logo_path, logoPath);
+
+    const updated = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "수정된 이름", company: "예시 회사", email: "logo@example.com" })
+    });
+    assert.equal(updated.status, 200);
+    const readAgain = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`);
+    assert.equal((await readAgain.json()).card.logo_path, logoPath);
+  } finally {
+    app.kill("SIGTERM");
+    if (logoFile && fs.existsSync(logoFile)) fs.unlinkSync(logoFile);
+    fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
 

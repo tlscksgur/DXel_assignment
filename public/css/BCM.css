@@ -776,6 +776,24 @@ body.bcm-page .bcmBoard {
   font-weight: 700;
 }
 
+.profileCardLogo {
+  position: absolute;
+  right: 18px;
+  bottom: 12px;
+  width: auto;
+  height: 40px;
+  max-width: 80px;
+  object-fit: contain;
+  object-position: right center;
+}
+
+.profileCard:has(.profileCardLogo) .emailMeta {
+  padding-right: 98px;
+  max-height: 2.8em;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
 .pill {
   width: fit-content;
   max-width: 205px;

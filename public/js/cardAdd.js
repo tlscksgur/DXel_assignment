@@ -78,6 +78,8 @@ function createQueueItem(file, shouldRotatePortrait = true) {
     previewUrl: URL.createObjectURL(file),
     status: "waiting",
     imagePath: "",
+    logoPath: "",
+    logoPreviewUrl: "",
     extracted: null,
     analysisDurationMs: null,
     shouldRotatePortrait,
@@ -159,6 +161,7 @@ function clearCardForm(message = "명함 사진을 업로드하면 이곳에 표
 function showQueueItem(item) {
   previewFrame.innerHTML = `
     <img src="${item.previewUrl}" alt="${escapeHtml(item.file.name)}">
+    ${item.logoPreviewUrl ? `<div class="logoResult"><span>추출된 로고</span><img src="${item.logoPreviewUrl}" alt="추출된 명함 로고"></div>` : ""}
   `;
 
   const extracted = item.extracted || {};
@@ -380,8 +383,35 @@ async function analyzeCurrentCard() {
       }
     }
 
+    let logoPath = "";
+    if (result.logoBounds) {
+      try {
+        const logoImage = await cropImageToBounds(
+          preparedImage.blob,
+          result.logoBounds,
+          preparedImage.filename
+        );
+        if (logoImage) {
+          const logoFormData = new FormData();
+          logoFormData.append("image", logoImage.blob, logoImage.filename.replace(/-card\.jpg$/, "-logo.jpg"));
+          const logoResponse = await fetch("/api/cards/logo-image", {
+            method: "POST",
+            body: logoFormData
+          });
+          const logoResult = await logoResponse.json();
+          if (!logoResponse.ok) throw new Error(logoResult.message || "로고를 저장하지 못했습니다.");
+          logoPath = logoResult.file.path;
+          if (item.logoPreviewUrl) URL.revokeObjectURL(item.logoPreviewUrl);
+          item.logoPreviewUrl = URL.createObjectURL(logoImage.blob);
+        }
+      } catch (logoError) {
+        console.warn("로고 자동 추출에 실패해 명함 정보만 저장합니다:", logoError);
+      }
+    }
+
     item.status = "ready";
     item.imagePath = imagePath;
+    item.logoPath = logoPath;
     item.extracted = result.extracted;
     item.analysisDurationMs = Date.now() - analysisStartedAt;
 
@@ -416,6 +446,9 @@ async function activateQueueItem(index) {
   if (item.status === "skipped") {
     item.status = "waiting";
     item.imagePath = "";
+    item.logoPath = "";
+    if (item.logoPreviewUrl) URL.revokeObjectURL(item.logoPreviewUrl);
+    item.logoPreviewUrl = "";
     item.extracted = null;
     item.analysisDurationMs = null;
     item.error = "";
@@ -564,7 +597,8 @@ function getCardFormData() {
     meeting_place: document.querySelector("#meeting_place").value.trim(),
     meeting_purpose: document.querySelector("#meeting_purpose").value.trim(),
     meeting_note: document.querySelector("#meeting_note").value.trim(),
-    image_path: currentItem?.imagePath || ""
+    image_path: currentItem?.imagePath || "",
+    logo_path: currentItem?.logoPath || ""
   };
 }
 
@@ -669,6 +703,7 @@ cancelButton.addEventListener("click", async () => {
   }
 
   URL.revokeObjectURL(currentItem.previewUrl);
+  if (currentItem.logoPreviewUrl) URL.revokeObjectURL(currentItem.logoPreviewUrl);
   uploadQueue.splice(currentQueueIndex, 1);
 
   if (uploadQueue.length === 0) {
@@ -705,7 +740,10 @@ queueBox.addEventListener("click", async (event) => {
 
 // ===== 페이지 종료 및 초기 화면 설정 =====
 globalThis.addEventListener?.("beforeunload", () => {
-  uploadQueue.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+  uploadQueue.forEach((item) => {
+    URL.revokeObjectURL(item.previewUrl);
+    if (item.logoPreviewUrl) URL.revokeObjectURL(item.logoPreviewUrl);
+  });
 });
 
 renderQueue();

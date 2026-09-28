@@ -22,6 +22,7 @@ db.serialize(() => {
       address TEXT,
       website TEXT,
       image_path TEXT,
+      logo_path TEXT,
       group_name TEXT,
       meeting_date TEXT,
       meeting_place TEXT,
@@ -46,6 +47,12 @@ db.serialize(() => {
         if (alterError) {
           console.error(alterError.message);
         }
+      });
+    }
+
+    if (!columns.some((column) => column.name === "logo_path")) {
+      db.run("ALTER TABLE business_cards ADD COLUMN logo_path TEXT", (alterError) => {
+        if (alterError) console.error(alterError.message);
       });
     }
 

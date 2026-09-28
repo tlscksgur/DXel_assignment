@@ -252,6 +252,11 @@ function makeCard(body = {}) {
     address: normalizeAddress(body.address),
     website: normalizeWebsite(body.website),
     image_path: text(body.image_path || body.imagePath),
+    logo_path: body.logo_path === undefined && body.logoPath === undefined
+      ? null
+      : (/^\/uploads\/[A-Za-z0-9._-]+$/.test(text(body.logo_path || body.logoPath))
+        ? text(body.logo_path || body.logoPath)
+        : ""),
     meeting_date: text(body.meeting_date || body.meetingDate),
     meeting_place: singleLineText(body.meeting_place || body.meetingPlace),
     meeting_purpose: limitText(
@@ -429,6 +434,40 @@ function normalizeCropBounds(value) {
   };
 }
 
+function normalizeLogoBounds(value, cardBounds) {
+  const x = Number(value?.x);
+  const y = Number(value?.y);
+  const width = Number(value?.width);
+  const height = Number(value?.height);
+  const cardX = Number(cardBounds?.x);
+  const cardY = Number(cardBounds?.y);
+  const cardWidth = Number(cardBounds?.width);
+  const cardHeight = Number(cardBounds?.height);
+
+  if (![x, y, width, height, cardX, cardY, cardWidth, cardHeight].every(Number.isFinite)
+    || width < 10 || height < 8 || cardWidth < 160 || cardHeight < 100
+    || x < 0 || y < 0 || x + width > 1000 || y + height > 1000
+    || x < cardX - 15 || y < cardY - 15
+    || x + width > cardX + cardWidth + 15
+    || y + height > cardY + cardHeight + 15) {
+    return null;
+  }
+
+  const padding = 12;
+  const safeX = Math.max(0, cardX, x - padding);
+  const safeY = Math.max(0, cardY, y - padding);
+  const safeRight = Math.min(1000, cardX + cardWidth, x + width + padding);
+  const safeBottom = Math.min(1000, cardY + cardHeight, y + height + padding);
+  if (safeRight <= safeX || safeBottom <= safeY) return null;
+
+  return {
+    x: safeX / 1000,
+    y: safeY / 1000,
+    width: (safeRight - safeX) / 1000,
+    height: (safeBottom - safeY) / 1000
+  };
+}
+
 function hasBusinessCardEvidence(card) {
   const hasIdentity = Boolean(card.name || card.company);
   const hasContact = Boolean(
@@ -593,6 +632,7 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
         size: req.file.size
       },
       cropBounds: normalizeCropBounds(parsed.crop_bounds),
+      logoBounds: normalizeLogoBounds(parsed.logo_bounds, parsed.crop_bounds),
       extracted
     });
   } catch (error) {
@@ -639,6 +679,17 @@ app.post("/api/cards/cropped-image", upload.single("image"), (req, res) => {
   });
 });
 
+app.post("/api/cards/logo-image", upload.single("image"), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "로고 이미지 파일이 없습니다." });
+  }
+
+  return res.json({
+    success: true,
+    file: { path: `/uploads/${req.file.filename}` }
+  });
+});
+
 // ===== 명함 저장 API =====
 function saveCard(req, res) {
   const card = makeCard(req.body);
@@ -670,10 +721,10 @@ function saveCard(req, res) {
     const sql = `
       INSERT INTO business_cards (
         name, company, department, position, mobile, phone,
-        email, address, website, image_path,
+        email, address, website, image_path, logo_path,
         meeting_date, meeting_place, meeting_purpose, meeting_note
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.run(sql, [
@@ -687,6 +738,7 @@ function saveCard(req, res) {
       card.address,
       card.website,
       card.image_path,
+      card.logo_path,
       card.meeting_date,
       card.meeting_place,
       card.meeting_purpose,
@@ -1139,6 +1191,7 @@ app.put("/api/cards/:id", (req, res) => {
           address = ?,
           website = ?,
           image_path = ?,
+          logo_path = COALESCE(?, logo_path),
           meeting_date = ?,
           meeting_place = ?,
           meeting_purpose = ?,
@@ -1157,6 +1210,7 @@ app.put("/api/cards/:id", (req, res) => {
       card.address,
       card.website,
       card.image_path,
+      card.logo_path,
       card.meeting_date,
       card.meeting_place,
       card.meeting_purpose,
@@ -1295,6 +1349,7 @@ app.post("/api/cards/merge-group", (req, res) => {
       "address",
       "website",
       "image_path",
+      "logo_path",
       "meeting_date",
       "meeting_place",
       "meeting_purpose",
@@ -1318,6 +1373,7 @@ app.post("/api/cards/merge-group", (req, res) => {
           address = ?,
           website = ?,
           image_path = ?,
+          logo_path = ?,
           meeting_date = ?,
           meeting_place = ?,
           meeting_purpose = ?,
@@ -1352,6 +1408,7 @@ app.post("/api/cards/merge-group", (req, res) => {
           mergedCard.address,
           mergedCard.website,
           mergedCard.image_path,
+          mergedCard.logo_path,
           mergedCard.meeting_date,
           mergedCard.meeting_place,
           mergedCard.meeting_purpose,
@@ -1419,6 +1476,7 @@ app.post("/api/cards/:id/merge", (req, res) => {
       address: newCard.address || oldCard.address || "",
       website: newCard.website || oldCard.website || "",
       image_path: newCard.image_path || oldCard.image_path || "",
+      logo_path: newCard.logo_path || oldCard.logo_path || "",
       meeting_date: newCard.meeting_date || oldCard.meeting_date || "",
       meeting_place: newCard.meeting_place || oldCard.meeting_place || "",
       meeting_purpose: newCard.meeting_purpose || oldCard.meeting_purpose || "",
@@ -1436,6 +1494,7 @@ app.post("/api/cards/:id/merge", (req, res) => {
           address = ?,
           website = ?,
           image_path = ?,
+          logo_path = ?,
           meeting_date = ?,
           meeting_place = ?,
           meeting_purpose = ?,
@@ -1454,6 +1513,7 @@ app.post("/api/cards/:id/merge", (req, res) => {
       mergedCard.address,
       mergedCard.website,
       mergedCard.image_path,
+      mergedCard.logo_path,
       mergedCard.meeting_date,
       mergedCard.meeting_place,
       mergedCard.meeting_purpose,

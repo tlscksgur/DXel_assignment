@@ -16,6 +16,7 @@ A company-only card without a person's name is still a business card when a comp
 Set is_business_card to false for an ordinary photo, scenery, product, receipt, poster, document, screenshot, blank image, or any non-business-card image. Do not classify an image as a business card merely because it contains incidental text.
 When is_business_card is false, return an empty string for every contact field.
 Also locate the complete outer edge of the physical business card. Return crop_bounds in normalized 0-1000 coordinates relative to the full input image: x and y are the top-left corner, width and height are the card rectangle. Follow the visible outer edge closely without intentionally adding surrounding table or background; include every card corner and printed character. A small safety margin is added after this step. If the card is not visible, set all crop_bounds values to 0.
+Also locate the complete printed brand lockup on the card. Return logo_bounds in the same normalized 0-1000 coordinates relative to the full input image. A symbol or emblem with an adjacent company name must be enclosed together in one logo_bounds rectangle when they form one visual brand unit; include small lettering directly under the symbol and a large wordmark beside it. For example, if a green symbol with "대주·KC" below it sits directly beside "대주중공업", include the symbol, "대주·KC", and the entire "대주중공업" wordmark. Likewise include all Chinese and English lettering that belongs to a logo, not just its emblem. Do not cut through any letter or stop halfway through a wordmark. Exclude the person's name, QR codes, certification marks, and company names repeated separately among contact details outside the logo_bounds. If there is no clearly identifiable brand lockup, set all logo_bounds values to 0. Never guess a logo's location.
 
 Follow these rules:
 
@@ -63,7 +64,8 @@ Use exactly this JSON structure and no additional fields:
   "email": "",
   "address": "",
   "website": "",
-  "crop_bounds": { "x": 0, "y": 0, "width": 0, "height": 0 }
+  "crop_bounds": { "x": 0, "y": 0, "width": 0, "height": 0 },
+  "logo_bounds": { "x": 0, "y": 0, "width": 0, "height": 0 }
 }
 `.trim();
 
@@ -96,6 +98,17 @@ const businessCardResponseFormat = {
           },
           required: ["x", "y", "width", "height"],
           additionalProperties: false
+        },
+        logo_bounds: {
+          type: "object",
+          properties: {
+            x: { type: "number" },
+            y: { type: "number" },
+            width: { type: "number" },
+            height: { type: "number" }
+          },
+          required: ["x", "y", "width", "height"],
+          additionalProperties: false
         }
       },
       required: [
@@ -109,7 +122,8 @@ const businessCardResponseFormat = {
         "email",
         "address",
         "website",
-        "crop_bounds"
+        "crop_bounds",
+        "logo_bounds"
       ],
       additionalProperties: false
     }
