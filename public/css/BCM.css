@@ -782,13 +782,14 @@ body.bcm-page .bcmBoard {
   bottom: 12px;
   width: auto;
   height: 40px;
-  max-width: 80px;
+  max-width: 95px;
+  border-radius: 3px;
   object-fit: contain;
   object-position: right center;
 }
 
 .profileCard:has(.profileCardLogo) .emailMeta {
-  padding-right: 98px;
+  padding-right: 113px;
   max-height: 2.8em;
   overflow: hidden;
   overflow-wrap: anywhere;

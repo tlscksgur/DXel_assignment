@@ -100,10 +100,18 @@ test("목록 로고는 카드 오른쪽 아래에 배치하고 흰 배경 박스
   assert.match(logoRule, /bottom:\s*\d+px/);
   assert.match(logoRule, /width:\s*auto/);
   assert.match(logoRule, /height:\s*40px/);
-  assert.match(logoRule, /max-width:\s*80px/);
+  assert.match(logoRule, /max-width:\s*95px/);
+  assert.match(logoRule, /border-radius:\s*3px/);
   assert.match(logoRule, /object-position:\s*right center/);
   assert.doesNotMatch(logoRule, /top:|background:\s*#fff|border:/);
   assert.doesNotMatch(css, /\.profileCard:has\(\.profileCardLogo\) h2/);
+});
+
+test("로고 영역은 바로 아래 인쇄된 웹 주소를 포함하지 않도록 지시한다", () => {
+  const ai = fs.readFileSync(path.join(projectRoot, "localAi.js"), "utf8");
+
+  assert.match(ai, /logo_bounds[\s\S]*symbol[\s\S]*adjacent company name/i);
+  assert.match(ai, /logo_bounds[\s\S]*website[\s\S]*www\.dxel\.co\.kr/i);
 });
 
 test("상세 명함은 연락처 필드와 전체 정보를 빠르게 복사할 수 있다", () => {
