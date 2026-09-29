@@ -590,12 +590,6 @@
   grid-column: span 1;
 }
 
-.meetingFields input[type="datetime-local"] {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-}
-
 .fieldGroup input:focus,
 .fieldGroup textarea:focus{
   border-color: var(--primary);
@@ -1213,5 +1207,49 @@
   .actionDock button {
     height: 58px;
     font-size: 17px;
+  }
+}
+
+input,
+select,
+textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+  line-height: 1.25;
+}
+
+textarea {
+  line-height: 1.5;
+}
+
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: 1.25;
+  overflow: hidden;
+}
+
+.grid input,
+.grid select,
+.flex input,
+.flex select,
+.meetingFieldsGrid input,
+.meetingFieldsGrid select {
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media screen and (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }
