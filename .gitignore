@@ -1,3 +1,7 @@
 .omx/
 .env
 node_modules/
+database/*.db
+database/*.db-*
+uploads/
+public/assets/명함데이터_신찬혁/
