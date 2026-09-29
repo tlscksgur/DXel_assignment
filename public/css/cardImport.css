@@ -65,7 +65,6 @@
 .importState.invalid { border-color:#f3a7a7; color:#b43d3d; background:#fff2f2; }
 
 .importPreviewFooter { padding:12px 28px; display:flex; justify-content:space-between; border-top:1px solid #edf0f4; color:#647793; font-size:13px; }
-.importPreviewFooter button { border:0; background:none; color:#405e88; font:inherit; text-decoration:underline; cursor:pointer; }
 
 .importActions { padding:20px 28px 28px; display:flex; justify-content:space-between; align-items:center; }
 
