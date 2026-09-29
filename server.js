@@ -706,6 +706,14 @@ app.post("/api/cards/logo-image", upload.single("image"), (req, res) => {
 
 // ===== 명함 저장 API =====
 function saveCard(req, res) {
+  if (req.body.tags !== undefined && !Array.isArray(req.body.tags)) {
+    return res.status(400).json({ success: false, message: "태그 정보를 확인해 주세요." });
+  }
+  const tags = [...new Set((req.body.tags || []).map(singleLineText).filter(Boolean))];
+  if (tags.some((tag) => !CARD_TAGS.includes(tag))) {
+    return res.status(400).json({ success: false, message: "지원하지 않는 태그가 포함되어 있습니다." });
+  }
+
   const card = makeCard(req.body);
   const validationMessage = validateCard(card);
 
@@ -736,9 +744,9 @@ function saveCard(req, res) {
       INSERT INTO business_cards (
         name, company, department, position, mobile, phone,
         email, address, website, image_path, logo_path,
-        meeting_date, meeting_place, meeting_purpose, meeting_note
+        meeting_date, meeting_place, meeting_purpose, meeting_note, tags
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.run(sql, [
@@ -756,7 +764,8 @@ function saveCard(req, res) {
       card.meeting_date,
       card.meeting_place,
       card.meeting_purpose,
-      card.meeting_note
+      card.meeting_note,
+      JSON.stringify(tags)
     ], function (error) {
       if (error) {
         return res.status(500).json({

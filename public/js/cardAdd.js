@@ -13,6 +13,8 @@ const cancelButton = document.querySelector(".ghostAction");
 const previewFrame = document.querySelector(".previewFrame");
 const queueBox = document.querySelector(".queueBox");
 const emailInput = document.querySelector("#email");
+const cardTags = document.querySelector(".addCardTags");
+const CARD_TAG_OPTIONS = ["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"];
 
 // ===== 입력 필드 설정 =====
 const fieldIds = [
@@ -81,6 +83,7 @@ function createQueueItem(file, shouldRotatePortrait = true) {
     logoPath: "",
     logoPreviewUrl: "",
     extracted: null,
+    tags: [],
     analysisDurationMs: null,
     shouldRotatePortrait,
     error: ""
@@ -149,6 +152,7 @@ function clearCardForm(message = "명함 사진을 업로드하면 이곳에 표
   });
   document.querySelector("#homepage").value = "";
   syncEmailFieldHeight();
+  renderCardTags();
 
   previewFrame.innerHTML = `
     <div class="emptyPreview">
@@ -171,7 +175,29 @@ function showQueueItem(item) {
   });
   document.querySelector("#homepage").value = extracted.website || "";
   syncEmailFieldHeight();
+  renderCardTags();
 }
+
+function renderCardTags() {
+  const currentItem = uploadQueue[currentQueueIndex];
+  cardTags.innerHTML = CARD_TAG_OPTIONS.map((tag, index) => {
+    const selected = currentItem?.tags.includes(tag) || false;
+    return `<button type="button" class="addCardTag addCardTag-${index}${selected ? " is-selected" : ""}" data-tag="${tag}" aria-pressed="${selected}"${currentItem ? "" : " disabled"}>${tag}</button>`;
+  }).join("");
+}
+
+cardTags.addEventListener("click", (event) => {
+  const tag = event.target.closest("[data-tag]")?.dataset.tag;
+  const currentItem = uploadQueue[currentQueueIndex];
+  if (!currentItem || !CARD_TAG_OPTIONS.includes(tag)) return;
+
+  currentItem.tags = currentItem.tags.includes(tag)
+    ? currentItem.tags.filter((selectedTag) => selectedTag !== tag)
+    : [...currentItem.tags, tag];
+  renderCardTags();
+});
+
+renderCardTags();
 
 function updateActionState() {
   const currentItem = uploadQueue[currentQueueIndex];
@@ -680,7 +706,8 @@ function getCardFormData() {
     meeting_purpose: document.querySelector("#meeting_purpose").value.trim(),
     meeting_note: document.querySelector("#meeting_note").value.trim(),
     image_path: currentItem?.imagePath || "",
-    logo_path: currentItem?.logoPath || ""
+    logo_path: currentItem?.logoPath || "",
+    tags: [...(currentItem?.tags || [])]
   };
 }
 

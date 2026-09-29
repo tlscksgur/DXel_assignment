@@ -460,17 +460,62 @@
   min-width: 0;
 }
 
+.fieldGroup .l1{width: 120px;}
+
 .fieldGroup.wide{
   grid-column: span 2;
 }
 
-.fieldGroup label{
+.fieldGroup label,
+.tagFieldLabel{
   display: block;
   margin-bottom: 7px;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 2px;
   color: #8D8A84;
+}
+
+.addCardTags{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.addCardTag{
+  --tag-color: #c94a43;
+  min-height: 34px;
+  padding: 5px 12px;
+  border: 1px solid var(--tag-color);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--tag-color);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.addCardTag-1{ --tag-color: #e17d24; }
+.addCardTag-2{ --tag-color: #d8b511; }
+.addCardTag-3{ --tag-color: #24a566; }
+.addCardTag-4{ --tag-color: #21aebb; }
+.addCardTag-5{ --tag-color: #2c63c9; }
+.addCardTag-6{ --tag-color: #a24ed7; }
+
+.addCardTag.is-selected{
+  background: var(--tag-color);
+  color: #fff;
+}
+
+.addCardTag:focus-visible{
+  outline: 2px solid var(--tag-color);
+  outline-offset: 2px;
+}
+
+.addCardTag:disabled{
+  cursor: default;
+  opacity: .5;
 }
 
 .fieldGroup input,
@@ -540,6 +585,12 @@
 
 .meetingFields .fieldGroup.wide {
   grid-column: span 1;
+}
+
+.meetingFields input[type="datetime-local"] {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .fieldGroup input:focus,

@@ -1140,6 +1140,77 @@ test("현재 명함을 저장하면 다음 대기 명함을 자동 분석한다"
   assert.match(browser.element(".queueBox").innerHTML, /저장 완료/);
 });
 
+test("등록 화면에서 선택한 여러 태그를 현재 명함과 함께 저장한다", async () => {
+  const html = fs.readFileSync(path.join(projectRoot, "public/cardAdd.html"), "utf8");
+  assert.match(html, /<label for="address">주소<\/label>[\s\S]*class="addCardTags"/);
+
+  const savedCards = [];
+  let extractCount = 0;
+  const browser = createCardAddBrowser(async (url, options) => {
+    if (url === "/api/cards/extract") {
+      extractCount += 1;
+      return {
+        ok: true,
+        json: async () => ({
+          file: { path: `/uploads/tagged-card-${extractCount}.png` },
+          extracted: { name: `태그 테스트 ${extractCount}`, company: "예시회사" }
+        })
+      };
+    }
+
+    if (url === "/api/cards") {
+      savedCards.push(JSON.parse(options.body));
+      return { ok: true, status: 201, json: async () => ({ success: true, id: savedCards.length }) };
+    }
+
+    throw new Error(`예상하지 않은 요청: ${url}`);
+  });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: { files: [namedImage("tagged-1.png"), namedImage("tagged-2.png")], value: "selected" }
+  });
+  browser.handler(".addCardTags", "click")({ target: { closest: () => ({ dataset: { tag: "고객" } }) } });
+  browser.handler(".addCardTags", "click")({ target: { closest: () => ({ dataset: { tag: "협력사" } }) } });
+
+  await browser.handler(".mainAction", "click")();
+
+  assert.deepEqual(savedCards[0].tags, ["고객", "협력사"]);
+  assert.match(browser.element(".addCardTags").innerHTML, /data-tag="고객" aria-pressed="false"/);
+
+  browser.handler(".addCardTags", "click")({ target: { closest: () => ({ dataset: { tag: "기타" } }) } });
+  await browser.handler(".mainAction", "click")();
+  assert.deepEqual(savedCards[1].tags, ["기타"]);
+});
+
+test("신규 명함의 태그를 SQLite에 저장하고 다시 조회한다", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "card-tags-test-"));
+  fs.mkdirSync(path.join(tempDir, "database"));
+  const probeServer = http.createServer();
+  const appPort = await listen(probeServer);
+  await close(probeServer);
+  const app = spawn(process.execPath, [path.join(projectRoot, "server.js")], {
+    cwd: tempDir,
+    env: { ...process.env, PORT: String(appPort) },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForServer(app);
+    const created = await fetch(`http://127.0.0.1:${appPort}/api/cards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "태그 등록 테스트", tags: ["고객", "협력사"] })
+    });
+    assert.equal(created.status, 201);
+    const { id } = await created.json();
+    const read = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`);
+    assert.deepEqual(JSON.parse((await read.json()).card.tags), ["고객", "협력사"]);
+  } finally {
+    app.kill("SIGTERM");
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("다음 명함 버튼은 현재 항목을 건너뛰고 다음 이미지를 분석한다", async () => {
   let extractRequests = 0;
   const browser = createCardAddBrowser(async () => {
