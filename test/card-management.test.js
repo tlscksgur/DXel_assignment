@@ -833,7 +833,8 @@ test("중복 후보 그룹 병합 API는 트랜잭션으로 갱신과 삭제를 
 
   assert.match(source, /app\.post\("\/api\/cards\/merge-group"/);
   assert.match(source, /cardIds[^\n]*length < 2/);
-  assert.match(source, /BEGIN TRANSACTION/);
+  assert.match(source, /function withDatabaseTransaction\(/);
+  assert.match(source, /BEGIN IMMEDIATE/);
   assert.match(source, /COMMIT/);
   assert.match(source, /ROLLBACK/);
   assert.match(source, /deletedCount/);

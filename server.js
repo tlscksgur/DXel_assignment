@@ -3,6 +3,7 @@ require("dotenv").config();
 
 const express = require("express");
 const fs = require("fs");
+const sqlite3 = require("sqlite3");
 const db = require("./database/db");
 const { UPLOAD_DIR, upload } = require("./upload");
 const {
@@ -14,6 +15,64 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const pendingCropSources = new Map();
+
+function openTransactionDb() {
+  return new sqlite3.Database(db.filename);
+}
+
+function runOn(connection, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    connection.run(sql, params, function (error) {
+      if (error) reject(error);
+      else resolve(this);
+    });
+  });
+}
+
+function allOn(connection, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    connection.all(sql, params, (error, rows) => error ? reject(error) : resolve(rows));
+  });
+}
+
+function closeDatabase(connection) {
+  return new Promise((resolve, reject) => {
+    connection.close((error) => error ? reject(error) : resolve());
+  });
+}
+
+function rememberCropSource(filename) {
+  const now = Date.now();
+  for (const [knownFilename, expiresAt] of pendingCropSources) {
+    if (expiresAt <= now) pendingCropSources.delete(knownFilename);
+  }
+  pendingCropSources.set(filename, now + 30 * 60 * 1000);
+}
+
+async function withDatabaseTransaction(work) {
+  const transactionDb = openTransactionDb();
+  let transactionStarted = false;
+  try {
+    await runOn(transactionDb, "BEGIN IMMEDIATE");
+    transactionStarted = true;
+    const result = await work(transactionDb);
+    await runOn(transactionDb, "COMMIT");
+    transactionStarted = false;
+    return result;
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await runOn(transactionDb, "ROLLBACK");
+      } catch (rollbackError) {
+        console.error("데이터베이스 롤백 실패:", rollbackError.message);
+      }
+    }
+    throw error;
+  } finally {
+    await closeDatabase(transactionDb);
+  }
+}
 
 app.use(express.json());
 
@@ -630,6 +689,8 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
 
     if (req.body?.temporary === "true") {
       await fs.promises.unlink(req.file.path);
+    } else {
+      rememberCropSource(req.file.filename);
     }
 
     res.json({
@@ -658,7 +719,7 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
   }
 });
 
-app.post("/api/cards/cropped-image", upload.single("image"), (req, res) => {
+app.post("/api/cards/cropped-image", upload.single("image"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
       success: false,
@@ -676,11 +737,15 @@ app.post("/api/cards/cropped-image", upload.single("image"), (req, res) => {
     });
   }
 
-  fs.unlink(`${UPLOAD_DIR}/${originalFilename}`, (error) => {
-    if (error && error.code !== "ENOENT") {
-      console.warn("원본 명함 이미지 삭제 실패:", error.message);
+  const expiresAt = pendingCropSources.get(originalFilename);
+  pendingCropSources.delete(originalFilename);
+  if (expiresAt && expiresAt > Date.now()) {
+    try {
+      await cleanupDeletedImages([{ image_path: originalPath }]);
+    } catch (cleanupError) {
+      console.warn("크롭 원본 이미지 정리 실패:", cleanupError.message);
     }
-  });
+  }
 
   return res.json({
     success: true,
@@ -890,45 +955,27 @@ app.post("/api/cards/import", (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const savedIds = [];
-    let cursor = 0;
-
-    db.run("BEGIN TRANSACTION", (beginError) => {
-      if (beginError) {
-        return res.status(500).json({ success: false, message: "명함 저장을 시작하지 못했습니다." });
-      }
-
-      const rollback = () => db.run("ROLLBACK", () => {
-        res.status(500).json({ success: false, message: "명함 데이터 불러오기에 실패했습니다." });
-      });
-      const insertNext = () => {
-        if (cursor >= pendingCards.length) {
-          return db.run("COMMIT", (commitError) => {
-            if (commitError) return rollback();
-            res.status(201).json({
-              success: true,
-              savedCount: savedIds.length,
-              savedIds,
-              skipped
-            });
-          });
-        }
-
-        const { card, groupName } = pendingCards[cursor];
-        cursor += 1;
-        db.run(insertSql, [
+    withDatabaseTransaction(async (transactionDb) => {
+      for (const { card, groupName } of pendingCards) {
+        const inserted = await runOn(transactionDb, insertSql, [
           card.name, card.company, card.department, card.position,
           card.mobile, card.phone, card.email, card.address,
           card.website, card.image_path, groupName,
           card.meeting_date, card.meeting_place,
           card.meeting_purpose, card.meeting_note
-        ], function (insertError) {
-          if (insertError) return rollback();
-          savedIds.push(this.lastID);
-          insertNext();
-        });
-      };
-
-      insertNext();
+        ]);
+        savedIds.push(inserted.lastID);
+      }
+    }).then(() => {
+      res.status(201).json({
+        success: true,
+        savedCount: savedIds.length,
+        savedIds,
+        skipped
+      });
+    }).catch((error) => {
+      console.error("명함 불러오기 트랜잭션 실패:", error.message);
+      res.status(500).json({ success: false, message: "명함 데이터 불러오기에 실패했습니다." });
     });
   });
 });
@@ -1087,8 +1134,9 @@ app.patch("/api/cards/groups", (req, res) => {
 
   const placeholders = cardIds.map(() => "?").join(", ");
   db.run(
-    `UPDATE business_cards SET group_name = ? WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
-    [groupName, ...cardIds],
+    `UPDATE business_cards SET group_name = ? WHERE id IN (${placeholders}) AND deleted_at IS NULL
+      AND (SELECT COUNT(*) FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NULL) = ?`,
+    [groupName, ...cardIds, ...cardIds, cardIds.length],
     function (error) {
       if (error) {
         return res.status(500).json({
@@ -1125,8 +1173,9 @@ app.post("/api/cards/bulk-delete", (req, res) => {
 
   const placeholders = cardIds.map(() => "?").join(", ");
   db.run(
-    `UPDATE business_cards SET deleted_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
-    cardIds,
+    `UPDATE business_cards SET deleted_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders}) AND deleted_at IS NULL
+      AND (SELECT COUNT(*) FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NULL) = ?`,
+    [...cardIds, ...cardIds, cardIds.length],
     function (error) {
       if (error) {
         return res.status(500).json({
@@ -1344,128 +1393,56 @@ app.post("/api/cards/merge-group", (req, res) => {
     ORDER BY datetime(created_at) DESC, id DESC
   `;
 
-  db.all(selectSql, cardIds, (selectError, cards) => {
-    if (selectError) {
-      return res.status(500).json({
-        success: false,
-        message: "병합할 명함 조회에 실패했습니다."
-      });
-    }
-
+  withDatabaseTransaction(async (transactionDb) => {
+    const cards = await allOn(transactionDb, selectSql, cardIds);
     if (cards.length !== cardIds.length) {
-      return res.status(404).json({
-        success: false,
-        message: "병합할 명함 일부를 찾을 수 없습니다."
-      });
+      const error = new Error("선택한 명함 일부를 찾을 수 없습니다.");
+      error.status = 404;
+      throw error;
     }
 
     const representative = cards[0];
     const duplicateIds = cards.slice(1).map((card) => card.id);
     const mergeFields = [
-      "name",
-      "company",
-      "department",
-      "position",
-      "mobile",
-      "phone",
-      "email",
-      "address",
-      "website",
-      "image_path",
-      "logo_path",
-      "meeting_date",
-      "meeting_place",
-      "meeting_purpose",
-      "meeting_note"
+      "name", "company", "department", "position", "mobile", "phone", "email",
+      "address", "website", "image_path", "logo_path", "meeting_date",
+      "meeting_place", "meeting_purpose", "meeting_note"
     ];
-    const mergedCard = Object.fromEntries(
-      mergeFields.map((field) => {
-        const source = cards.find((card) => text(card[field]));
-        return [field, source ? text(source[field]) : ""];
-      })
-    );
+    const mergedCard = Object.fromEntries(mergeFields.map((field) => {
+      const source = cards.find((card) => text(card[field]));
+      return [field, source ? text(source[field]) : ""];
+    }));
     const updateSql = `
       UPDATE business_cards
-      SET name = ?,
-          company = ?,
-          department = ?,
-          position = ?,
-          mobile = ?,
-          phone = ?,
-          email = ?,
-          address = ?,
-          website = ?,
-          image_path = ?,
-          logo_path = ?,
-          meeting_date = ?,
-          meeting_place = ?,
-          meeting_purpose = ?,
-          meeting_note = ?
-      WHERE id = ?
+      SET name = ?, company = ?, department = ?, position = ?, mobile = ?, phone = ?,
+          email = ?, address = ?, website = ?, image_path = ?, logo_path = ?,
+          meeting_date = ?, meeting_place = ?, meeting_purpose = ?, meeting_note = ?
+      WHERE id = ? AND deleted_at IS NULL
     `;
+    const update = await runOn(transactionDb, updateSql, [
+      mergedCard.name, mergedCard.company, mergedCard.department, mergedCard.position,
+      mergedCard.mobile, mergedCard.phone, mergedCard.email, mergedCard.address,
+      mergedCard.website, mergedCard.image_path, mergedCard.logo_path,
+      mergedCard.meeting_date, mergedCard.meeting_place, mergedCard.meeting_purpose,
+      mergedCard.meeting_note, representative.id
+    ]);
+    if (update.changes !== 1) throw new Error("대표 명함 갱신에 실패했습니다.");
+
     const deletePlaceholders = duplicateIds.map(() => "?").join(", ");
+    const deletion = await runOn(transactionDb,
+      `DELETE FROM business_cards WHERE id IN (${deletePlaceholders}) AND deleted_at IS NULL`,
+      duplicateIds
+    );
+    if (deletion.changes !== duplicateIds.length) throw new Error("중복 명함 삭제에 실패했습니다.");
 
-    const rollback = (message) => {
-      db.run("ROLLBACK", () => {
-        res.status(500).json({ success: false, message });
-      });
-    };
-
-    db.serialize(() => {
-      db.run("BEGIN TRANSACTION", (beginError) => {
-        if (beginError) {
-          return res.status(500).json({
-            success: false,
-            message: "명함 병합을 시작하지 못했습니다."
-          });
-        }
-
-        db.run(updateSql, [
-          mergedCard.name,
-          mergedCard.company,
-          mergedCard.department,
-          mergedCard.position,
-          mergedCard.mobile,
-          mergedCard.phone,
-          mergedCard.email,
-          mergedCard.address,
-          mergedCard.website,
-          mergedCard.image_path,
-          mergedCard.logo_path,
-          mergedCard.meeting_date,
-          mergedCard.meeting_place,
-          mergedCard.meeting_purpose,
-          mergedCard.meeting_note,
-          representative.id
-        ], (updateError) => {
-          if (updateError) {
-            return rollback("대표 명함 갱신에 실패했습니다.");
-          }
-
-          db.run(
-            `DELETE FROM business_cards WHERE id IN (${deletePlaceholders})`,
-            duplicateIds,
-            function (deleteError) {
-              if (deleteError || this.changes !== duplicateIds.length) {
-                return rollback("중복 명함 삭제에 실패했습니다.");
-              }
-
-              db.run("COMMIT", (commitError) => {
-                if (commitError) {
-                  return rollback("명함 병합 완료 처리에 실패했습니다.");
-                }
-
-                res.json({
-                  success: true,
-                  message: "중복 명함 병합 완료",
-                  representativeId: representative.id,
-                  deletedCount: duplicateIds.length
-                });
-              });
-            }
-          );
-        });
-      });
+    return { representativeId: representative.id, deletedCount: duplicateIds.length };
+  }).then((result) => {
+    res.json({ success: true, message: "중복 명함 병합 완료", ...result });
+  }).catch((error) => {
+    console.error("명함 병합 트랜잭션 실패:", error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.status === 404 ? error.message : "명함 병합에 실패했습니다."
     });
   });
 });
@@ -1566,8 +1543,9 @@ app.post("/api/cards/bulk-restore", (req, res) => {
 
   const placeholders = cardIds.map(() => "?").join(", ");
   db.run(
-    `UPDATE business_cards SET deleted_at = NULL WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL`,
-    cardIds,
+    `UPDATE business_cards SET deleted_at = NULL WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL
+      AND (SELECT COUNT(*) FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL) = ?`,
+    [...cardIds, ...cardIds, cardIds.length],
     function (error) {
       if (error) return res.status(500).json({ success: false, message: "명함 복원에 실패했습니다." });
       if (this.changes !== cardIds.length) return res.status(404).json({ success: false, message: "복원할 명함 일부를 찾을 수 없습니다." });
@@ -1576,22 +1554,52 @@ app.post("/api/cards/bulk-restore", (req, res) => {
   );
 });
 
+async function cleanupDeletedImages(rows) {
+  const paths = [...new Set(rows.flatMap((row) => [row.image_path, row.logo_path]))];
+  for (const imagePath of paths) {
+    const filename = typeof imagePath === "string"
+      ? imagePath.match(/^\/uploads\/([A-Za-z0-9._-]+)$/)?.[1]
+      : null;
+    if (!filename) continue;
+    const references = await new Promise((resolve, reject) => {
+      db.get("SELECT COUNT(*) AS count FROM business_cards WHERE image_path = ? OR logo_path = ?", [imagePath, imagePath],
+        (error, row) => error ? reject(error) : resolve(row.count));
+    });
+    if (references !== 0) continue;
+    try {
+      await fs.promises.unlink(`${UPLOAD_DIR}/${filename}`);
+    } catch (error) {
+      if (error.code !== "ENOENT") console.warn("영구 삭제된 명함 이미지 정리 실패:", error.message);
+    }
+  }
+}
+
+function permanentlyDeleteCards(cardIds, res, missingMessage) {
+  const placeholders = cardIds.map(() => "?").join(", ");
+  db.all(
+    `DELETE FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL
+      AND (SELECT COUNT(*) FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL) = ?
+      RETURNING image_path, logo_path`,
+    [...cardIds, ...cardIds, cardIds.length],
+    async (error, deletedRows) => {
+      if (error) return res.status(500).json({ success: false, message: "명함 영구 삭제에 실패했습니다." });
+      if (deletedRows.length !== cardIds.length) return res.status(404).json({ success: false, message: missingMessage });
+      try {
+        await cleanupDeletedImages(deletedRows);
+      } catch (cleanupError) {
+        console.warn("영구 삭제된 명함 이미지 확인 실패:", cleanupError.message);
+      }
+      res.json({ success: true, deletedCount: deletedRows.length, message: "명함을 영구 삭제했습니다." });
+    }
+  );
+}
+
 app.post("/api/cards/bulk-permanent-delete", (req, res) => {
   const cardIds = parseCardIds(req.body.cardIds);
   if (cardIds.length === 0) {
     return res.status(400).json({ success: false, message: "영구 삭제할 명함을 올바르게 선택해 주세요." });
   }
-
-  const placeholders = cardIds.map(() => "?").join(", ");
-  db.run(
-    `DELETE FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL`,
-    cardIds,
-    function (error) {
-      if (error) return res.status(500).json({ success: false, message: "명함 영구 삭제에 실패했습니다." });
-      if (this.changes !== cardIds.length) return res.status(404).json({ success: false, message: "영구 삭제할 명함 일부를 찾을 수 없습니다." });
-      res.json({ success: true, deletedCount: this.changes, message: "명함을 영구 삭제했습니다." });
-    }
-  );
+  permanentlyDeleteCards(cardIds, res, "영구 삭제할 명함 일부를 찾을 수 없습니다.");
 });
 
 app.patch("/api/cards/:id/restore", (req, res) => {
@@ -1603,11 +1611,9 @@ app.patch("/api/cards/:id/restore", (req, res) => {
 });
 
 app.delete("/api/cards/:id/permanent", (req, res) => {
-  db.run("DELETE FROM business_cards WHERE id = ? AND deleted_at IS NOT NULL", [req.params.id], function (error) {
-    if (error) return res.status(500).json({ success: false, message: "명함 영구 삭제에 실패했습니다." });
-    if (this.changes === 0) return res.status(404).json({ success: false, message: "영구 삭제할 명함을 찾을 수 없습니다." });
-    res.json({ success: true, message: "명함을 영구 삭제했습니다." });
-  });
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ success: false, message: "영구 삭제할 명함을 찾을 수 없습니다." });
+  permanentlyDeleteCards([id], res, "영구 삭제할 명함을 찾을 수 없습니다.");
 });
 
 app.delete("/api/cards/:id", (req, res) => {
@@ -1634,14 +1640,17 @@ app.delete("/api/cards/:id", (req, res) => {
 });
 
 // ===== 정적 파일 제공·오류 처리·서버 실행 =====
-app.use("/uploads", express.static(UPLOAD_DIR));
+app.use("/uploads", (req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  next();
+}, express.static(UPLOAD_DIR));
 app.use(express.static("public"));
 
 app.use((error, req, res, next) => {
   console.error(error.message);
   res.status(500).json({
     success: false,
-    message: error.message || "서버 오류가 발생했습니다."
+    message: "서버 오류가 발생했습니다."
   });
 });
 

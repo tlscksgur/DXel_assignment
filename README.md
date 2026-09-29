@@ -52,6 +52,7 @@ PORT=3000
 AI_SERVER_ENDPOINT=http://<AI_SERVER_IP>:<PORT>/v1/chat/completions
 AI_SERVER_STATUS_URL=http://<AI_SERVER_IP>:<PORT>/health
 AI_SERVER_MODEL=unsloth/Qwen3.8-27B-GGUF
+AI_REQUEST_TIMEOUT_MS=300000
 ```
 
 `<AI_SERVER_IP>`와 `<PORT>`에는 실제 사내 AI 서버의 주소와 포트를 입력합니다. 실제 서버 주소나 인증 정보가 포함된 `.env` 파일은 Git에 커밋하지 않습니다. 현재 사내 AI 서버는 별도의 API 키 없이 접속하도록 설정되어 있습니다.
@@ -107,6 +108,14 @@ Server running at http://localhost:3000
 ```
 
 SQLite 데이터베이스 파일 `database/businesscard.db`와 이미지 저장 폴더 `uploads/`는 필요한 경우 자동으로 생성됩니다.
+
+## 회사 서버 배포 시 데이터 보존
+
+`database/businesscard.db`와 `uploads/`는 Git에 포함되지 않는 운영 데이터입니다. 새 서버에 코드를 내려받는 것만으로 기존 명함과 이미지는 옮겨지지 않습니다. 서버의 재배포·재시작 후에도 두 경로가 유지되도록 설정하고, 두 경로를 같은 시점에 정기 백업하세요.
+
+일관된 백업을 만들려면 웹 서버의 명함 쓰기를 중지한 뒤 DB 파일과 `uploads/` 전체를 함께 복사하고, 복사가 끝나면 서버를 다시 시작합니다. 복원할 때도 웹 서버를 중지하고 **같은 백업 시점의 DB와 이미지 폴더를 함께** 복원한 뒤 시작하세요. 백업은 서버와 다른 접근 제한 저장소에 보관하고, 실제 복원 시험으로 이미지와 명함 데이터가 함께 열리는지 확인해야 합니다. Git 커밋은 운영 데이터의 백업 수단이 아닙니다.
+
+AI 서버가 응답하지 않을 때 분석 요청은 기본 5분 후 중단됩니다. 필요하면 `.env`의 `AI_REQUEST_TIMEOUT_MS`를 밀리초 단위로 조정할 수 있습니다.
 
 ## PC에서 접속하기
 

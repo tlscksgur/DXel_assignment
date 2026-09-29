@@ -39,30 +39,39 @@ function normalizeHeader(value) {
   return String(value || "").trim().toLowerCase().replace(/[\s_\-()]/g, "");
 }
 
-function parseCsvLine(line) {
-  const values = [];
+function parseCsvRows(text) {
+  const rows = [];
+  let values = [];
   let value = "";
   let quoted = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
-    if (character === '"' && line[index + 1] === '"') { value += '"'; index += 1; }
+  const input = text.replace(/^\uFEFF/, "");
+  for (let index = 0; index < input.length; index += 1) {
+    const character = input[index];
+    if (character === '"' && quoted && input[index + 1] === '"') { value += '"'; index += 1; }
     else if (character === '"') quoted = !quoted;
     else if (character === "," && !quoted) { values.push(value.trim()); value = ""; }
+    else if ((character === "\n" || character === "\r") && !quoted) {
+      values.push(value.trim());
+      if (values.some(Boolean)) rows.push(values);
+      values = [];
+      value = "";
+      if (character === "\r" && input[index + 1] === "\n") index += 1;
+    }
     else value += character;
   }
   values.push(value.trim());
-  return values;
+  if (values.some(Boolean)) rows.push(values);
+  return rows;
 }
 
 function parseCsv(text) {
-  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
-  if (lines.length < 2) throw new Error("헤더와 한 줄 이상의 데이터가 있는 CSV 파일이 필요합니다.");
-  const headers = parseCsvLine(lines[0]).map(normalizeHeader);
+  const rows = parseCsvRows(text);
+  if (rows.length < 2) throw new Error("헤더와 한 줄 이상의 데이터가 있는 CSV 파일이 필요합니다.");
+  const headers = rows[0].map(normalizeHeader);
   const aliases = { name:["이름","name","성명"], company:["회사","company","organization","조직"], department:["부서","department","team"], position:["직책","position","title"], mobile:["휴대폰","mobile","cell","mobilephone"], phone:["유선전화","전화번호","전화","phone","tel","telephone"], email:["이메일","email","emailaddress"], website:["홈페이지","website","url","web"], address:["주소","address"] };
   const positions = Object.fromEntries(Object.entries(aliases).map(([field, names]) => [field, headers.findIndex((header) => names.includes(header))]));
   if (positions.name === -1 && positions.company === -1 && positions.email === -1 && positions.mobile === -1) throw new Error("이름, 회사, 휴대폰 또는 이메일 열을 찾지 못했습니다.");
-  return lines.slice(1).map((line) => {
-    const values = parseCsvLine(line);
+  return rows.slice(1).map((values) => {
     return Object.fromEntries(Object.entries(positions).map(([field, position]) => [field, position < 0 ? "" : values[position] || ""]));
   });
 }

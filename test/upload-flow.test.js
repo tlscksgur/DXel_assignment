@@ -9,6 +9,10 @@ const { test } = require("node:test");
 const { parseModelJson } = require("../localAi");
 
 const projectRoot = path.join(__dirname, "..");
+const onePixelPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9q8ioAAAAASUVORK5CYII=",
+  "base64"
+);
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -138,7 +142,7 @@ test("명함이 아닌 사진은 빈 추출 결과 대신 422 오류를 반환�
   try {
     await waitForServer(app);
     const form = new FormData();
-    form.append("image", new Blob([Buffer.from("ordinary-photo")], {
+    form.append("image", new Blob([onePixelPng], {
       type: "image/png"
     }), "ordinary.png");
 
@@ -237,7 +241,7 @@ ${JSON.stringify({
     await waitForServer(app);
 
     const form = new FormData();
-    form.append("image", new Blob([Buffer.from("fake-png")], {
+    form.append("image", new Blob([onePixelPng], {
       type: "image/png"
     }), "card.png");
 
@@ -417,7 +421,7 @@ test("로고 방향 재분석용 이미지만 정리하고 가로 명함 원본�
   try {
     await waitForServer(app);
     const firstForm = new FormData();
-    firstForm.append("image", namedImage("first.png"), "first.png");
+    firstForm.append("image", new Blob([onePixelPng], { type: "image/png" }), "first.png");
     const firstResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards/extract`, {
       method: "POST", body: firstForm
     });
@@ -425,7 +429,7 @@ test("로고 방향 재분석용 이미지만 정리하고 가로 명함 원본�
     assert.equal(firstResponse.status, 200);
 
     const secondForm = new FormData();
-    secondForm.append("image", namedImage("upright.png"), "upright.png");
+    secondForm.append("image", new Blob([onePixelPng], { type: "image/png" }), "upright.png");
     secondForm.append("temporary", "true");
     const secondResponse = await fetch(`http://127.0.0.1:${appPort}/api/cards/extract`, {
       method: "POST", body: secondForm
@@ -462,7 +466,7 @@ test("신규 명함 로고를 저장하고 수정 후에도 유지한다", async
   try {
     await waitForServer(app);
     const form = new FormData();
-    form.append("image", new Blob([Buffer.from("fake-logo")], { type: "image/jpeg" }), "logo.jpg");
+    form.append("image", new Blob([onePixelPng], { type: "image/png" }), "logo.png");
     const uploaded = await fetch(`http://127.0.0.1:${appPort}/api/cards/logo-image`, {
       method: "POST", body: form
     });
@@ -558,7 +562,7 @@ test("회사명이나 직책과 같은 부서명은 빈 값으로 정리한다",
     await waitForServer(app);
 
     const form = new FormData();
-    form.append("image", new Blob([Buffer.from("fake-png")], {
+    form.append("image", new Blob([onePixelPng], {
       type: "image/png"
     }), "card.png");
 

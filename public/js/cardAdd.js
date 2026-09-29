@@ -47,6 +47,7 @@ const queueStatusLabels = {
 let uploadQueue = [];
 let currentQueueIndex = -1;
 let isAnalyzing = false;
+let isSaving = false;
 
 function syncEmailFieldHeight() {
   emailInput.classList.toggle(
@@ -83,6 +84,7 @@ function createQueueItem(file, shouldRotatePortrait = true) {
     logoPath: "",
     logoPreviewUrl: "",
     extracted: null,
+    draft: null,
     tags: [],
     analysisDurationMs: null,
     shouldRotatePortrait,
@@ -168,7 +170,7 @@ function showQueueItem(item) {
     ${item.logoPreviewUrl ? `<div class="logoResult"><span>추출된 로고</span><img src="${item.logoPreviewUrl}" alt="추출된 명함 로고"></div>` : ""}
   `;
 
-  const extracted = item.extracted || {};
+  const extracted = item.draft || item.extracted || {};
 
   fieldIds.forEach((field) => {
     document.querySelector(`#${field}`).value = extracted[field] || "";
@@ -176,6 +178,16 @@ function showQueueItem(item) {
   document.querySelector("#homepage").value = extracted.website || "";
   syncEmailFieldHeight();
   renderCardTags();
+}
+
+function saveCurrentDraft() {
+  const item = uploadQueue[currentQueueIndex];
+  if (!item || item.status !== "ready") return;
+
+  item.draft = Object.fromEntries(fieldIds.map((field) => {
+    return [field, document.querySelector(`#${field}`).value];
+  }));
+  item.draft.website = document.querySelector("#homepage").value;
 }
 
 function renderCardTags() {
@@ -201,9 +213,9 @@ renderCardTags();
 
 function updateActionState() {
   const currentItem = uploadQueue[currentQueueIndex];
-  saveButton.disabled = !currentItem || currentItem.status !== "ready" || isAnalyzing;
-  nextButton.disabled = !currentItem || remainingQueueCount() <= 1 || isAnalyzing;
-  cancelButton.disabled = !currentItem || isAnalyzing;
+  saveButton.disabled = !currentItem || currentItem.status !== "ready" || isAnalyzing || isSaving;
+  nextButton.disabled = !currentItem || remainingQueueCount() <= 1 || isAnalyzing || isSaving;
+  cancelButton.disabled = !currentItem || isAnalyzing || isSaving;
 }
 
 // ===== 분석 전 이미지 방향 및 크기 최적화 =====
@@ -544,10 +556,11 @@ async function analyzeCurrentCard() {
 }
 
 async function activateQueueItem(index) {
-  if (isAnalyzing || index < 0 || index >= uploadQueue.length) {
+  if (isAnalyzing || isSaving || index < 0 || index >= uploadQueue.length) {
     return;
   }
 
+  saveCurrentDraft();
   currentQueueIndex = index;
   const item = uploadQueue[currentQueueIndex];
 
@@ -558,6 +571,7 @@ async function activateQueueItem(index) {
     if (item.logoPreviewUrl) URL.revokeObjectURL(item.logoPreviewUrl);
     item.logoPreviewUrl = "";
     item.extracted = null;
+    item.draft = null;
     item.analysisDurationMs = null;
     item.error = "";
   }
@@ -575,13 +589,19 @@ async function activateQueueItem(index) {
 }
 
 async function moveToNextCard() {
-  const nextIndex = uploadQueue.findIndex((item, index) => {
+  let nextIndex = uploadQueue.findIndex((item, index) => {
     return (
       index > currentQueueIndex &&
       item.status !== "saved" &&
       item.status !== "skipped"
     );
   });
+
+  if (nextIndex === -1) {
+    nextIndex = uploadQueue.findIndex((item, index) => {
+      return index < currentQueueIndex && item.status !== "saved" && item.status !== "skipped";
+    });
+  }
 
   if (nextIndex === -1) {
     currentQueueIndex = -1;
@@ -775,22 +795,28 @@ async function submitCard(allowDuplicate = false) {
 
 // ===== 저장·다음 명함·취소 버튼 이벤트 =====
 saveButton.addEventListener("click", async () => {
-  const saved = await submitCard(false);
+  if (isSaving) return;
+  const submittedItem = uploadQueue[currentQueueIndex];
+  if (!submittedItem) return;
+  isSaving = true;
+  updateActionState();
+  try {
+    const saved = await submitCard(false);
+    if (!saved) return;
 
-  if (!saved) {
-    return;
+    submittedItem.status = "saved";
+    renderQueue();
+  } finally {
+    isSaving = false;
+    updateActionState();
   }
-
-  const savedItem = uploadQueue[currentQueueIndex];
-  savedItem.status = "saved";
-  renderQueue();
   await moveToNextCard();
 });
 
 nextButton.addEventListener("click", async () => {
   const currentItem = uploadQueue[currentQueueIndex];
 
-  if (!currentItem || isAnalyzing) {
+  if (!currentItem || isAnalyzing || isSaving) {
     return;
   }
 
@@ -807,7 +833,7 @@ nextButton.addEventListener("click", async () => {
 cancelButton.addEventListener("click", async () => {
   const currentItem = uploadQueue[currentQueueIndex];
 
-  if (!currentItem || isAnalyzing) {
+  if (!currentItem || isAnalyzing || isSaving) {
     return;
   }
 
@@ -833,7 +859,7 @@ cancelButton.addEventListener("click", async () => {
 queueBox.addEventListener("click", async (event) => {
   const queueItem = event.target.closest("[data-queue-index]");
 
-  if (!queueItem || isAnalyzing) {
+  if (!queueItem || isAnalyzing || isSaving) {
     return;
   }
 

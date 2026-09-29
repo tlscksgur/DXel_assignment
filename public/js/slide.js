@@ -19,32 +19,33 @@ function renderCards(data){
     return;
   }
 
-  data.forEach(contact => {
-    cardTrack.innerHTML += `
-      ${createCard(contact)}
-    `;
-
-  });
+  cardTrack.innerHTML = data.map(createCard).join("");
 
   requestAnimationFrame(() => {
     checkSlide(data);
   });
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
+}
+
 function createCard(contact){
-  const logoText = contact.company ? contact.company.slice(0, 2).toUpperCase() : "BC";
+  const logoText = contact.company ? String(contact.company).slice(0, 2).toUpperCase() : "BC";
 
   return `
     <div class="contactCard">
-      <div class="cardImage">${logoText}</div>
+      <div class="cardImage">${escapeHtml(logoText)}</div>
       <div class="cardInfo">
-        <span class="date">${contact.date || ""}</span>
-        <h2>${contact.name || "이름 없음"}</h2>
-        <p>${contact.position || ""}</p>
-        <p>${contact.company || ""}</p>
+        <span class="date">${escapeHtml(contact.date)}</span>
+        <h2>${escapeHtml(contact.name || "이름 없음")}</h2>
+        <p>${escapeHtml(contact.position)}</p>
+        <p>${escapeHtml(contact.company)}</p>
         <div class="cardContact">
-          <span>${contact.mobile || ""}</span>
-          <span>${contact.email || ""}</span>
+          <span>${escapeHtml(contact.mobile)}</span>
+          <span>${escapeHtml(contact.email)}</span>
         </div>
       </div>
     </div>
@@ -58,11 +59,7 @@ function checkSlide(data){
   const trackWidth = cardTrack.scrollWidth;
 
   if(trackWidth > areaWidth){
-    data.forEach(contact => {
-        cardTrack.innerHTML += `
-        ${createCard(contact)}
-      `;
-    });
+    cardTrack.innerHTML += data.map(createCard).join("");
 
     cardTrack.classList.add("slide");
   }

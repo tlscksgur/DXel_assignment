@@ -56,6 +56,7 @@ let activeCardId = null;
 let cardOpenTimer;
 let detailStatusTimer;
 let hasPendingTagViewUpdate = false;
+const pendingTagUpdates = new Map();
 const CARD_TAG_OPTIONS = ["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"];
 
 function usesFinePointer() {
@@ -151,58 +152,47 @@ function sortCards(cards, key = sortKey, direction = sortDirection) {
   });
 }
 
-function areDuplicateCards(first, second) {
-  const firstPhone = normalizedPhone(first.mobile);
-  const secondPhone = normalizedPhone(second.mobile);
-  const samePhone = firstPhone && firstPhone === secondPhone;
-
-  const firstName = normalizedText(first.name);
-  const secondName = normalizedText(second.name);
-  const firstCompany = normalizedText(first.company);
-  const secondCompany = normalizedText(second.company);
-  const sameNameAndCompany =
-    firstName &&
-    firstCompany &&
-    firstName === secondName &&
-    firstCompany === secondCompany;
-
-  return Boolean(samePhone || sameNameAndCompany);
-}
-
 function groupDuplicateCards(cards) {
-  const visited = new Set();
-  const groups = [];
+  const parents = cards.map((_, index) => index);
+  const phoneIndexes = new Map();
+  const nameIndexes = new Map();
+  const rootOf = (index) => {
+    while (parents[index] !== index) {
+      parents[index] = parents[parents[index]];
+      index = parents[index];
+    }
+    return index;
+  };
+  const connect = (first, second) => {
+    const firstRoot = rootOf(first);
+    const secondRoot = rootOf(second);
+    if (firstRoot !== secondRoot) parents[Math.max(firstRoot, secondRoot)] = Math.min(firstRoot, secondRoot);
+  };
 
   cards.forEach((card, index) => {
-    if (visited.has(index)) {
-      return;
+    const phone = normalizedPhone(card.mobile);
+    if (phone) {
+      if (phoneIndexes.has(phone)) connect(index, phoneIndexes.get(phone));
+      else phoneIndexes.set(phone, index);
     }
 
-    const groupIndexes = [];
-    const queue = [index];
-    visited.add(index);
-
-    while (queue.length > 0) {
-      const currentIndex = queue.shift();
-      groupIndexes.push(currentIndex);
-
-      cards.forEach((candidate, candidateIndex) => {
-        if (
-          !visited.has(candidateIndex) &&
-          areDuplicateCards(cards[currentIndex], candidate)
-        ) {
-          visited.add(candidateIndex);
-          queue.push(candidateIndex);
-        }
-      });
-    }
-
-    if (groupIndexes.length > 1) {
-      groups.push(groupIndexes.map((groupIndex) => cards[groupIndex]));
+    const name = normalizedText(card.name);
+    const company = normalizedText(card.company);
+    if (name && company) {
+      if (!nameIndexes.has(name)) nameIndexes.set(name, new Map());
+      const companyIndexes = nameIndexes.get(name);
+      if (companyIndexes.has(company)) connect(index, companyIndexes.get(company));
+      else companyIndexes.set(company, index);
     }
   });
 
-  return groups;
+  const groups = new Map();
+  cards.forEach((card, index) => {
+    const root = rootOf(index);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(card);
+  });
+  return Array.from(groups.values()).filter((group) => group.length > 1);
 }
 
 // ===== 안전한 HTML·홈페이지 링크 처리 =====
@@ -716,20 +706,31 @@ async function toggleCardTag(tag) {
   const contact = getActiveCard();
   if (!contact || !CARD_TAG_OPTIONS.includes(tag)) return;
 
-  const currentTags = parseCardTags(contact.tags);
-  const tags = currentTags.includes(tag)
-    ? currentTags.filter((currentTag) => currentTag !== tag)
-    : [...currentTags, tag];
+  const cardId = contact.id;
+  const saveToggle = async () => {
+    const currentTags = parseCardTags(contact.tags);
+    const tags = currentTags.includes(tag)
+      ? currentTags.filter((currentTag) => currentTag !== tag)
+      : [...currentTags, tag];
+    const result = await requestTagUpdate(cardId, tags);
+    contact.tags = JSON.stringify(result.tags);
+    if (Number(activeCardId) === Number(cardId)) syncCardTagDrawer(result.tags);
+    syncProfileCardTags(cardId, result.tags);
+    hasPendingTagViewUpdate = true;
+  };
+  const previous = pendingTagUpdates.get(cardId);
+  const update = previous ? previous.catch(() => {}).then(saveToggle) : saveToggle();
+  pendingTagUpdates.set(cardId, update);
 
   try {
-    const result = await requestTagUpdate(contact.id, tags);
-    contact.tags = JSON.stringify(result.tags);
-    syncCardTagDrawer(result.tags);
-    syncProfileCardTags(contact.id, result.tags);
-    hasPendingTagViewUpdate = true;
+    await update;
   } catch (error) {
     console.error(error);
-    setDetailStatus(error.message || "태그를 저장하지 못했습니다.");
+    if (Number(activeCardId) === Number(cardId)) {
+      setDetailStatus(error.message || "태그를 저장하지 못했습니다.");
+    }
+  } finally {
+    if (pendingTagUpdates.get(cardId) === update) pendingTagUpdates.delete(cardId);
   }
 }
 
@@ -1493,6 +1494,7 @@ async function loadCards() {
     syncSelectionUi();
     renderCurrentView();
   } catch (error) {
+    if (sequence !== requestSequence) return;
     console.error(error);
     visibleCards = [];
     board.classList.remove("duplicateMode", "groupMode", "tagMode");

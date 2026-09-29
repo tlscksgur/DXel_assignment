@@ -164,13 +164,25 @@ const criticalFieldResponseFormat = {
 
 // ===== AI 서버 공통 요청 =====
 async function requestChatCompletion(body) {
-  const response = await fetch(process.env.AI_SERVER_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+  const configuredTimeout = Number(process.env.AI_REQUEST_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? configuredTimeout
+    : 300000;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(new Error("AI 요청 시간이 초과되었습니다.")), timeoutMs);
+  let response;
+  try {
+    response = await fetch(process.env.AI_SERVER_ENDPOINT, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     throw new Error(`AI 서버 요청 실패: ${response.status}`);
