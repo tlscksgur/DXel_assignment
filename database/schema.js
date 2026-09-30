@@ -1,3 +1,5 @@
+const { all, run } = require("./operations");
+
 const CARD_COLUMNS = [
   ["company", "TEXT"],
   ["department", "TEXT"],
@@ -22,18 +24,6 @@ const CARD_COLUMNS = [
 
 function exec(db, sql) {
   return new Promise((resolve, reject) => db.exec(sql, (error) => {
-    error ? reject(error) : resolve();
-  }));
-}
-
-function all(db, sql, params = []) {
-  return new Promise((resolve, reject) => db.all(sql, params, (error, rows) => {
-    error ? reject(error) : resolve(rows);
-  }));
-}
-
-function run(db, sql) {
-  return new Promise((resolve, reject) => db.run(sql, (error) => {
     error ? reject(error) : resolve();
   }));
 }

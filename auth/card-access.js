@@ -1,7 +1,4 @@
-function all(db, sql, params = []) {
-  return new Promise((resolve, reject) => db.all(sql, params,
-    (error, rows) => error ? reject(error) : resolve(rows)));
-}
+const { all } = require("../database/operations");
 
 const BULK_OWNER_PATHS = new Set([
   "/api/cards/bulk-delete",

@@ -6,7 +6,7 @@ const {
   sessionCookie,
   verifyPassword
 } = require("./security");
-const { withTransaction } = require("./database");
+const { get, run, withTransaction } = require("../database/operations");
 const { createPasswordResetService } = require("./password-reset");
 
 const EMAIL_VERIFICATION_TTL_MS = 30 * 60 * 1000;
@@ -18,18 +18,6 @@ const LOGIN_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const loginFailureBuckets = new Map();
 const verificationResendBuckets = new Map();
 const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
-
-function run(db, sql, params = []) {
-  return new Promise((resolve, reject) => db.run(sql, params, function (error) {
-    error ? reject(error) : resolve(this);
-  }));
-}
-
-function get(db, sql, params = []) {
-  return new Promise((resolve, reject) => db.get(sql, params, (error, row) => {
-    error ? reject(error) : resolve(row);
-  }));
-}
 
 function normalizeEmail(value) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";

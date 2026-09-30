@@ -48,6 +48,7 @@ async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
       if (name === "dotenv") return { config() {} };
       if (name === "express") return express;
       if (name === "./database/db") return db;
+      if (name === "./database/operations") return require(path.join(root, "database/operations"));
       if (name === "./auth/routes") return require(path.join(root, "auth/routes"));
       if (name === "./auth/card-access") return require(path.join(root, "auth/card-access"));
       if (name === "./auth/mailer") return { createSmtpMailer: () => null };

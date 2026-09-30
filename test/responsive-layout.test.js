@@ -84,17 +84,33 @@ test("명함 등록 업로드 패널은 콘텐츠가 커져도 작업 버튼과 
   const uploadRule = css.match(/\.uploadPanel\s*\{([^}]*)\}/)?.[1] || "";
 
   assert.match(uploadRule, /grid-area:\s*upload;/);
-  assert.match(uploadRule, /min-height:\s*707px;/);
+  assert.match(uploadRule, /min-height:\s*0;/);
+  assert.match(uploadRule, /height:\s*auto;/);
   assert.match(uploadRule, /display:\s*flex;/);
 });
 
-test("명함 등록의 양쪽 상단 패널은 높이를 맞추고 모바일에서는 자연 높이를 사용한다", () => {
+test("명함 등록의 좌우 콘텐츠 열은 독립 높이를 쓰고 모바일 순서를 보존한다", () => {
   const css = read("public/css/cardAdd.css");
+  const extractRule = css.match(/\.extractPanel\s*\{([^}]*)\}/)?.[1] || "";
+  const sources = [read("public/cardAdd.html")];
 
-  assert.match(css, /\.reviewBoard\s*\{[^}]*grid-template-areas:\s*"upload extract"\s*"actions meeting";[^}]*align-items:\s*stretch;/);
-  assert.match(css, /\.uploadPanel\s*\{[^}]*height:\s*100%;[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/);
-  assert.match(css, /\.previewFrame\s*\{[^}]*flex:\s*1;/);
-  assert.match(css, /@media\s*\(max-width:\s*900px\)[\s\S]*\.uploadPanel\s*\{[^}]*height:\s*auto;[^}]*display:\s*block;/);
+  assert.match(css, /\.reviewColumn\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/);
+  assert.match(css, /\.uploadPanel\s*\{[^}]*height:\s*auto;[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/);
+  assert.doesNotMatch(extractRule, /height:\s*100%/);
+  assert.match(css, /\.previewFrame\s*\{[^}]*flex:\s*0 0 auto;[^}]*aspect-ratio:\s*1\.45 \/ 1;/);
+  assert.match(css, /@media\s*\(max-width:\s*900px\)[\s\S]*\.reviewColumn\s*\{[^}]*display:\s*contents;/);
+  assert.match(css, /@media\s*\(max-width:\s*900px\)[\s\S]*grid-template-areas:\s*"upload"\s*"extract"\s*"meeting"\s*"actions";/);
+
+  for (const source of sources) {
+    const uploadStart = source.indexOf('<div class="reviewColumn uploadColumn">');
+    const detailsStart = source.indexOf('<div class="reviewColumn detailsColumn">');
+    assert.notEqual(uploadStart, -1);
+    assert.notEqual(detailsStart, -1);
+    const uploadColumn = source.slice(uploadStart, detailsStart);
+    const detailsColumn = source.slice(detailsStart);
+    assert.ok(uploadColumn.indexOf('class="uploadPanel"') < uploadColumn.indexOf('class="actionDock"'));
+    assert.ok(detailsColumn.indexOf('class="extractPanel"') < detailsColumn.indexOf('class="meetingFields"'));
+  }
 });
 
 test("모바일 명함 불러오기 미리보기는 가로 표 대신 정보 카드로 표시된다", () => {
@@ -145,7 +161,7 @@ test("일반 모니터 구간에서 세 화면이 중간 크기로 확대된다"
   );
   assert.match(
     addCss,
-    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.extractPanel\s*\{[\s\S]*width:\s*min\(728px,\s*100%\);[\s\S]*min-height:\s*705px;[\s\S]*height:\s*100%;/
+    /@media\s*\(min-width:\s*1200px\)\s*and\s*\(max-width:\s*1599px\)\s*\{[\s\S]*\.extractPanel\s*\{[\s\S]*width:\s*min\(728px,\s*100%\);/
   );
 });
 

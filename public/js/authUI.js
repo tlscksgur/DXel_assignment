@@ -37,7 +37,7 @@
     trigger.type = "button";
     trigger.setAttribute("aria-haspopup", "menu");
     trigger.setAttribute("aria-expanded", "false");
-    trigger.innerHTML = '<span class="accountAvatar" aria-hidden="true">계</span><span class="accountTriggerName"></span><span class="accountChevron" aria-hidden="true">⌄</span>';
+    trigger.innerHTML = '<span class="accountAvatar" aria-hidden="true">계</span><span class="accountTriggerName"></span>';
     trigger.querySelector(".accountAvatar").textContent = Array.from(user.displayName || "계정")[0] || "계";
     trigger.querySelector(".accountTriggerName").textContent = user.displayName || "내 계정";
 

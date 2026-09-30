@@ -3,8 +3,8 @@ require("dotenv").config();
 
 const express = require("express");
 const fs = require("fs");
-const sqlite3 = require("sqlite3");
 const db = require("./database/db");
+const { all, run, withTransaction } = require("./database/operations");
 const { createSessionMiddleware, registerAuthRoutes } = require("./auth/routes");
 const { createCardAccessMiddleware } = require("./auth/card-access");
 const { createSmtpMailer } = require("./auth/mailer");
@@ -33,62 +33,12 @@ if (isProduction) {
 }
 const pendingCropSources = new Map();
 
-function openTransactionDb() {
-  return new sqlite3.Database(db.filename);
-}
-
-function runOn(connection, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    connection.run(sql, params, function (error) {
-      if (error) reject(error);
-      else resolve(this);
-    });
-  });
-}
-
-function allOn(connection, sql, params = []) {
-  return new Promise((resolve, reject) => {
-    connection.all(sql, params, (error, rows) => error ? reject(error) : resolve(rows));
-  });
-}
-
-function closeDatabase(connection) {
-  return new Promise((resolve, reject) => {
-    connection.close((error) => error ? reject(error) : resolve());
-  });
-}
-
 function rememberCropSource(filename, userId) {
   const now = Date.now();
   for (const [knownFilename, source] of pendingCropSources) {
     if (source.expiresAt <= now) pendingCropSources.delete(knownFilename);
   }
   pendingCropSources.set(filename, { userId, expiresAt: now + 30 * 60 * 1000 });
-}
-
-async function withDatabaseTransaction(work) {
-  const transactionDb = openTransactionDb();
-  let transactionStarted = false;
-  try {
-    await runOn(transactionDb, "PRAGMA foreign_keys = ON");
-    await runOn(transactionDb, "BEGIN IMMEDIATE");
-    transactionStarted = true;
-    const result = await work(transactionDb);
-    await runOn(transactionDb, "COMMIT");
-    transactionStarted = false;
-    return result;
-  } catch (error) {
-    if (transactionStarted) {
-      try {
-        await runOn(transactionDb, "ROLLBACK");
-      } catch (rollbackError) {
-        console.error("데이터베이스 롤백 실패:", rollbackError.message);
-      }
-    }
-    throw error;
-  } finally {
-    await closeDatabase(transactionDb);
-  }
 }
 
 const CARD_READ_COLUMNS = [
@@ -1020,9 +970,9 @@ app.post("/api/cards/import", (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const savedIds = [];
-    withDatabaseTransaction(async (transactionDb) => {
+    withTransaction(db, async (transactionDb) => {
       for (const { card, groupName } of pendingCards) {
-        const inserted = await runOn(transactionDb, insertSql, [
+        const inserted = await run(transactionDb, insertSql, [
           card.name, card.company, card.department, card.position,
           card.mobile, card.phone, card.email, card.address,
           card.website, card.image_path,
@@ -1030,7 +980,7 @@ app.post("/api/cards/import", (req, res) => {
           card.meeting_purpose, card.meeting_note, req.user.id
         ]);
         if (groupName) {
-          await runOn(transactionDb,
+          await run(transactionDb,
             "INSERT INTO user_card_groups (user_id, card_id, group_name) VALUES (?, ?, ?)",
             [req.user.id, inserted.lastID, groupName]
           );
@@ -1213,9 +1163,9 @@ app.patch("/api/cards/groups", async (req, res) => {
   }
 
   try {
-    await withDatabaseTransaction(async (transactionDb) => {
+    await withTransaction(db, async (transactionDb) => {
       const placeholders = cardIds.map(() => "?").join(", ");
-      const cards = await allOn(transactionDb,
+      const cards = await all(transactionDb,
         `SELECT id FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
         cardIds
       );
@@ -1227,7 +1177,7 @@ app.patch("/api/cards/groups", async (req, res) => {
 
       if (groupName) {
         for (const cardId of cardIds) {
-          await runOn(transactionDb,
+          await run(transactionDb,
             `INSERT INTO user_card_groups (user_id, card_id, group_name) VALUES (?, ?, ?)
               ON CONFLICT(user_id, card_id) DO UPDATE SET
                 group_name = excluded.group_name, updated_at = CURRENT_TIMESTAMP`,
@@ -1235,7 +1185,7 @@ app.patch("/api/cards/groups", async (req, res) => {
           );
         }
       } else {
-        await runOn(transactionDb,
+        await run(transactionDb,
           `DELETE FROM user_card_groups WHERE user_id = ? AND card_id IN (${placeholders})`,
           [req.user.id, ...cardIds]
         );
@@ -1424,7 +1374,7 @@ app.patch("/api/cards/:id/favorite", async (req, res) => {
       return res.status(404).json({ success: false, message: "즐겨찾기를 변경할 명함을 찾을 수 없습니다." });
     }
 
-    await runOn(db, isFavorite
+    await run(db, isFavorite
       ? "INSERT OR IGNORE INTO card_favorites (user_id, card_id) VALUES (?, ?)"
       : "DELETE FROM card_favorites WHERE user_id = ? AND card_id = ?",
     [req.user.id, req.params.id]);
@@ -1480,8 +1430,8 @@ app.post("/api/cards/merge-group", (req, res) => {
     ORDER BY datetime(created_at) DESC, id DESC
   `;
 
-  withDatabaseTransaction(async (transactionDb) => {
-    const cards = await allOn(transactionDb, selectSql, cardIds);
+  withTransaction(db, async (transactionDb) => {
+    const cards = await all(transactionDb, selectSql, cardIds);
     if (cards.length !== cardIds.length) {
       const error = new Error("선택한 명함 일부를 찾을 수 없습니다.");
       error.status = 404;
@@ -1506,7 +1456,7 @@ app.post("/api/cards/merge-group", (req, res) => {
           meeting_date = ?, meeting_place = ?, meeting_purpose = ?, meeting_note = ?
       WHERE id = ? AND deleted_at IS NULL
     `;
-    const update = await runOn(transactionDb, updateSql, [
+    const update = await run(transactionDb, updateSql, [
       mergedCard.name, mergedCard.company, mergedCard.department, mergedCard.position,
       mergedCard.mobile, mergedCard.phone, mergedCard.email, mergedCard.address,
       mergedCard.website, mergedCard.image_path, mergedCard.logo_path,
@@ -1516,7 +1466,7 @@ app.post("/api/cards/merge-group", (req, res) => {
     if (update.changes !== 1) throw new Error("대표 명함 갱신에 실패했습니다.");
 
     const deletePlaceholders = duplicateIds.map(() => "?").join(", ");
-    const deletion = await runOn(transactionDb,
+    const deletion = await run(transactionDb,
       `DELETE FROM business_cards WHERE id IN (${deletePlaceholders}) AND deleted_at IS NULL`,
       duplicateIds
     );

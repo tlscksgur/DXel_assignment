@@ -87,12 +87,15 @@
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(360px, .9fr) minmax(520px, 1.1fr);
-  grid-template-areas:
-    "upload extract"
-    "actions meeting";
   column-gap: 34px;
-  row-gap: 18px;
   align-items: stretch;
+}
+
+.reviewColumn {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .uploadPanel,
@@ -106,8 +109,8 @@
   grid-area: upload;
   padding: 22px;
   border-radius: 18px;
-  min-height: 707px;
-  height: 100%;
+  min-height: 0;
+  height: auto;
   display: flex;
   flex-direction: column;
 }
@@ -247,7 +250,7 @@
 .previewFrame{
   position: relative;
   margin-top: 18px;
-  flex: 1;
+  flex: 0 0 auto;
   aspect-ratio: 1.45 / 1;
   container-type: inline-size;
   padding: 24px;
@@ -422,7 +425,6 @@
   grid-area: extract;
   padding: 30px;
   border-radius: 18px;
-  height: 100%;
 }
 
 .panelHeader{
@@ -680,6 +682,10 @@
     gap: 18px;
   }
 
+  .reviewColumn {
+    display: contents;
+  }
+
   .extractPanel {
     height: auto;
   }
@@ -845,8 +851,6 @@
 
   .extractPanel {
     width: min(728px, 100%);
-    min-height: 705px;
-    height: 100%;
     padding: 34px;
   }
 

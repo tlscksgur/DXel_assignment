@@ -52,6 +52,28 @@ test("로그인 후에도 명함 등록과 계정 메뉴를 헤더에 표시한�
   assert.match(source, /const registerLink = headerActions\?\.querySelector\("\.cardAdd"\);[\s\S]*?headerActions\.append\(createAccountMenu\(user\)\)/);
 });
 
+test("계정 메뉴는 화살표 없이 계정 칩 전체를 클릭 가능한 버튼으로 둔다", () => {
+  const styles = fs.readFileSync(path.join(projectRoot, "public/css/auth.css"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/authUI.js"), "utf8");
+
+  assert.match(source, /trigger\.className = "accountMenuTrigger";[\s\S]*?trigger\.type = "button";[\s\S]*?trigger\.innerHTML\s*=\s*'[^']*class="accountAvatar"[^']*class="accountTriggerName"[^']*'/);
+  assert.doesNotMatch(source, /accountChevron/);
+  assert.doesNotMatch(styles, /\.accountChevron/);
+  assert.match(styles, /\.accountMenuTrigger:hover,\s*\.accountMenuTrigger\[aria-expanded="true"\]\s*\{[^}]*background-color:/s);
+  assert.match(styles, /\.accountMenuTrigger:focus-visible\s*\{[^}]*outline:/s);
+  assert.match(source, /trigger\.addEventListener\("click"[\s\S]*?trigger\.setAttribute\("aria-expanded", String\(!menu\.hidden\)\)/);
+});
+
+test("계정 메뉴 패널은 헤더 버튼 묶음의 전체 너비에 맞춘다", () => {
+  const styles = fs.readFileSync(path.join(projectRoot, "public/css/auth.css"), "utf8");
+
+  assert.match(styles, /\.authHeaderActions\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*20;/s);
+  assert.doesNotMatch(styles, /\.accountMenu\s*\{[^}]*position:\s*relative;/s);
+  assert.match(styles, /\.accountMenuPanel\s*\{[^}]*left:\s*-1px;[^}]*right:\s*-1px;[^}]*width:\s*auto;/s);
+  assert.doesNotMatch(styles, /\.accountMenuPanel\s*\{[^}]*width:\s*260px;/s);
+  assert.doesNotMatch(styles, /\.accountMenuPanel\s*\{[^}]*width:\s*min\(260px,/s);
+});
+
 test("인증 관련 화면은 홈 링크를 기존 페이지 링크와 같은 가로 줄에 둔다", () => {
   const signup = fs.readFileSync(path.join(projectRoot, "public/signup.html"), "utf8");
   const reset = fs.readFileSync(path.join(projectRoot, "public/reset-password.html"), "utf8");

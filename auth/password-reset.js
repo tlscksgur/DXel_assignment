@@ -3,21 +3,10 @@ const {
   hashPassword,
   hashToken
 } = require("./security");
-const { withTransaction } = require("./database");
+const { get, run, withTransaction } = require("../database/operations");
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function run(db, sql, params = []) {
-  return new Promise((resolve, reject) => db.run(sql, params, function (error) {
-    error ? reject(error) : resolve(this);
-  }));
-}
-
-function get(db, sql, params = []) {
-  return new Promise((resolve, reject) => db.get(sql, params,
-    (error, row) => error ? reject(error) : resolve(row)));
-}
 
 function validPassword(password) {
   if (typeof password !== "string") return false;

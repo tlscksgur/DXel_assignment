@@ -310,7 +310,9 @@ footer {
 }
 
 .footerRight span,
-.trashFooterLink {
+.trashFooterLink,
+.csvExport,
+.vcardExport {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 2px;
@@ -612,7 +614,9 @@ footer {
   }
 
   .footerRight span,
-  .trashFooterLink {
+  .trashFooterLink,
+  .csvExport,
+  .vcardExport {
     font-size: 10px;
     letter-spacing: 1px;
   }

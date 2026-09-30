@@ -6,6 +6,16 @@ function run(db, sql, params = []) {
   }));
 }
 
+function get(db, sql, params = []) {
+  return new Promise((resolve, reject) => db.get(sql, params,
+    (error, row) => error ? reject(error) : resolve(row)));
+}
+
+function all(db, sql, params = []) {
+  return new Promise((resolve, reject) => db.all(sql, params,
+    (error, rows) => error ? reject(error) : resolve(rows)));
+}
+
 function close(db) {
   return new Promise((resolve, reject) => db.close((error) => {
     error ? reject(error) : resolve();
@@ -39,7 +49,7 @@ async function withTransaction(db, work) {
       try {
         await run(connection, "ROLLBACK");
       } catch (rollbackError) {
-        console.error("인증 데이터베이스 롤백 실패:", rollbackError.message);
+        console.error("데이터베이스 롤백 실패:", rollbackError.message);
       }
     }
     throw error;
@@ -48,10 +58,10 @@ async function withTransaction(db, work) {
       try {
         await close(connection);
       } catch (closeError) {
-        console.error("인증 트랜잭션 연결 종료 실패:", closeError.message);
+        console.error("트랜잭션 연결 종료 실패:", closeError.message);
       }
     }
   }
 }
 
-module.exports = { withTransaction };
+module.exports = { all, get, run, withTransaction };
