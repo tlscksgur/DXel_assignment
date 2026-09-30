@@ -66,7 +66,7 @@ test("신규 명함은 로고 좌표를 추출하고 별도 저장해 목록에 
   const server = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
   const add = fs.readFileSync(path.join(projectRoot, "public/js/cardAdd.js"), "utf8");
   const management = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
-  const database = fs.readFileSync(path.join(projectRoot, "database/db.js"), "utf8");
+  const database = fs.readFileSync(path.join(projectRoot, "database/schema.js"), "utf8");
 
   assert.match(ai, /logo_bounds/);
   assert.match(server, /logoBounds:\s*normalizeLogoBounds\(parsed\.logo_bounds/);
@@ -197,13 +197,13 @@ test("태그별 보기는 선택된 태그마다 명함을 묶고 보기 전환 
 
 test("즐겨찾기는 DB에 저장하고 단건 토글 API로 변경한다", () => {
   const databaseSource = fs.readFileSync(
-    path.join(projectRoot, "database/db.js"),
+    path.join(projectRoot, "database/schema.js"),
     "utf8"
   );
   const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
 
   assert.match(databaseSource, /is_favorite\s+INTEGER\s+NOT\s+NULL\s+DEFAULT\s+0/i);
-  assert.match(databaseSource, /ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0/);
+  assert.match(databaseSource, /\["is_favorite", "INTEGER NOT NULL DEFAULT 0"\]/);
   assert.match(serverSource, /app\.patch\("\/api\/cards\/:id\/favorite"/);
   assert.match(serverSource, /SET is_favorite = \? WHERE id = \?/);
 });
@@ -588,12 +588,12 @@ test("선택 명함 CSV와 vCard는 각각 올바른 내보내기 API를 사용�
 });
 
 test("그룹 저장소와 선택 명함 일괄 처리 API를 제공한다", () => {
-  const databaseSource = fs.readFileSync(path.join(projectRoot, "database/db.js"), "utf8");
+  const databaseSource = fs.readFileSync(path.join(projectRoot, "database/schema.js"), "utf8");
   const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
 
   assert.match(databaseSource, /group_name TEXT/);
   assert.match(databaseSource, /PRAGMA table_info\(business_cards\)/);
-  assert.match(databaseSource, /ALTER TABLE business_cards ADD COLUMN group_name TEXT/);
+  assert.match(databaseSource, /ALTER TABLE business_cards ADD COLUMN \$\{name\} \$\{definition\}/);
   assert.match(serverSource, /app\.patch\("\/api\/cards\/groups"/);
   assert.match(serverSource, /typeof req\.body\.groupName !== "string"/);
   assert.match(serverSource, /app\.post\("\/api\/cards\/bulk-delete"/);
@@ -601,14 +601,14 @@ test("그룹 저장소와 선택 명함 일괄 처리 API를 제공한다", () =
 });
 
 test("삭제 명함은 휴지통으로 이동하고 복원 또는 영구 삭제할 수 있다", () => {
-  const databaseSource = fs.readFileSync(path.join(projectRoot, "database/db.js"), "utf8");
+  const databaseSource = fs.readFileSync(path.join(projectRoot, "database/schema.js"), "utf8");
   const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
   const html = fs.readFileSync(path.join(projectRoot, "public/BCM.html"), "utf8");
   const trashHtml = fs.readFileSync(path.join(projectRoot, "public/cardTrash.html"), "utf8");
   const trashSource = fs.readFileSync(path.join(projectRoot, "public/js/cardTrash.js"), "utf8");
 
   assert.match(databaseSource, /deleted_at TEXT/);
-  assert.match(databaseSource, /ALTER TABLE business_cards ADD COLUMN deleted_at TEXT/);
+  assert.match(databaseSource, /ALTER TABLE business_cards ADD COLUMN \$\{name\} \$\{definition\}/);
   assert.match(serverSource, /const trashOnly = req\.query\.trash === "1"/);
   assert.match(serverSource, /WHERE deleted_at IS NULL/);
   assert.match(serverSource, /deleted_at IS NOT NULL/);
@@ -1158,13 +1158,13 @@ test("명함 원본 이미지는 상세 화면에서 클릭해 크게 보고 닫
 });
 
 test("명함은 여러 분류 태그를 저장하고 상세 하단 태그 탭에서 선택할 수 있다", () => {
-  const databaseSource = fs.readFileSync(path.join(projectRoot, "database/db.js"), "utf8");
+  const databaseSource = fs.readFileSync(path.join(projectRoot, "database/schema.js"), "utf8");
   const serverSource = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 
   assert.match(databaseSource, /tags TEXT NOT NULL DEFAULT '\[\]'/);
-  assert.match(databaseSource, /ALTER TABLE business_cards ADD COLUMN tags TEXT NOT NULL DEFAULT '\[\]'/);
+  assert.match(databaseSource, /\["tags", "TEXT NOT NULL DEFAULT '\[\]'"\]/);
   assert.match(serverSource, /app\.patch\("\/api\/cards\/:id\/tags"/);
   assert.match(serverSource, /\["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"\]/);
   assert.match(source, /function createCardTagDrawer\(contact\)/);

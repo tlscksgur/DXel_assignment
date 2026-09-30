@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/auth.css">
+  <title>내 프로필 설정 | 명함관리</title>
+</head>
+<body class="authPage profile-page">
+  <header>
+    <div class="headerBox1"><a class="logo" href="./index.html">명함관리</a><ul><li><a href="./BCM.html">명함관리</a></li></ul></div>
+    <div class="headerBox2"><a class="cardAdd" href="./cardAdd.html">+ 명함등록</a></div>
+  </header>
+  <main>
+    <section class="authCard">
+      <p class="authEyebrow">PROFILE SETTINGS</p>
+      <h1>내 프로필 설정</h1>
+      <p class="authIntro profileEmail"></p>
+      <form class="authForm" data-auth-form="profile">
+        <label>이름<input name="displayName" type="text" autocomplete="name" maxlength="60" required></label>
+        <button class="authPrimaryButton" type="submit">이름 저장</button>
+      </form>
+      <hr class="authDivider">
+      <h2 class="authSectionTitle">비밀번호 변경</h2>
+      <form class="authForm" data-auth-form="password">
+        <label>현재 비밀번호<input name="currentPassword" type="password" autocomplete="current-password" required></label>
+        <label>새 비밀번호<input name="newPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+        <button class="authPrimaryButton" type="submit">비밀번호 변경</button>
+      </form>
+      <p class="authStatus" aria-live="polite"></p>
+    </section>
+  </main>
+  <script src="./js/authUI.js"></script>
+  <script src="./js/authPages.js"></script>
+</body>
+</html>

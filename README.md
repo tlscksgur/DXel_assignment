@@ -53,9 +53,28 @@ AI_SERVER_ENDPOINT=http://<AI_SERVER_IP>:<PORT>/v1/chat/completions
 AI_SERVER_STATUS_URL=http://<AI_SERVER_IP>:<PORT>/health
 AI_SERVER_MODEL=unsloth/Qwen3.8-27B-GGUF
 AI_REQUEST_TIMEOUT_MS=300000
+APP_BASE_URL=http://localhost:3000
+
+# 로컬 개발 중에는 비워 둬도 됩니다. 계정 메일 기능을 쓸 때 회사 SMTP 값을 설정합니다.
+SMTP_HOST=
+SMTP_PORT=
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
+MAIL_FROM=
 ```
 
 `<AI_SERVER_IP>`와 `<PORT>`에는 실제 사내 AI 서버의 주소와 포트를 입력합니다. 실제 서버 주소나 인증 정보가 포함된 `.env` 파일은 Git에 커밋하지 않습니다. 현재 사내 AI 서버는 별도의 API 키 없이 접속하도록 설정되어 있습니다.
+
+## 계정 기능 및 회사 서버 설정
+
+- 누구나 이름·이메일·비밀번호로 가입할 수 있습니다. 이메일 인증을 마치면 로그인할 수 있고, 인증 링크는 30분 동안 유효합니다. 인증 메일이 오지 않거나 링크가 만료되면 인증 화면에서 다시 요청할 수 있습니다.
+- 비밀번호를 잊었을 때 가입한 이메일로 1회용 재설정 링크를 보냅니다. 링크는 30분 후 만료됩니다.
+- 로그인하지 않아도 활성 명함의 전체 정보와 사진을 볼 수 있습니다. 명함 등록·가져오기·내보내기는 로그인해야 하며, 명함 수정·태그 변경·삭제는 등록자만 할 수 있습니다. 그룹과 즐겨찾기는 로그인 계정마다 따로 저장됩니다.
+- 운영 서버에서는 `NODE_ENV=production`, `APP_BASE_URL=https://<서비스 주소>`와 회사 SMTP의 `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`을 설정해야 합니다. 운영 모드 서버는 HTTPS 주소와 SMTP가 빠져 있으면 시작하지 않습니다. 비밀번호가 포함된 `.env`는 저장소에 올리지 마세요.
+- 회사 SMTP에 실제로 연결해 가입 인증 메일과 비밀번호 재설정 메일을 주고받기 전에는 계정 기능이 운영 준비를 마친 것으로 보지 마세요. `.env.example`에는 변수 이름만 있습니다.
+- 기존 계정이 없는 예전 명함은 등록자가 지정되지 않은 상태로 보존되며, 누구도 수정하거나 삭제할 수 없습니다. 테스트 명함을 운영 주소록에 남기지 않으려면 운영 DB를 준비할 때 기존 `database/businesscard.db`를 그대로 복사하지 말고, 필요한 경우 별도로 보관한 뒤 새 DB로 시작하세요. 앱은 기존 명함이나 DB를 자동 삭제하지 않습니다.
+- 로그인 실패 및 인증 메일 재요청 제한은 현재 Node 프로세스 메모리에 일부 저장됩니다. 운영에서는 Node 서버를 단일 프로세스로 실행하고, 여러 프로세스나 서버로 확장하기 전에 공유 저장소 기반 제한으로 바꾸세요.
 
 ## 사내 AI 서버 실행
 
@@ -135,6 +154,8 @@ AI 서버가 응답하지 않을 때 분석 요청은 기본 5분 후 중단됩�
 <http://172.30.3.61:3000>
 
 Wi-Fi가 바뀌면 개발 PC의 IP 주소도 변경될 수 있습니다. macOS에서는 다음 명령어로 현재 Wi-Fi IP를 확인할 수 있습니다.
+
+휴대폰에서 로그인·회원가입을 시험하려면 `.env`의 `APP_BASE_URL`도 휴대폰이 접속하는 주소와 똑같이 맞춘 뒤 서버를 다시 시작하세요. 예: `APP_BASE_URL=http://172.30.3.61:3000`. 이때 인증 메일을 받으려면 SMTP 설정도 필요합니다.
 
 ```bash
 ipconfig getifaddr en0

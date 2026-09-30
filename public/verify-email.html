@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/auth.css">
+  <title>이메일 인증 | 명함관리</title>
+</head>
+<body class="authPage">
+  <header><div class="headerBox1"><a class="logo" href="./index.html">명함관리</a></div><div class="headerBox2"></div></header>
+  <main>
+    <section class="authCard">
+      <p class="authEyebrow">EMAIL VERIFICATION</p>
+      <h1>이메일 인증</h1>
+      <p class="authIntro">가입을 마치려면 인증 링크를 확인해 주세요. 링크가 만료됐거나 메일을 못 받았다면 다시 요청할 수 있습니다.</p>
+      <form class="authForm" data-auth-form="verify"><button class="authPrimaryButton" type="submit">이메일 인증 완료</button></form>
+      <form class="authForm authVerificationResend" data-auth-form="verification-resend">
+        <label>가입한 이메일<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+        <button class="authSecondaryButton" type="submit">인증 메일 다시 보내기</button>
+      </form>
+      <p class="authStatus" aria-live="polite"></p>
+      <nav class="authLinks"><a href="./login.html">로그인으로 이동</a></nav>
+    </section>
+  </main>
+  <script src="./js/authUI.js"></script>
+  <script src="./js/authPages.js"></script>
+</body>
+</html>

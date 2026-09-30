@@ -5,6 +5,9 @@ const express = require("express");
 const fs = require("fs");
 const sqlite3 = require("sqlite3");
 const db = require("./database/db");
+const { createSessionMiddleware, registerAuthRoutes } = require("./auth/routes");
+const { createCardAccessMiddleware } = require("./auth/card-access");
+const { createSmtpMailer } = require("./auth/mailer");
 const { UPLOAD_DIR, upload } = require("./upload");
 const {
   extractBusinessCard,
@@ -15,6 +18,19 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === "production";
+const smtpMailer = createSmtpMailer();
+const appBaseUrl = process.env.APP_BASE_URL || (isProduction ? "" : `http://localhost:${PORT}`);
+if (isProduction) {
+  let usesHttps = false;
+  try {
+    usesHttps = new URL(appBaseUrl).protocol === "https:";
+  } catch (error) {
+    // 아래 설정 오류로 운영 서버 시작을 중단합니다.
+  }
+  if (!usesHttps) throw new Error("운영 환경에는 HTTPS APP_BASE_URL이 필요합니다.");
+  if (!smtpMailer) throw new Error("운영 환경에는 계정 인증 메일 SMTP 설정이 필요합니다.");
+}
 const pendingCropSources = new Map();
 
 function openTransactionDb() {
@@ -42,18 +58,19 @@ function closeDatabase(connection) {
   });
 }
 
-function rememberCropSource(filename) {
+function rememberCropSource(filename, userId) {
   const now = Date.now();
-  for (const [knownFilename, expiresAt] of pendingCropSources) {
-    if (expiresAt <= now) pendingCropSources.delete(knownFilename);
+  for (const [knownFilename, source] of pendingCropSources) {
+    if (source.expiresAt <= now) pendingCropSources.delete(knownFilename);
   }
-  pendingCropSources.set(filename, now + 30 * 60 * 1000);
+  pendingCropSources.set(filename, { userId, expiresAt: now + 30 * 60 * 1000 });
 }
 
 async function withDatabaseTransaction(work) {
   const transactionDb = openTransactionDb();
   let transactionStarted = false;
   try {
+    await runOn(transactionDb, "PRAGMA foreign_keys = ON");
     await runOn(transactionDb, "BEGIN IMMEDIATE");
     transactionStarted = true;
     const result = await work(transactionDb);
@@ -74,7 +91,37 @@ async function withDatabaseTransaction(work) {
   }
 }
 
+const CARD_READ_COLUMNS = [
+  "id", "name", "company", "department", "position", "mobile", "phone",
+  "email", "address", "website", "image_path", "logo_path", "meeting_date",
+  "meeting_place", "meeting_purpose", "meeting_note", "tags", "created_at", "deleted_at"
+];
+
+function cardReadSql() {
+  return `SELECT ${CARD_READ_COLUMNS.map((column) => `bc.${column}`).join(", ")},
+      CASE WHEN bc.created_by = ? THEN 1 ELSE 0 END AS can_edit,
+      CASE WHEN ? > 0 THEN 1 ELSE 0 END AS can_manage_personal,
+      CASE WHEN cf.card_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
+      COALESCE(ucg.group_name, '') AS group_name
+    FROM business_cards AS bc
+    LEFT JOIN card_favorites AS cf ON cf.card_id = bc.id AND cf.user_id = ?
+    LEFT JOIN user_card_groups AS ucg ON ucg.card_id = bc.id AND ucg.user_id = ?`;
+}
+
+function cardReadParams(req) {
+  const userId = Number(req.user?.id) || 0;
+  return [userId, userId, userId, userId];
+}
+
 app.use(express.json());
+app.use(createSessionMiddleware(db));
+registerAuthRoutes(app, {
+  db,
+  sendMail: smtpMailer?.sendMail,
+  appBaseUrl,
+  secureCookie: isProduction
+});
+app.use(createCardAccessMiddleware(db, { appBaseUrl }));
 
 // ===== 공통 문자열 및 주소 정규화 =====
 function text(value) {
@@ -594,6 +641,17 @@ function checkDuplicate(card, excludeId, callback) {
   });
 }
 
+function duplicatePreview(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    company: row.company,
+    mobile: row.mobile,
+    phone: row.phone,
+    email: row.email
+  };
+}
+
 // ===== SQLite 및 Local AI 연결 상태 확인 =====
 function checkSqliteStatus() {
   return new Promise((resolve) => {
@@ -690,7 +748,7 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
     if (req.body?.temporary === "true") {
       await fs.promises.unlink(req.file.path);
     } else {
-      rememberCropSource(req.file.filename);
+      rememberCropSource(req.file.filename, req.user.id);
     }
 
     res.json({
@@ -737,14 +795,20 @@ app.post("/api/cards/cropped-image", upload.single("image"), async (req, res) =>
     });
   }
 
-  const expiresAt = pendingCropSources.get(originalFilename);
+  const pendingSource = pendingCropSources.get(originalFilename);
+  if (!pendingSource || pendingSource.expiresAt <= Date.now() || pendingSource.userId !== req.user.id) {
+    fs.unlink(req.file.path, () => {});
+    return res.status(403).json({
+      success: false,
+      message: "이 크롭 원본 이미지를 사용할 수 없습니다."
+    });
+  }
+
   pendingCropSources.delete(originalFilename);
-  if (expiresAt && expiresAt > Date.now()) {
-    try {
-      await cleanupDeletedImages([{ image_path: originalPath }]);
-    } catch (cleanupError) {
-      console.warn("크롭 원본 이미지 정리 실패:", cleanupError.message);
-    }
+  try {
+    await cleanupDeletedImages([{ image_path: originalPath }]);
+  } catch (cleanupError) {
+    console.warn("크롭 원본 이미지 정리 실패:", cleanupError.message);
   }
 
   return res.json({
@@ -801,7 +865,7 @@ function saveCard(req, res) {
       return res.status(409).json({
         success: false,
         message: "중복 가능성이 있는 명함이 있습니다.",
-        duplicates
+        duplicates: duplicates.map(duplicatePreview)
       });
     }
 
@@ -809,9 +873,9 @@ function saveCard(req, res) {
       INSERT INTO business_cards (
         name, company, department, position, mobile, phone,
         email, address, website, image_path, logo_path,
-        meeting_date, meeting_place, meeting_purpose, meeting_note, tags
+        meeting_date, meeting_place, meeting_purpose, meeting_note, tags, created_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.run(sql, [
@@ -830,7 +894,8 @@ function saveCard(req, res) {
       card.meeting_place,
       card.meeting_purpose,
       card.meeting_note,
-      JSON.stringify(tags)
+      JSON.stringify(tags),
+      req.user.id
     ], function (error) {
       if (error) {
         return res.status(500).json({
@@ -950,8 +1015,8 @@ app.post("/api/cards/import", (req, res) => {
     const insertSql = `
       INSERT INTO business_cards (
         name, company, department, position, mobile, phone,
-        email, address, website, image_path, group_name,
-        meeting_date, meeting_place, meeting_purpose, meeting_note
+        email, address, website, image_path,
+        meeting_date, meeting_place, meeting_purpose, meeting_note, created_by
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const savedIds = [];
@@ -960,10 +1025,16 @@ app.post("/api/cards/import", (req, res) => {
         const inserted = await runOn(transactionDb, insertSql, [
           card.name, card.company, card.department, card.position,
           card.mobile, card.phone, card.email, card.address,
-          card.website, card.image_path, groupName,
+          card.website, card.image_path,
           card.meeting_date, card.meeting_place,
-          card.meeting_purpose, card.meeting_note
+          card.meeting_purpose, card.meeting_note, req.user.id
         ]);
+        if (groupName) {
+          await runOn(transactionDb,
+            "INSERT INTO user_card_groups (user_id, card_id, group_name) VALUES (?, ?, ?)",
+            [req.user.id, inserted.lastID, groupName]
+          );
+        }
         savedIds.push(inserted.lastID);
       }
     }).then(() => {
@@ -1045,7 +1116,7 @@ app.get("/api/cards/duplicates", (req, res) => {
 
     res.json({
       success: true,
-      duplicates
+      duplicates: duplicates.map(duplicatePreview)
     });
   });
 });
@@ -1054,17 +1125,22 @@ app.get("/api/cards/duplicates", (req, res) => {
 app.get("/api/cards", (req, res) => {
   const keyword = String(req.query.q || req.query.keyword || "").trim();
   const trashOnly = req.query.trash === "1";
-  let sql = "SELECT * FROM business_cards";
-  const params = [];
-  const whereParts = [trashOnly ? "deleted_at IS NOT NULL" : "deleted_at IS NULL"];
+  const userId = Number(req.user?.id) || 0;
+  let sql = cardReadSql();
+  const params = cardReadParams(req);
+  const whereParts = [trashOnly ? "bc.deleted_at IS NOT NULL" : "bc.deleted_at IS NULL"];
+
+  if (trashOnly) {
+    whereParts.push("bc.created_by = ?");
+    params.push(userId);
+  }
 
   if (keyword) {
-    whereParts.push("(name LIKE ? OR company LIKE ? OR mobile LIKE ? OR phone LIKE ? OR email LIKE ? OR tags LIKE ?)");
+    whereParts.push("(bc.name LIKE ? OR bc.company LIKE ? OR bc.mobile LIKE ? OR bc.phone LIKE ? OR bc.email LIKE ? OR bc.tags LIKE ?)");
     params.push(...Array(6).fill(`%${keyword}%`));
   }
 
-  sql += ` WHERE ${whereParts.join(" AND ")}`;
-  sql += " ORDER BY created_at DESC";
+  sql += ` WHERE ${whereParts.join(" AND ")} ORDER BY bc.created_at DESC`;
 
   db.all(sql, params, (error, rows) => {
     if (error) {
@@ -1082,7 +1158,7 @@ app.get("/api/cards", (req, res) => {
 });
 
 app.get("/api/cardSelect", (req, res) => {
-  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL ORDER BY created_at DESC", (error, rows) => {
+  db.all(`${cardReadSql()} WHERE bc.deleted_at IS NULL ORDER BY bc.created_at DESC`, cardReadParams(req), (error, rows) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -1100,7 +1176,11 @@ app.get("/api/cardSelect", (req, res) => {
 // ===== 선택 명함 그룹 지정·일괄 삭제 API =====
 app.get("/api/cards/groups", (req, res) => {
   db.all(
-    "SELECT DISTINCT group_name FROM business_cards WHERE deleted_at IS NULL AND TRIM(COALESCE(group_name, '')) <> '' ORDER BY group_name COLLATE NOCASE",
+    `SELECT DISTINCT groups.group_name FROM user_card_groups AS groups
+      JOIN business_cards AS cards ON cards.id = groups.card_id AND cards.deleted_at IS NULL
+      WHERE groups.user_id = ? AND TRIM(COALESCE(groups.group_name, '')) <> ''
+      ORDER BY groups.group_name COLLATE NOCASE`,
+    [req.user.id],
     (error, rows) => {
       if (error) {
         return res.status(500).json({
@@ -1117,7 +1197,7 @@ app.get("/api/cards/groups", (req, res) => {
   );
 });
 
-app.patch("/api/cards/groups", (req, res) => {
+app.patch("/api/cards/groups", async (req, res) => {
   const cardIds = parseCardIds(req.body.cardIds);
   const groupName = singleLineText(req.body.groupName);
 
@@ -1132,33 +1212,47 @@ app.patch("/api/cards/groups", (req, res) => {
     });
   }
 
-  const placeholders = cardIds.map(() => "?").join(", ");
-  db.run(
-    `UPDATE business_cards SET group_name = ? WHERE id IN (${placeholders}) AND deleted_at IS NULL
-      AND (SELECT COUNT(*) FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NULL) = ?`,
-    [groupName, ...cardIds, ...cardIds, cardIds.length],
-    function (error) {
-      if (error) {
-        return res.status(500).json({
-          success: false,
-          message: "그룹 지정에 실패했습니다."
-        });
+  try {
+    await withDatabaseTransaction(async (transactionDb) => {
+      const placeholders = cardIds.map(() => "?").join(", ");
+      const cards = await allOn(transactionDb,
+        `SELECT id FROM business_cards WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+        cardIds
+      );
+      if (cards.length !== cardIds.length) {
+        const error = new Error("선택한 명함 일부를 찾을 수 없습니다.");
+        error.status = 404;
+        throw error;
       }
 
-      if (this.changes !== cardIds.length) {
-        return res.status(404).json({
-          success: false,
-          message: "선택한 명함 일부를 찾을 수 없습니다."
-        });
+      if (groupName) {
+        for (const cardId of cardIds) {
+          await runOn(transactionDb,
+            `INSERT INTO user_card_groups (user_id, card_id, group_name) VALUES (?, ?, ?)
+              ON CONFLICT(user_id, card_id) DO UPDATE SET
+                group_name = excluded.group_name, updated_at = CURRENT_TIMESTAMP`,
+            [req.user.id, cardId, groupName]
+          );
+        }
+      } else {
+        await runOn(transactionDb,
+          `DELETE FROM user_card_groups WHERE user_id = ? AND card_id IN (${placeholders})`,
+          [req.user.id, ...cardIds]
+        );
       }
+    });
 
-      res.json({
-        success: true,
-        message: groupName ? "그룹 지정 완료" : "그룹 해제 완료",
-        updatedCount: this.changes
-      });
-    }
-  );
+    res.json({
+      success: true,
+      message: groupName ? "그룹 지정 완료" : "그룹 해제 완료",
+      updatedCount: cardIds.length
+    });
+  } catch (error) {
+    res.status(error.status || 500).json({
+      success: false,
+      message: error.status === 404 ? error.message : "그룹 지정에 실패했습니다."
+    });
+  }
 });
 
 app.post("/api/cards/bulk-delete", (req, res) => {
@@ -1202,7 +1296,7 @@ app.post("/api/cards/bulk-delete", (req, res) => {
 
 // ===== 명함 단건 조회·수정 API =====
 app.get("/api/cards/:id", (req, res) => {
-  db.get("SELECT * FROM business_cards WHERE id = ? AND deleted_at IS NULL", [req.params.id], (error, row) => {
+  db.get(`${cardReadSql()} WHERE bc.id = ? AND bc.deleted_at IS NULL`, [...cardReadParams(req), req.params.id], (error, row) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -1247,7 +1341,7 @@ app.put("/api/cards/:id", (req, res) => {
       return res.status(409).json({
         success: false,
         message: "중복 가능성이 있는 명함이 있습니다.",
-        duplicates
+        duplicates: duplicates.map(duplicatePreview)
       });
     }
 
@@ -1312,7 +1406,7 @@ app.put("/api/cards/:id", (req, res) => {
 });
 
 // ===== 명함 즐겨찾기 토글 API =====
-app.patch("/api/cards/:id/favorite", (req, res) => {
+app.patch("/api/cards/:id/favorite", async (req, res) => {
   if (typeof req.body.isFavorite !== "boolean") {
     return res.status(400).json({
       success: false,
@@ -1321,30 +1415,23 @@ app.patch("/api/cards/:id/favorite", (req, res) => {
   }
 
   const isFavorite = req.body.isFavorite ? 1 : 0;
-  db.run(
-    "UPDATE business_cards SET is_favorite = ? WHERE id = ? AND deleted_at IS NULL",
-    [isFavorite, req.params.id],
-    function (error) {
-      if (error) {
-        return res.status(500).json({
-          success: false,
-          message: "즐겨찾기 변경에 실패했습니다."
-        });
-      }
-
-      if (this.changes === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "즐겨찾기를 변경할 명함을 찾을 수 없습니다."
-        });
-      }
-
-      res.json({
-        success: true,
-        is_favorite: isFavorite
-      });
+  try {
+    const card = await new Promise((resolve, reject) => {
+      db.get("SELECT id FROM business_cards WHERE id = ? AND deleted_at IS NULL", [req.params.id],
+        (error, row) => error ? reject(error) : resolve(row));
+    });
+    if (!card) {
+      return res.status(404).json({ success: false, message: "즐겨찾기를 변경할 명함을 찾을 수 없습니다." });
     }
-  );
+
+    await runOn(db, isFavorite
+      ? "INSERT OR IGNORE INTO card_favorites (user_id, card_id) VALUES (?, ?)"
+      : "DELETE FROM card_favorites WHERE user_id = ? AND card_id = ?",
+    [req.user.id, req.params.id]);
+    return res.json({ success: true, is_favorite: isFavorite });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "즐겨찾기 변경에 실패했습니다." });
+  }
 });
 
 // ===== 명함 분류 태그 API =====
@@ -1640,6 +1727,21 @@ app.delete("/api/cards/:id", (req, res) => {
 });
 
 // ===== 정적 파일 제공·오류 처리·서버 실행 =====
+const LOGIN_REQUIRED_PAGES = new Set([
+  "/cardAdd.html",
+  "/cardImport.html",
+  "/cardTrash.html",
+  "/profile.html"
+]);
+
+app.use((req, res, next) => {
+  if (req.method === "GET" && LOGIN_REQUIRED_PAGES.has(req.path) && !req.user?.id) {
+    const returnPath = encodeURIComponent(req.path.slice(1));
+    return res.redirect(302, `/login.html?next=${returnPath}`);
+  }
+  return next();
+});
+
 app.use("/uploads", (req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   next();
@@ -1654,10 +1756,14 @@ app.use((error, req, res, next) => {
   });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+Promise.resolve(db.ready).then(() => {
+  const server = app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
 
-server.on("error", (error) => {
-  console.error(`Server failed: ${error.message}`);
+  server.on("error", (error) => {
+    console.error(`Server failed: ${error.message}`);
+  });
+}).catch((error) => {
+  console.error(`Server startup aborted: ${error.message}`);
 });

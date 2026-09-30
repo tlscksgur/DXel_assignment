@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/auth.css">
+  <title>로그인 | 명함관리</title>
+</head>
+<body class="authPage">
+  <header>
+    <div class="headerBox1"><a class="logo" href="./index.html">명함관리</a></div>
+    <div class="headerBox2"></div>
+  </header>
+  <main>
+    <section class="authCard">
+      <p class="authEyebrow">ACCOUNT</p>
+      <h1>로그인</h1>
+      <p class="authIntro">로그인하면 내 명함과 개인 분류를 관리할 수 있습니다.</p>
+      <form class="authForm" data-auth-form="login">
+        <label>이메일<input name="email" type="email" autocomplete="username" maxlength="254" required></label>
+        <label>비밀번호<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="authPrimaryButton" type="submit">로그인</button>
+      </form>
+      <p class="authStatus" aria-live="polite"></p>
+      <nav class="authLinks"><a href="./signup.html">회원가입</a><a href="./reset-password.html">비밀번호 찾기</a></nav>
+    </section>
+  </main>
+  <script src="./js/authUI.js"></script>
+  <script src="./js/authPages.js"></script>
+</body>
+</html>
