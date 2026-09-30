@@ -216,6 +216,13 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     try {
       await sendMail(createVerificationMessage(email, verificationUrl.toString()));
     } catch (error) {
+      const mailError = error && typeof error === "object" ? error : {};
+      console.error("인증 이메일 발송 실패:", {
+        code: mailError.code || "UNKNOWN",
+        responseCode: mailError.responseCode || null,
+        command: mailError.command || null,
+        hostname: mailError.hostname || null
+      });
       await run(db, "DELETE FROM users WHERE id = ? AND email_verified_at IS NULL", [userId]);
       return res.status(503).json({ success: false, message: "인증 이메일을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요." });
     }
@@ -291,17 +298,30 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       return res.status(503).json({ success: false, message: "이메일 서비스를 사용할 수 없습니다." });
     }
 
-    const email = normalizeEmail(req.body?.email);
-    if (!EMAIL_PATTERN.test(email) || email.length > 254) {
-      return res.status(202).json(verificationResendMessage());
-    }
+    const providedToken = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+    let email = normalizeEmail(req.body?.email);
 
     try {
-      const user = await get(db,
-        "SELECT id, email FROM users WHERE email = ? AND email_verified_at IS NULL",
-        [email]
-      );
+      let user = null;
+      if (providedToken) {
+        if (/^[A-Za-z0-9_-]{43}$/.test(providedToken)) {
+          user = await get(db,
+            `SELECT users.id, users.email
+               FROM email_verification_tokens
+               JOIN users ON users.id = email_verification_tokens.user_id
+              WHERE email_verification_tokens.token_hash = ?
+                AND users.email_verified_at IS NULL`,
+            [hashToken(providedToken)]
+          );
+        }
+      } else if (EMAIL_PATTERN.test(email) && email.length <= 254) {
+        user = await get(db,
+          "SELECT id, email FROM users WHERE email = ? AND email_verified_at IS NULL",
+          [email]
+        );
+      }
       if (!user) return res.status(202).json(verificationResendMessage());
+      email = user.email;
 
       const cooldownKey = hashToken(email);
       const timestamp = now().getTime();

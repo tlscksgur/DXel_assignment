@@ -1,10 +1,42 @@
 (() => {
   const status = document.querySelector(".authStatus");
+  const statusMessage = status?.querySelector("[data-auth-status-message]") || status;
   const token = new URLSearchParams(window.location.search).get("token") || "";
+  const pendingVerificationEmailKey = "bcmPendingVerificationEmail";
+  const hasVerificationToken = /^[A-Za-z0-9_-]{43}$/.test(token);
+
+  function readPendingVerificationEmail() {
+    try {
+      return window.localStorage.getItem(pendingVerificationEmailKey) || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function rememberPendingVerificationEmail(email) {
+    try {
+      window.localStorage.setItem(pendingVerificationEmailKey, email);
+    } catch (error) {
+      // 가입 요청은 저장소 사용 가능 여부와 무관하게 이어갑니다.
+    }
+  }
+
+  function clearPendingVerificationEmail() {
+    try {
+      window.localStorage.removeItem(pendingVerificationEmailKey);
+    } catch (error) {
+      // 인증 완료 흐름은 저장소 정리 실패와 무관하게 이어갑니다.
+    }
+  }
+
+  const pendingVerificationEmail = readPendingVerificationEmail();
+
+  const resendButton = document.querySelector("[data-verification-resend-button]");
+  if (resendButton && !hasVerificationToken && !pendingVerificationEmail) resendButton.disabled = true;
 
   function showStatus(message, state = "") {
-    if (!status) return;
-    status.textContent = message;
+    if (!status || !statusMessage) return;
+    statusMessage.textContent = message;
     status.dataset.state = state;
   }
 
@@ -19,7 +51,7 @@
     return result;
   }
 
-  document.querySelector("[data-auth-form]")?.addEventListener("submit", async (event) => {
+  document.querySelectorAll("[data-auth-form]").forEach((authForm) => authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     const submit = form.querySelector("button[type=submit]");
@@ -41,18 +73,19 @@
           email: data.get("email"),
           password: data.get("password")
         });
-        showStatus(result.message || "인증 링크를 이메일로 보냈습니다.", "success");
-        form.reset();
+        rememberPendingVerificationEmail(result.user?.email || String(data.get("email") || "").trim().toLowerCase());
+        window.location.assign("./verify-email.html");
       } else if (form.dataset.authForm === "verify") {
         const result = await requestJson("/api/auth/verify", "POST", { token });
         showStatus(result.message || "이메일 인증이 완료되었습니다.", "success");
+        clearPendingVerificationEmail();
         window.setTimeout(() => window.location.assign("./login.html"), 1200);
       } else if (form.dataset.authForm === "verification-resend") {
         const result = await requestJson("/api/auth/verification/resend", "POST", {
-          email: data.get("email")
+          email: pendingVerificationEmail,
+          token: hasVerificationToken ? token : ""
         });
         showStatus(result.message || "인증이 필요한 계정이라면 새 인증 링크를 보냈습니다.", "success");
-        form.reset();
       } else if (form.dataset.authForm === "reset-request") {
         const result = await requestJson("/api/auth/password-reset/request", "POST", {
           email: data.get("email")
@@ -93,13 +126,19 @@
     } finally {
       if (submit) submit.disabled = false;
     }
-  });
+  }));
 
   const verifyForm = document.querySelector('[data-auth-form="verify"]');
-  if (verifyForm && !token) {
+  if (verifyForm && !hasVerificationToken) {
     const button = verifyForm.querySelector("button[type=submit]");
     if (button) button.disabled = true;
-    showStatus("인증 토큰이 없습니다. 이메일의 인증 링크를 다시 확인해 주세요.", "error");
+    if (pendingVerificationEmail) {
+      showStatus("인증 안내 메일이 발송되었습니다.", "success");
+    } else {
+      showStatus("인증 토큰이 없습니다. 이메일의 인증 링크를 다시 확인해 주세요.", "error");
+    }
+  } else if (verifyForm) {
+    showStatus("인증 안내 메일이 발송되었습니다.", "success");
   }
 
   if (document.body.classList.contains("profile-page")) {

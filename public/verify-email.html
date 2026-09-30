@@ -7,22 +7,48 @@
   <link rel="stylesheet" href="./css/auth.css">
   <title>이메일 인증 | 명함관리</title>
 </head>
-<body class="authPage">
-  <header><div class="headerBox1"><a class="logo" href="./index.html">명함관리</a></div><div class="headerBox2"></div></header>
+<body class="authPage authVerificationPage">
+  <header>
+    <div class="headerBox1"><a class="logo" href="./index.html">명함관리</a></div>
+    <span class="authSecurityBadge">계정 보안 센터</span>
+  </header>
   <main>
-    <section class="authCard">
-      <p class="authEyebrow">EMAIL VERIFICATION</p>
-      <h1>이메일 인증</h1>
+    <section class="authCard authVerificationCard" aria-labelledby="verification-title">
+      <div class="authVerificationTopline">
+        <p class="authEyebrow"><span aria-hidden="true"></span>EMAIL VERIFICATION</p>
+        <span class="authVerificationMailIcon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="m4.5 7 7.5 6 7.5-6"/></svg>
+        </span>
+      </div>
+      <h1 id="verification-title">이메일 인증</h1>
       <p class="authIntro">가입을 마치려면 인증 링크를 확인해 주세요. 링크가 만료됐거나 메일을 못 받았다면 다시 요청할 수 있습니다.</p>
-      <form class="authForm" data-auth-form="verify"><button class="authPrimaryButton" type="submit">이메일 인증 완료</button></form>
-      <form class="authForm authVerificationResend" data-auth-form="verification-resend">
-        <label>가입한 이메일<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-        <button class="authSecondaryButton" type="submit">인증 메일 다시 보내기</button>
-      </form>
-      <p class="authStatus" aria-live="polite"></p>
-      <nav class="authLinks"><a href="./login.html">로그인으로 이동</a></nav>
+      <p class="authStatus authVerificationNotice" aria-live="polite">
+        <span class="authVerificationNoticeIcon" aria-hidden="true">@</span>
+        <span data-auth-status-message></span>
+      </p>
+      <div class="authVerificationActions">
+        <form class="authForm" data-auth-form="verify">
+          <button class="authPrimaryButton" type="submit">
+            이메일 인증 완료
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>
+          </button>
+        </form>
+        <form class="authForm authVerificationResend" data-auth-form="verification-resend">
+          <button class="authSecondaryButton" type="submit" data-verification-resend-button>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 11.9-3"/></svg>
+            인증 메일 다시 보내기
+          </button>
+        </form>
+      </div>
+      <hr class="authDivider">
+      <nav class="authLinks">
+        <a href="./login.html"><span aria-hidden="true">‹</span>로그인으로 이동</a>
+        <span class="authVerificationHelp">도움이 필요하신가요?</span>
+      </nav>
     </section>
+    <p class="authHelpNote">스팸 메일함으로 분류되었는지도 함께 확인해 주세요.</p>
   </main>
+  <footer class="authFooter">© 2026 명함관리. All rights reserved.</footer>
   <script src="./js/authUI.js"></script>
   <script src="./js/authPages.js"></script>
 </body>

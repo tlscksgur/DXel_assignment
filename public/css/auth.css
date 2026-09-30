@@ -287,6 +287,11 @@
   outline: 3px solid rgba(82, 105, 132, .1);
 }
 
+.authSecondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
 .authLinks {
   margin-top: 19px;
   display: flex;
@@ -331,4 +336,268 @@
 @media (max-width: 380px) {
   .authHeaderActions { width: auto; flex: 0 0 auto; }
   .authHeaderActions .cardAdd { width: auto; }
+}
+
+.authVerificationPage {
+  height: 100vh;
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+  background-color: #fdfbf8;
+  background-image: radial-gradient(rgba(128, 116, 96, .23) .8px, transparent .8px);
+  background-size: 28px 28px;
+  color: #101827;
+  font-family: Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+
+.authVerificationPage > header {
+  flex: 0 0 auto;
+  background: rgba(253, 251, 248, .96);
+  border-bottom: 1px solid #efebe5;
+  box-shadow: none;
+}
+
+.authVerificationPage > header .headerBox1 { flex: 1 1 auto; }
+.authVerificationPage > header .logo {
+  color: #101827;
+}
+
+.authSecurityBadge {
+  padding: 8px 12px;
+  border: 1px solid #ebe6dd;
+  border-radius: 999px;
+  background: #f4f1eb;
+  color: #687991;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.authVerificationPage > main {
+  width: min(460px, calc(100% - 32px));
+  min-height: 0;
+  margin: 0 auto;
+  padding: clamp(8px, 2svh, 24px) 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.authVerificationCard {
+  position: relative;
+  width: 100%;
+  padding: clamp(24px, 6vw, 42px);
+  overflow: hidden;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 15px 38px rgba(41, 38, 32, .1);
+}
+
+.authVerificationCard::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 6px;
+  background: #101827;
+  content: "";
+}
+
+.authVerificationTopline {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.authVerificationCard .authEyebrow {
+  padding: 7px 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #e9e3d9;
+  border-radius: 9px;
+  background: #f8f6f1;
+  color: #657993;
+  font-size: 11px;
+  letter-spacing: .18em;
+}
+
+.authVerificationCard .authEyebrow span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9fd8be;
+}
+
+.authVerificationMailIcon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e9e3d9;
+  border-radius: 50%;
+  background: #f8f6f1;
+  box-shadow: 0 2px 4px rgba(16, 24, 39, .08);
+}
+
+.authVerificationMailIcon svg {
+  width: 22px;
+  height: 22px;
+  stroke: #101827;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.authVerificationCard h1 {
+  margin: 0 0 12px;
+  color: #101827;
+  font-size: 30px;
+  letter-spacing: -.055em;
+}
+
+.authVerificationCard .authIntro {
+  margin: 0 0 20px;
+  color: #66738a;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.authVerificationNotice {
+  min-height: 48px;
+  margin: 0 0 24px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border: 1px solid #e9e1d5;
+  border-radius: 12px;
+  background: #faf8f4;
+  color: #344258;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.authVerificationNoticeIcon {
+  color: #70829a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.authVerificationNotice[data-state="error"] {
+  border-color: #f0d5d5;
+  background: #fff8f7;
+}
+
+.authVerificationNotice[data-state="success"] { color: #344258; }
+.authVerificationNotice[data-state="success"] .authVerificationNoticeIcon { color: #70829a; }
+
+.authVerificationActions { display: grid; gap: 12px; }
+.authVerificationActions .authForm { display: block; }
+
+.authVerificationCard .authPrimaryButton,
+.authVerificationCard .authSecondaryButton {
+  width: 100%;
+  min-height: 50px;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 13px;
+}
+
+.authVerificationCard .authPrimaryButton {
+  background: #101827;
+  color: #fff;
+}
+
+.authVerificationCard .authPrimaryButton:disabled {
+  cursor: not-allowed;
+  opacity: .62;
+}
+
+.authVerificationCard .authPrimaryButton svg,
+.authVerificationCard .authSecondaryButton svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.authVerificationCard .authSecondaryButton {
+  min-height: 46px;
+  border-color: #e8e2d9;
+  color: #101827;
+}
+
+.authVerificationCard .authSecondaryButton svg { color: #70829a; }
+.authVerificationCard .authSecondaryButton:disabled { opacity: .5; }
+
+.authVerificationCard .authDivider {
+  margin: 30px 0 20px;
+  border-color: #eee9e1;
+}
+
+.authVerificationCard .authLinks {
+  margin: 0;
+  align-items: center;
+  color: #8a99ad;
+  font-size: 13px;
+}
+
+.authVerificationCard .authLinks a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #657993;
+}
+
+.authVerificationCard .authLinks a span {
+  font-size: 25px;
+  line-height: .7;
+}
+
+.authVerificationHelp { white-space: nowrap; }
+
+.authHelpNote {
+  margin: 24px 0 0;
+  color: #96a3b4;
+  font-size: 13px;
+  text-align: center;
+}
+
+.authVerificationPage > footer.authFooter {
+  position: static;
+  z-index: auto;
+  width: 100%;
+  height: auto;
+  padding: 12px 16px;
+  display: block;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #9aa7b7;
+  font-size: 13px;
+  letter-spacing: .01em;
+  text-align: center;
+}
+
+@media (max-height: 700px) {
+  .authVerificationPage > main { padding: 8px 0; }
+  .authVerificationCard { padding: 20px; }
+  .authVerificationTopline { margin-bottom: 12px; }
+  .authVerificationMailIcon { width: 40px; height: 40px; }
+  .authVerificationCard h1 { margin-bottom: 8px; font-size: 26px; }
+  .authVerificationCard .authIntro { margin-bottom: 12px; font-size: 13px; line-height: 1.45; }
+  .authVerificationNotice { min-height: 40px; margin-bottom: 14px; padding: 0 10px; }
+  .authVerificationActions { gap: 8px; }
+  .authVerificationCard .authPrimaryButton { min-height: 44px; }
+  .authVerificationCard .authSecondaryButton { min-height: 42px; }
+  .authVerificationCard .authDivider { margin: 20px 0 12px; }
+  .authHelpNote { display: none; }
+  .authVerificationPage > footer.authFooter { padding: 8px 16px; font-size: 12px; }
 }

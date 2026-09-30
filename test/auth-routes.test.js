@@ -106,6 +106,49 @@ test("가입은 표시 이름·이메일·비밀번호만 받아 정규화된 �
   });
 });
 
+test("인증 메일 발송 실패는 비밀 메시지 없이 SMTP 진단 정보를 서버 로그에 남긴다", async () => {
+  const db = new sqlite3.Database(":memory:");
+  const app = createRouteApp();
+  const failure = Object.assign(new Error("SMTP rejected private-password"), {
+    code: "EAUTH",
+    responseCode: 535,
+    command: "AUTH PLAIN",
+    hostname: "smtp.example.test"
+  });
+  const logs = [];
+  const originalConsoleError = console.error;
+  console.error = (...args) => logs.push(args);
+
+  try {
+    await initializeSchema(db);
+    registerAuthRoutes(app, {
+      db,
+      appBaseUrl: "http://cards.test",
+      secureCookie: false,
+      now: () => new Date("2026-09-29T00:00:00.000Z"),
+      sendMail: async () => { throw failure; }
+    });
+    const result = await app.request("POST", "/api/auth/signup", {
+      body: { displayName: "김민수", email: "user@example.com", password: "safe-password-123" },
+      headers: { origin: "http://cards.test", host: "cards.test" }
+    });
+
+    assert.equal(result.status, 503);
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0][0], "인증 이메일 발송 실패:");
+    assert.deepEqual(logs[0][1], {
+      code: "EAUTH",
+      responseCode: 535,
+      command: "AUTH PLAIN",
+      hostname: "smtp.example.test"
+    });
+    assert.doesNotMatch(JSON.stringify(logs), /private-password/);
+  } finally {
+    console.error = originalConsoleError;
+    await close(db);
+  }
+});
+
 test("이메일 인증 링크는 한 번만 사용해 계정을 활성화한다", async () => {
   await withAuthApp(async ({ app, db, mails }) => {
     await app.request("POST", "/api/auth/signup", {
@@ -122,6 +165,42 @@ test("이메일 인증 링크는 한 번만 사용해 계정을 활성화한다"
     assert.equal(first.status, 200);
     assert.ok(user.email_verified_at);
     assert.equal(repeated.status, 400);
+  });
+});
+
+test("인증 메일 재전송은 만료된 인증 토큰으로 원래 가입 이메일을 찾아 새 링크를 보낸다", async () => {
+  await withAuthApp(async ({ app, db, mails }) => {
+    const email = "token-resend@example.com";
+    await app.request("POST", "/api/auth/signup", {
+      body: { displayName: "김민수", email, password: "safe-password-123" },
+      headers: { origin: "http://cards.test", host: "cards.test" }
+    });
+    const originalToken = new URL(mails[0].url).searchParams.get("token");
+    await run(db,
+      "UPDATE email_verification_tokens SET expires_at = ?, created_at = ? WHERE token_hash = ?",
+      ["2026-09-28T00:00:00.000Z", "2026-09-28T00:00:00.000Z", hashToken(originalToken)]
+    );
+
+    const result = await app.request("POST", "/api/auth/verification/resend", {
+      body: { token: originalToken },
+      headers: { origin: "http://cards.test", host: "cards.test" }
+    });
+    assert.equal(result.status, 202);
+    assert.equal(mails.length, 2);
+
+    const resentToken = new URL(mails[1].url).searchParams.get("token");
+    const oldTokenResult = await app.request("POST", "/api/auth/verify", {
+      body: { token: originalToken },
+      headers: { origin: "http://cards.test", host: "cards.test" }
+    });
+    const newTokenResult = await app.request("POST", "/api/auth/verify", {
+      body: { token: resentToken },
+      headers: { origin: "http://cards.test", host: "cards.test" }
+    });
+    assert.equal(mails[1].to, email);
+    assert.notEqual(resentToken, originalToken);
+    assert.equal(oldTokenResult.status, 400);
+    assert.equal(newTokenResult.status, 200);
   });
 });
 
