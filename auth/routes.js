@@ -94,7 +94,7 @@ function validDisplayName(value) {
 function validPassword(value) {
   if (typeof value !== "string") return false;
   const length = Array.from(value).length;
-  return length >= 10 && length <= 128 && Buffer.byteLength(value, "utf8") <= 512;
+  return length >= 5 && length <= 128 && Buffer.byteLength(value, "utf8") <= 512;
 }
 
 function requestHasSameOrigin(req, appBaseUrl) {

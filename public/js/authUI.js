@@ -126,6 +126,7 @@
     }
 
     document.body.classList.toggle("isAnonymous", !user);
+    document.body.classList.toggle("isAuthenticated", Boolean(user));
     document.dispatchEvent(new CustomEvent("auth:ready", { detail: { user } }));
   }
 

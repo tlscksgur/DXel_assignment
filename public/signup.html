@@ -20,11 +20,11 @@
       <form class="authForm" data-auth-form="signup">
         <label>이름<input name="displayName" type="text" autocomplete="name" maxlength="60" required></label>
         <label>이메일<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
-        <label>비밀번호<input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required><small>10자 이상 입력해 주세요.</small></label>
+        <label>비밀번호<input name="password" type="password" autocomplete="new-password" minlength="5" maxlength="128" required><small>5자 이상 입력해 주세요.</small></label>
         <button class="authPrimaryButton" type="submit">가입하고 인증 메일 받기</button>
       </form>
       <p class="authStatus" aria-live="polite"></p>
-      <nav class="authLinks"><a href="./login.html">로그인으로 돌아가기</a></nav>
+      <nav class="authLinks"><a href="./index.html">홈으로</a><a href="./login.html">로그인으로 돌아가기</a></nav>
     </section>
   </main>
   <script src="./js/authUI.js"></script>

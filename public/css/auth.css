@@ -6,7 +6,7 @@
   padding: 5px 6px;
   min-width: max-content;
   border: 1px solid rgba(3, 22, 50, .08);
-  border-radius: 999px;
+  border-radius: 23px;
   background: #eeece9;
   box-shadow: 0 2px 8px rgba(15, 25, 42, .06);
 }
@@ -18,7 +18,7 @@
 }
 
 .authLoginLink {
-  min-height: 42px;
+  min-height: 35px;
   padding: 0 18px;
   display: inline-flex;
   align-items: center;
@@ -168,6 +168,12 @@
   flex-direction: column;
 }
 
+.authPage:not(.profile-page):not(.authVerificationPage) {
+  background-color: #fdfbf8;
+  background-image: radial-gradient(rgba(128, 116, 96, .23) .8px, transparent .8px);
+  background-size: 28px 28px;
+}
+
 .authPage main {
   width: min(460px, calc(100% - 32px));
   margin: 0 auto;
@@ -225,6 +231,10 @@
 .authForm {
   display: grid;
   gap: 15px;
+}
+
+.authForm[hidden] {
+  display: none;
 }
 
 .authForm label {
@@ -308,6 +318,12 @@
   text-underline-offset: 3px;
 }
 
+.authLoginLinkGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .authStatus {
   min-height: 21px;
   margin-top: 12px;
@@ -319,8 +335,7 @@
 .authStatus[data-state="error"] { color: #bc3e49; }
 .authStatus[data-state="success"] { color: #188253; }
 
-.authPage:not(.profile-page) .authHeaderActions .authLoginLink,
-.authPage:not(.profile-page) .authHeaderActions .accountMenu { display: none; }
+.authPage:not(.profile-page) .authHeaderActions { display: none; }
 
 @media (max-width: 680px) {
   .authHeaderActions { padding: 4px; }
@@ -561,7 +576,18 @@
   line-height: .7;
 }
 
+.authVerificationLinkGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .authVerificationHelp { white-space: nowrap; }
+
+@media (max-width: 380px) {
+  .authVerificationCard .authLinks { gap: 6px; font-size: 11px; }
+  .authVerificationLinkGroup { gap: 6px; }
+}
 
 .authHelpNote {
   margin: 24px 0 0;

@@ -87,7 +87,7 @@ test("가입은 표시 이름·이메일·비밀번호만 받아 정규화된 �
       body: {
         displayName: "  김민수 ",
         email: " User@Example.com ",
-        password: "safe-password-123",
+        password: "abcde",
         company: "무시할 회사"
       },
       headers: { origin: "http://cards.test", host: "cards.test" }
@@ -100,9 +100,22 @@ test("가입은 표시 이름·이메일·비밀번호만 받아 정규화된 �
 
     assert.equal(user.display_name, "김민수");
     assert.equal(user.email_verified_at, null);
-    assert.notEqual(user.password_hash, "safe-password-123");
+    assert.notEqual(user.password_hash, "abcde");
     assert.equal(storedToken.token_hash, hashToken(token));
     assert.equal(result.headers["set-cookie"], undefined);
+  });
+});
+
+test("회원가입은 5자 미만 비밀번호를 거부한다", async () => {
+  await withAuthApp(async ({ app, db, mails }) => {
+    const result = await app.request("POST", "/api/auth/signup", {
+      body: { displayName: "김민수", email: "short@example.com", password: "abcd" },
+      headers: { origin: "http://cards.test", host: "cards.test" }
+    });
+
+    assert.equal(result.status, 400);
+    assert.equal(await get(db, "SELECT id FROM users WHERE email = ?", ["short@example.com"]), undefined);
+    assert.equal(mails.length, 0);
   });
 });
 
@@ -339,7 +352,7 @@ test("비밀번호 변경은 현재 비밀번호를 확인하고 다른 세션�
     const afterRejected = await get(db, "SELECT password_hash FROM users WHERE id = ?", [inserted.lastID]);
     const updated = await app.request("PATCH", "/api/auth/password", {
       ...request,
-      body: { currentPassword: "safe-password-123", newPassword: "new-password-123" }
+      body: { currentPassword: "safe-password-123", newPassword: "abcde" }
     });
     const changed = await get(db, "SELECT password_hash FROM users WHERE id = ?", [inserted.lastID]);
     const currentSession = await get(db, "SELECT token_hash, user_id FROM sessions");
@@ -348,7 +361,7 @@ test("비밀번호 변경은 현재 비밀번호를 확인하고 다른 세션�
     assert.equal(rejected.status, 400);
     assert.equal(afterRejected.password_hash, passwordHash);
     assert.equal(updated.status, 200);
-    assert.equal(await verifyPassword("new-password-123", changed.password_hash), true);
+    assert.equal(await verifyPassword("abcde", changed.password_hash), true);
     assert.equal(currentSession.token_hash, hashToken(newToken));
     assert.equal(currentSession.user_id, inserted.lastID);
     assert.equal(await get(db, "SELECT token_hash FROM sessions WHERE token_hash = ?", [hashToken(oldTokens[1])]), undefined);
@@ -378,15 +391,17 @@ test("분실 비밀번호 토큰은 해시로 저장되고 한 번 사용하면 
     await service.requestReset(" USER@EXAMPLE.COM ");
     const token = new URL(mails[0].url).searchParams.get("token");
     const savedToken = await get(db, "SELECT token_hash FROM password_reset_tokens WHERE user_id = ?", [inserted.lastID]);
-    const completed = await service.completeReset(token, "new-password-123");
+    const shortPassword = await service.completeReset(token, "abcd");
+    const completed = await service.completeReset(token, "abcde");
     const replayed = await service.completeReset(token, "another-password-123");
     const updatedUser = await get(db, "SELECT password_hash FROM users WHERE id = ?", [inserted.lastID]);
 
     assert.equal(savedToken.token_hash, hashToken(token));
     assert.notEqual(savedToken.token_hash, token);
+    assert.equal(shortPassword, false);
     assert.equal(completed, true);
     assert.equal(replayed, false);
-    assert.equal(await verifyPassword("new-password-123", updatedUser.password_hash), true);
+    assert.equal(await verifyPassword("abcde", updatedUser.password_hash), true);
     assert.equal(await get(db, "SELECT token_hash FROM sessions WHERE user_id = ?", [inserted.lastID]), undefined);
   });
 });

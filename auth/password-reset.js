@@ -22,7 +22,7 @@ function get(db, sql, params = []) {
 function validPassword(password) {
   if (typeof password !== "string") return false;
   const length = Array.from(password).length;
-  return length >= 10 && length <= 128 && Buffer.byteLength(password, "utf8") <= 512;
+  return length >= 5 && length <= 128 && Buffer.byteLength(password, "utf8") <= 512;
 }
 
 function createPasswordResetService({ db, sendMail, appBaseUrl, now = () => new Date() }) {

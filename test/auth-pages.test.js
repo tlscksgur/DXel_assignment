@@ -6,6 +6,79 @@ const { test } = require("node:test");
 
 const projectRoot = path.join(__dirname, "..");
 
+test("비밀번호 재설정 토큰이 없으면 새 비밀번호 입력 폼을 숨긴다", () => {
+  const html = fs.readFileSync(path.join(projectRoot, "public/reset-password.html"), "utf8");
+  const styles = fs.readFileSync(path.join(projectRoot, "public/css/auth.css"), "utf8");
+
+  assert.match(html, /data-auth-form="reset-complete" hidden/);
+  assert.match(styles, /\.authForm\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
+});
+
+test("로그인, 회원가입, 비밀번호 찾기는 인증 화면과 같은 점무늬 배경을 쓴다", () => {
+  const styles = fs.readFileSync(path.join(projectRoot, "public/css/auth.css"), "utf8");
+  const pageFiles = ["login.html", "signup.html", "reset-password.html"];
+
+  for (const file of pageFiles) {
+    const html = fs.readFileSync(path.join(projectRoot, "public", file), "utf8");
+    assert.match(html, /<body class="authPage">/);
+  }
+
+  assert.match(
+    styles,
+    /\.authPage:not\(\.profile-page\):not\(\.authVerificationPage\)\s*\{[^}]*background-color:\s*#fdfbf8;[^}]*background-image:\s*radial-gradient\(rgba\(128, 116, 96, \.23\) \.8px, transparent \.8px\);[^}]*background-size:\s*28px 28px;/s,
+  );
+});
+
+test("비밀번호 생성·재설정·변경 화면은 최소 5자를 안내한다", () => {
+  const pages = ["signup.html", "reset-password.html", "profile.html"];
+
+  for (const file of pages) {
+    const html = fs.readFileSync(path.join(projectRoot, "public", file), "utf8");
+    assert.match(html, /type="password"[^>]*minlength="5" maxlength="128"/);
+    assert.doesNotMatch(html, /minlength="10"/);
+  }
+
+  const signup = fs.readFileSync(path.join(projectRoot, "public/signup.html"), "utf8");
+  assert.match(signup, /5자 이상 입력해 주세요\./);
+});
+
+test("로그인 후에도 명함 등록과 계정 메뉴를 헤더에 표시한다", () => {
+  const styles = fs.readFileSync(path.join(projectRoot, "public/css/auth.css"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/authUI.js"), "utf8");
+
+  assert.match(source, /classList\.toggle\("isAuthenticated", Boolean\(user\)\)/);
+  assert.doesNotMatch(styles, /\.isAuthenticated \.authHeaderActions\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(styles, /\.authHeaderActions\s*\{[^}]*display:\s*inline-flex;/s);
+  assert.match(source, /const registerLink = headerActions\?\.querySelector\("\.cardAdd"\);[\s\S]*?headerActions\.append\(createAccountMenu\(user\)\)/);
+});
+
+test("인증 관련 화면은 홈 링크를 기존 페이지 링크와 같은 가로 줄에 둔다", () => {
+  const signup = fs.readFileSync(path.join(projectRoot, "public/signup.html"), "utf8");
+  const reset = fs.readFileSync(path.join(projectRoot, "public/reset-password.html"), "utf8");
+  const verification = fs.readFileSync(path.join(projectRoot, "public/verify-email.html"), "utf8");
+  const profile = fs.readFileSync(path.join(projectRoot, "public/profile.html"), "utf8");
+  const styles = fs.readFileSync(path.join(projectRoot, "public/css/auth.css"), "utf8");
+
+  assert.match(signup, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/login\.html">로그인으로 돌아가기<\/a><\/nav>/);
+  assert.match(reset, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/login\.html">로그인으로 돌아가기<\/a><\/nav>/);
+  assert.match(verification, /<nav class="authLinks authVerificationLinks">\s*<a href="\.\/index\.html">홈으로<\/a>\s*<span class="authVerificationLinkGroup"><a href="\.\/login\.html">[\s\S]*?<\/a><span class="authVerificationHelp">도움이 필요하신가요\?<\/span><\/span>\s*<\/nav>/);
+  assert.match(profile, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/BCM\.html">명함관리로 돌아가기<\/a><\/nav>/);
+  assert.doesNotMatch(styles, /authHomeLinks/);
+  assert.doesNotMatch(styles, /\.authHomeButton/);
+  assert.match(styles, /\.authVerificationLinkGroup\s*\{[^}]*display:\s*flex;[^}]*gap:\s*12px;/s);
+});
+
+test("로그인 화면은 홈 링크를 왼쪽에, 비밀번호 찾기와 회원가입을 오른쪽에 나란히 둔다", () => {
+  const html = fs.readFileSync(path.join(projectRoot, "public/login.html"), "utf8");
+  const styles = fs.readFileSync(path.join(projectRoot, "public/css/auth.css"), "utf8");
+
+  assert.match(
+    html,
+    /<nav class="authLinks authLoginLinks">\s*<a href="\.\/index\.html">홈으로<\/a>\s*<span class="authLoginLinkGroup"><a href="\.\/reset-password\.html">비밀번호 찾기<\/a><a href="\.\/signup\.html">회원가입<\/a><\/span>\s*<\/nav>/
+  );
+  assert.match(styles, /\.authLoginLinkGroup\s*\{[^}]*display:\s*flex;[^}]*gap:\s*12px;/s);
+});
+
 test("이메일 인증 화면은 입력칸 없이 가입 이메일로 재전송한다", () => {
   const html = fs.readFileSync(path.join(projectRoot, "public/verify-email.html"), "utf8");
   const source = fs.readFileSync(path.join(projectRoot, "public/js/authPages.js"), "utf8");

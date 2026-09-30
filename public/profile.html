@@ -25,10 +25,11 @@
       <h2 class="authSectionTitle">비밀번호 변경</h2>
       <form class="authForm" data-auth-form="password">
         <label>현재 비밀번호<input name="currentPassword" type="password" autocomplete="current-password" required></label>
-        <label>새 비밀번호<input name="newPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+        <label>새 비밀번호<input name="newPassword" type="password" autocomplete="new-password" minlength="5" maxlength="128" required></label>
         <button class="authPrimaryButton" type="submit">비밀번호 변경</button>
       </form>
       <p class="authStatus" aria-live="polite"></p>
+      <nav class="authLinks"><a href="./index.html">홈으로</a><a href="./BCM.html">명함관리로 돌아가기</a></nav>
     </section>
   </main>
   <script src="./js/authUI.js"></script>
