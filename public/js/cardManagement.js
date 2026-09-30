@@ -17,6 +17,7 @@ const selectionToggle = document.querySelector(".selectionToggle");
 const selectionInlineCount = document.querySelector(".selectionInlineCount");
 const selectionActionBar = document.querySelector(".selectionActionBar");
 const selectionBarCountValue = document.querySelector(".selectionBarCountValue");
+const deleteSelectedButton = document.querySelector('[data-selection-action="delete"]');
 const groupRemoveSelectedButton = document.querySelector('[data-selection-action="remove-from-group"]');
 const resultSummary = document.querySelector(".resultSummary");
 const detailModal = document.querySelector(".cardDetailModal");
@@ -343,11 +344,20 @@ function getCardVariant(contact) {
   return cardVariants[variantIndex];
 }
 
+function canManagePersonalData(contact) {
+  return contact.can_manage_personal !== 0 && contact.can_manage_personal !== false;
+}
+
+function canEditCard(contact) {
+  return contact.can_edit !== 0 && contact.can_edit !== false;
+}
+
 function createCard(contact) {
   const classes = getCardVariant(contact);
   const cardId = Number(contact.id) || 0;
   const isSelected = selectedCardIds.has(cardId);
-  const isFavorite = Boolean(Number(contact.is_favorite));
+  const canManagePersonal = canManagePersonalData(contact);
+  const isFavorite = canManagePersonal && Boolean(Number(contact.is_favorite));
   const name = escapeHtml(contact.name || "-");
   const company = escapeHtml(contact.company);
   const position = escapeHtml(contact.position);
@@ -426,6 +436,25 @@ function createCardDetail(contact) {
       </div>
     `;
   }).join("");
+  const favoriteButton = canManagePersonalData(contact)
+    ? `<button
+          class="cardDetailFavoriteButton${Number(contact.is_favorite) ? " is-favorite" : ""}"
+          type="button"
+          data-action="toggle-favorite"
+          aria-pressed="${Number(contact.is_favorite) ? "true" : "false"}"
+          aria-label="${Number(contact.is_favorite) ? "즐겨찾기 해제" : "즐겨찾기 추가"}"
+        >${Number(contact.is_favorite) ? "★" : "☆"}</button>`
+    : "";
+  const tagDrawer = canEditCard(contact) ? createCardTagDrawer(contact) : "";
+  const detailActions = canEditCard(contact)
+    ? `<div class="cardDetailActions">
+        <button type="button" data-action="edit">수정</button>
+        <button type="button" class="danger" data-action="delete">휴지통으로 이동</button>
+      </div>`
+    : "";
+  const detailStatus = canManagePersonalData(contact) || canEditCard(contact)
+    ? '<p class="cardDetailStatus" aria-live="polite"></p>'
+    : "";
 
   return `
     <article class="cardDetailCard ${classes}">
@@ -437,26 +466,17 @@ function createCardDetail(contact) {
         <p class="cardDetailEyebrow">BUSINESS CARD DETAIL</p>
         <h2 id="cardDetailTitle">${escapeHtml(contact.name || "-")}</h2>
         <button type="button" class="cardDetailCopyAllButton" data-action="copy-all">전체 복사</button>
-        <button
-          class="cardDetailFavoriteButton${Number(contact.is_favorite) ? " is-favorite" : ""}"
-          type="button"
-          data-action="toggle-favorite"
-          aria-pressed="${Number(contact.is_favorite) ? "true" : "false"}"
-          aria-label="${Number(contact.is_favorite) ? "즐겨찾기 해제" : "즐겨찾기 추가"}"
-        >${Number(contact.is_favorite) ? "★" : "☆"}</button>
+        ${favoriteButton}
       </div>
       <dl class="cardDetailGrid">${details}</dl>
-      ${createCardTagDrawer(contact)}
+      ${tagDrawer}
+      ${detailStatus}
       <aside class="cardDetailSidebar">
         ${createCardOriginalImage(contact)}
         ${createMeetingJournal(contact)}
       </aside>
       ${createCardImageLightbox(contact)}
-      <div class="cardDetailActions">
-        <p class="cardDetailStatus" aria-live="polite"></p>
-        <button type="button" data-action="edit">수정</button>
-        <button type="button" class="danger" data-action="delete">휴지통으로 이동</button>
-      </div>
+      ${detailActions}
     </article>
   `;
 }
@@ -601,7 +621,7 @@ function getActiveCard() {
 
 function showCardEditor() {
   const contact = getActiveCard();
-  if (!contact) {
+  if (!contact || !canEditCard(contact)) {
     return;
   }
 
@@ -679,7 +699,7 @@ function syncFavoriteCard(cardId, isFavorite) {
 
 async function toggleFavorite(cardId) {
   const contact = visibleCards.find((card) => Number(card.id) === Number(cardId));
-  if (!contact) {
+  if (!contact || !canManagePersonalData(contact)) {
     return;
   }
 
@@ -704,7 +724,7 @@ async function toggleFavorite(cardId) {
 
 async function toggleCardTag(tag) {
   const contact = getActiveCard();
-  if (!contact || !CARD_TAG_OPTIONS.includes(tag)) return;
+  if (!contact || !canEditCard(contact) || !CARD_TAG_OPTIONS.includes(tag)) return;
 
   const cardId = contact.id;
   const saveToggle = async () => {
@@ -736,7 +756,7 @@ async function toggleCardTag(tag) {
 
 async function saveCardEdits(form) {
   const contact = getActiveCard();
-  if (!contact) {
+  if (!contact || !canEditCard(contact)) {
     return;
   }
 
@@ -790,7 +810,7 @@ async function saveCardEdits(form) {
 
 async function deleteCurrentCard() {
   const contact = getActiveCard();
-  if (!contact || !window.confirm(`'${contact.name || "-"}' 명함을 휴지통으로 옮길까요?\n휴지통에서 다시 복원할 수 있습니다.`)) {
+  if (!contact || !canEditCard(contact) || !window.confirm(`'${contact.name || "-"}' 명함을 휴지통으로 옮길까요?\n휴지통에서 다시 복원할 수 있습니다.`)) {
     return;
   }
 
@@ -1160,7 +1180,11 @@ function pruneSelectedCardIds(visibleIds) {
 
 function syncSelectionUi() {
   const hasSelection = selectedCardIds.size > 0;
+  const selectedOwnedCount = visibleCards.filter((card) => (
+    selectedCardIds.has(Number(card.id)) && canEditCard(card)
+  )).length;
   selectionActionBar.hidden = !hasSelection;
+  if (deleteSelectedButton) deleteSelectedButton.hidden = selectedOwnedCount === 0;
   groupRemoveSelectedButton.hidden = !(hasSelection && viewMode === "groups");
   selectionBarCountValue.textContent = String(selectedCardIds.size);
   selectionInlineCount.hidden = !hasSelection;
@@ -1300,10 +1324,12 @@ async function assignSelectedGroup() {
 }
 
 async function deleteSelectedCards() {
-  const cardIds = selectedIds();
+  const cardIds = visibleCards
+    .filter((card) => selectedCardIds.has(Number(card.id)) && canEditCard(card))
+    .map((card) => Number(card.id));
   if (
     cardIds.length === 0 ||
-    !window.confirm(`선택한 명함 ${cardIds.length}장을 휴지통으로 옮길까요?\n휴지통에서 다시 복원할 수 있습니다.`)
+    !window.confirm(`내가 등록한 명함 ${cardIds.length}장을 휴지통으로 옮길까요?\n휴지통에서 다시 복원할 수 있습니다.`)
   ) {
     return;
   }

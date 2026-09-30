@@ -8,11 +8,15 @@ const { test } = require("node:test");
 
 const root = path.join(__dirname, "..");
 
-async function isolatedServer(run) {
+async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bcm-integrity-"));
   const uploads = path.join(dir, "uploads");
   fs.mkdirSync(uploads);
   const db = new sqlite3.Database(path.join(dir, "cards.db"));
+  let finishDatabaseReady;
+  db.ready = deferDatabaseReady
+    ? new Promise((resolve) => { finishDatabaseReady = resolve; })
+    : Promise.resolve();
   await new Promise((resolve, reject) => db.exec(`
     CREATE TABLE business_cards (
       id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, company TEXT, department TEXT,
@@ -20,12 +24,13 @@ async function isolatedServer(run) {
       image_path TEXT, logo_path TEXT, group_name TEXT, meeting_date TEXT,
       meeting_place TEXT, meeting_purpose TEXT, meeting_note TEXT,
       tags TEXT NOT NULL DEFAULT '[]', is_favorite INTEGER NOT NULL DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP, deleted_at TEXT
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP, deleted_at TEXT, created_by INTEGER
     )
   `, (error) => error ? reject(error) : resolve()));
   const routes = new Map();
+  let listenCalls = 0;
   const app = {
-    use() {}, listen() { return { on() {} }; },
+    use() {}, listen() { listenCalls += 1; return { on() {} }; },
     get(url, handler) { routes.set(`GET ${url}`, handler); },
     post(url, ...handlers) { routes.set(`POST ${url}`, handlers.at(-1)); },
     patch(url, handler) { routes.set(`PATCH ${url}`, handler); },
@@ -43,6 +48,9 @@ async function isolatedServer(run) {
       if (name === "dotenv") return { config() {} };
       if (name === "express") return express;
       if (name === "./database/db") return db;
+      if (name === "./auth/routes") return require(path.join(root, "auth/routes"));
+      if (name === "./auth/card-access") return require(path.join(root, "auth/card-access"));
+      if (name === "./auth/mailer") return { createSmtpMailer: () => null };
       if (name === "./upload") return { UPLOAD_DIR: uploads, upload };
       if (name === "./localAi") return localAi;
       return require(name);
@@ -50,7 +58,7 @@ async function isolatedServer(run) {
     console, process, fetch, AbortSignal, Buffer, setTimeout, clearTimeout
   };
   vm.runInNewContext(source, context, { filename: "server.js" });
-  const request = (method, url, body = {}, params = {}, file) => new Promise((resolve, reject) => {
+  const request = (method, url, body = {}, params = {}, file, user = null) => new Promise((resolve, reject) => {
     const handler = routes.get(`${method} ${url}`);
     if (!handler) return reject(new Error(`Missing route ${method} ${url}`));
     const res = {
@@ -58,7 +66,7 @@ async function isolatedServer(run) {
       status(code) { this.statusCode = code; return this; },
       json(value) { resolve({ status: this.statusCode, body: value }); return this; }
     };
-    try { handler({ body, params, file }, res); } catch (error) { reject(error); }
+    try { handler({ body, params, file, user }, res); } catch (error) { reject(error); }
   });
   const exec = (sql, params = []) => new Promise((resolve, reject) => {
     db.run(sql, params, function (error) { error ? reject(error) : resolve(this); });
@@ -71,12 +79,43 @@ async function isolatedServer(run) {
     return result.lastID;
   };
   const runCode = (code) => vm.runInContext(code, context);
-  try { await run({ dir, uploads, request, card, get, exec, runCode }); }
+  try {
+    await run({
+      dir, uploads, request, card, get, exec, runCode,
+      getListenCalls: () => listenCalls,
+      finishDatabaseReady: () => finishDatabaseReady?.()
+    });
+  }
   finally {
+    finishDatabaseReady?.();
     await new Promise((resolve) => db.close(resolve));
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
+
+test("HTTP 서버는 DB 스키마 초기화가 끝난 뒤에만 요청을 받는다", async () => {
+  await isolatedServer(async ({ getListenCalls, finishDatabaseReady }) => {
+    assert.equal(getListenCalls(), 0);
+    finishDatabaseReady();
+    await new Promise(setImmediate);
+    assert.equal(getListenCalls(), 1);
+  }, { deferDatabaseReady: true });
+});
+
+test("일반 등록과 파일 불러오기는 로그인 계정을 등록자로 저장한다", async () => {
+  await isolatedServer(async ({ request, get }) => {
+    const user = { id: 7 };
+    const single = await request("POST", "/api/cards", { name: "직접 등록" }, {}, undefined, user);
+    const imported = await request("POST", "/api/cards/import", {
+      cards: [{ name: "파일 등록" }]
+    }, {}, undefined, user);
+
+    assert.equal(single.status, 201);
+    assert.equal(imported.status, 201);
+    assert.equal((await get("SELECT created_by FROM business_cards WHERE id = ?", [single.body.id])).created_by, 7);
+    assert.equal((await get("SELECT created_by FROM business_cards WHERE id = ?", [imported.body.savedIds[0]])).created_by, 7);
+  });
+});
 
 test("bulk group and trash reject missing ids without changing valid cards", async () => {
   await isolatedServer(async ({ request, card, get }) => {

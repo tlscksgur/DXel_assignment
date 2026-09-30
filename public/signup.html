@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/auth.css">
+  <title>회원가입 | 명함관리</title>
+</head>
+<body class="authPage">
+  <header>
+    <div class="headerBox1"><a class="logo" href="./index.html">명함관리</a></div>
+    <div class="headerBox2"></div>
+  </header>
+  <main>
+    <section class="authCard">
+      <p class="authEyebrow">CREATE ACCOUNT</p>
+      <h1>회원가입</h1>
+      <p class="authIntro">이름과 이메일, 비밀번호만 입력하면 가입할 수 있습니다.</p>
+      <form class="authForm" data-auth-form="signup">
+        <label>이름<input name="displayName" type="text" autocomplete="name" maxlength="60" required></label>
+        <label>이메일<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+        <label>비밀번호<input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required><small>10자 이상 입력해 주세요.</small></label>
+        <button class="authPrimaryButton" type="submit">가입하고 인증 메일 받기</button>
+      </form>
+      <p class="authStatus" aria-live="polite"></p>
+      <nav class="authLinks"><a href="./login.html">로그인으로 돌아가기</a></nav>
+    </section>
+  </main>
+  <script src="./js/authUI.js"></script>
+  <script src="./js/authPages.js"></script>
+</body>
+</html>
