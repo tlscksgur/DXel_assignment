@@ -71,7 +71,7 @@ registerAuthRoutes(app, {
   appBaseUrl,
   secureCookie: isProduction
 });
-app.use(createCardAccessMiddleware(db, { appBaseUrl }));
+app.use(createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin: !isProduction }));
 
 // ===== 공통 문자열 및 주소 정규화 =====
 function text(value) {

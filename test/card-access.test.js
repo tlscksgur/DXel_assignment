@@ -26,8 +26,11 @@ async function withAccess(runTest) {
   }
 }
 
-async function request(middleware, method, path, { user = null, body = {}, query = {}, origin = "http://cards.test" } = {}) {
-  const req = { method, path, user, body, query, headers: { origin } };
+async function request(middleware, method, path, {
+  user = null, body = {}, query = {}, origin = "http://cards.test", host = new URL(origin).host,
+  protocol = new URL(origin).protocol.slice(0, -1)
+} = {}) {
+  const req = { method, path, user, body, query, protocol, headers: { origin, host } };
   const result = { status: 200, continued: false, body: null };
   const res = {
     status(value) { result.status = value; return this; },
@@ -110,4 +113,55 @@ test("일괄 변경은 타인의 명함이 섞이면 시작하지 않고 요청 
     })).continued, true);
     assert.equal((await request(middleware, "POST", "/api/cards", { user, origin: "https://elsewhere.test" })).status, 403);
   });
+});
+
+test("개발 중에는 접속 주소가 달라도 현재 페이지와 같은 출처의 추출 요청을 허용한다", async () => {
+  const db = new sqlite3.Database(":memory:");
+  try {
+    await initializeSchema(db);
+    const middleware = createCardAccessMiddleware(db, {
+      appBaseUrl: "http://192.168.210.76:3000",
+      allowRequestOrigin: true
+    });
+
+    const localRequest = await request(middleware, "POST", "/api/cards/extract", {
+      user: { id: 1 },
+      origin: "http://localhost:3000"
+    });
+    const forgedRequest = await request(middleware, "POST", "/api/cards/extract", {
+      user: { id: 1 },
+      origin: "http://attacker.test",
+      host: "localhost:3000"
+    });
+
+    assert.equal(localRequest.continued, true);
+    assert.equal(forgedRequest.status, 403);
+  } finally {
+    await close(db);
+  }
+});
+
+test("운영에서는 설정된 APP_BASE_URL과 다른 출처를 허용하지 않는다", async () => {
+  const db = new sqlite3.Database(":memory:");
+  try {
+    await initializeSchema(db);
+    const middleware = createCardAccessMiddleware(db, {
+      appBaseUrl: "https://cards.example.com",
+      allowRequestOrigin: false
+    });
+
+    const configuredRequest = await request(middleware, "POST", "/api/cards/extract", {
+      user: { id: 1 },
+      origin: "https://cards.example.com"
+    });
+    const alternateRequest = await request(middleware, "POST", "/api/cards/extract", {
+      user: { id: 1 },
+      origin: "http://localhost:3000"
+    });
+
+    assert.equal(configuredRequest.continued, true);
+    assert.equal(alternateRequest.status, 403);
+  } finally {
+    await close(db);
+  }
 });

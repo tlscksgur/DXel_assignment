@@ -19,9 +19,13 @@ function isPublicRead(req) {
   return /^\/api\/cards\/[1-9]\d*$/.test(req.path);
 }
 
-function sameOrigin(req, appBaseUrl) {
+function sameOrigin(req, appBaseUrl, allowRequestOrigin) {
   try {
-    return new URL(req.headers?.origin).origin === new URL(appBaseUrl).origin;
+    const origin = new URL(req.headers?.origin).origin;
+    if (origin === new URL(appBaseUrl).origin) return true;
+    if (!allowRequestOrigin || !req.protocol || !req.headers?.host) return false;
+
+    return origin === new URL(`${req.protocol}://${req.headers.host}`).origin;
   } catch (error) {
     return false;
   }
@@ -34,13 +38,13 @@ function requestedBulkIds(value) {
   return new Set(ids).size === ids.length ? ids : [];
 }
 
-function createCardAccessMiddleware(db, { appBaseUrl }) {
+function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false }) {
   return async (req, res, next) => {
     if (!isCardApi(req.path) || isPublicRead(req)) return next();
     if (!req.user?.id) {
       return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
     }
-    if (req.method !== "GET" && !sameOrigin(req, appBaseUrl)) {
+    if (req.method !== "GET" && !sameOrigin(req, appBaseUrl, allowRequestOrigin)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
 
