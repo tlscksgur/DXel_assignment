@@ -349,7 +349,18 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
         await sendMail(createVerificationMessage(email, verificationUrl.toString()));
       } catch (error) {
         await run(db, "DELETE FROM email_verification_tokens WHERE token_hash = ?", [tokenHash]);
-        console.error("인증 이메일 재발송 실패:", error.message);
+        verificationResendBuckets.delete(cooldownKey);
+        const mailError = error && typeof error === "object" ? error : {};
+        console.error("인증 이메일 재발송 실패:", {
+          code: mailError.code || "UNKNOWN",
+          responseCode: mailError.responseCode || null,
+          command: mailError.command || null,
+          hostname: mailError.hostname || null
+        });
+        return res.status(503).json({
+          success: false,
+          message: "인증 이메일을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요."
+        });
       }
       if (verificationResendBuckets.size > 5000) {
         for (const [key, until] of verificationResendBuckets) {
@@ -476,7 +487,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
     }
     if (!validPassword(req.body?.newPassword)) {
-      return res.status(400).json({ success: false, message: "새 비밀번호는 10~128자로 입력해 주세요." });
+      return res.status(400).json({ success: false, message: "새 비밀번호는 5~128자로 입력해 주세요." });
     }
 
     try {

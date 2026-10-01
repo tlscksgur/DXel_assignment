@@ -32,6 +32,23 @@ if (isProduction) {
   if (!smtpMailer) throw new Error("운영 환경에는 계정 인증 메일 SMTP 설정이 필요합니다.");
 }
 const pendingCropSources = new Map();
+const pendingUploads = new Map();
+
+function rememberPendingUpload(filename, userId) {
+  if (!/^[A-Za-z0-9._-]+$/.test(String(filename || "")) || !Number.isSafeInteger(Number(userId)) || Number(userId) <= 0) {
+    return;
+  }
+  pendingUploads.set(filename, Number(userId));
+}
+
+function forgetPendingUpload(imagePath, userId) {
+  const filename = typeof imagePath === "string"
+    ? imagePath.match(/^\/uploads\/([A-Za-z0-9._-]+)$/)?.[1]
+    : null;
+  if (filename && pendingUploads.get(filename) === Number(userId)) {
+    pendingUploads.delete(filename);
+  }
+}
 
 function rememberCropSource(filename, userId) {
   const now = Date.now();
@@ -39,6 +56,7 @@ function rememberCropSource(filename, userId) {
     if (source.expiresAt <= now) pendingCropSources.delete(knownFilename);
   }
   pendingCropSources.set(filename, { userId, expiresAt: now + 30 * 60 * 1000 });
+  rememberPendingUpload(filename, userId);
 }
 
 const CARD_READ_COLUMNS = [
@@ -716,8 +734,12 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
       extracted
     });
   } catch (error) {
-    if (req.body?.temporary === "true") {
-      fs.unlink(req.file.path, () => {});
+    try {
+      await fs.promises.unlink(req.file.path);
+    } catch (cleanupError) {
+      if (cleanupError.code !== "ENOENT") {
+        console.warn("분석 실패 이미지 정리 실패:", cleanupError.message);
+      }
     }
     console.error(error);
     res.status(502).json({
@@ -755,8 +777,10 @@ app.post("/api/cards/cropped-image", upload.single("image"), async (req, res) =>
   }
 
   pendingCropSources.delete(originalFilename);
+  rememberPendingUpload(req.file.filename, req.user.id);
   try {
     await cleanupDeletedImages([{ image_path: originalPath }]);
+    forgetPendingUpload(originalPath, req.user.id);
   } catch (cleanupError) {
     console.warn("크롭 원본 이미지 정리 실패:", cleanupError.message);
   }
@@ -777,10 +801,54 @@ app.post("/api/cards/logo-image", upload.single("image"), (req, res) => {
     return res.status(400).json({ success: false, message: "로고 이미지 파일이 없습니다." });
   }
 
+  rememberPendingUpload(req.file.filename, req.user.id);
   return res.json({
     success: true,
     file: { path: `/uploads/${req.file.filename}` }
   });
+});
+
+app.post("/api/cards/uploads/cleanup", async (req, res) => {
+  const userId = Number(req.user?.id);
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
+  }
+
+  const paths = req.body?.paths;
+  if (!Array.isArray(paths) || paths.length > 10 || paths.some((imagePath) => {
+    return typeof imagePath !== "string" || !/^\/uploads\/(?!\.\.?$)[A-Za-z0-9._-]+$/.test(imagePath);
+  })) {
+    return res.status(400).json({ success: false, message: "정리할 업로드 경로를 확인해 주세요." });
+  }
+
+  let deletedCount = 0;
+  try {
+    for (const imagePath of new Set(paths)) {
+      const filename = imagePath.slice("/uploads/".length);
+      if (pendingUploads.get(filename) !== userId) continue;
+
+      const references = await new Promise((resolve, reject) => {
+        db.get("SELECT COUNT(*) AS count FROM business_cards WHERE image_path = ? OR logo_path = ?", [imagePath, imagePath],
+          (error, row) => error ? reject(error) : resolve(row.count));
+      });
+      if (references === 0) {
+        try {
+          await fs.promises.unlink(`${UPLOAD_DIR}/${filename}`);
+          deletedCount += 1;
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
+      }
+
+      pendingUploads.delete(filename);
+      pendingCropSources.delete(filename);
+    }
+
+    return res.json({ success: true, deletedCount });
+  } catch (error) {
+    console.error("미저장 이미지 정리 실패:", error.message);
+    return res.status(500).json({ success: false, message: "업로드 파일을 정리하지 못했습니다." });
+  }
 });
 
 // ===== 명함 저장 API =====
@@ -854,6 +922,8 @@ function saveCard(req, res) {
         });
       }
 
+      forgetPendingUpload(card.image_path, req.user.id);
+      forgetPendingUpload(card.logo_path, req.user.id);
       res.status(201).json({
         success: true,
         message: "명함 저장 완료",

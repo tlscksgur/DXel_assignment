@@ -61,7 +61,7 @@ function createRouteApp() {
   return app;
 }
 
-async function withAuthApp(runTest) {
+async function withAuthApp(runTest, { sendMail } = {}) {
   assert.equal(typeof registerAuthRoutes, "function", "registerAuthRoutes 함수를 제공해야 합니다.");
   const db = new sqlite3.Database(":memory:");
   const mails = [];
@@ -73,7 +73,7 @@ async function withAuthApp(runTest) {
       appBaseUrl: "http://cards.test",
       secureCookie: false,
       now: () => new Date("2026-09-29T00:00:00.000Z"),
-      sendMail: async (message) => { mails.push(message); }
+      sendMail: sendMail || (async (message) => { mails.push(message); })
     });
     await runTest({ app, db, mails });
   } finally {
@@ -217,6 +217,48 @@ test("인증 메일 재전송은 만료된 인증 토큰으로 원래 가입 이
   });
 });
 
+test("인증 메일 재전송의 SMTP 실패는 성공 응답으로 숨기지 않는다", async () => {
+  let sendCount = 0;
+  const sentMessages = [];
+  await withAuthApp(async ({ app, db }) => {
+    await app.request("POST", "/api/auth/signup", {
+      body: { displayName: "김민수", email: "resend-failure@example.com", password: "safe-password-123" },
+      headers: { origin: "http://cards.test", host: "cards.test" }
+    });
+    const token = new URL(sentMessages[0].url).searchParams.get("token");
+    await run(db,
+      "UPDATE email_verification_tokens SET created_at = ? WHERE token_hash = ?",
+      ["2026-09-28T00:00:00.000Z", hashToken(token)]
+    );
+
+    const result = await app.request("POST", "/api/auth/verification/resend", {
+      body: { token },
+      headers: { origin: "http://cards.test", host: "cards.test" }
+    });
+
+    assert.equal(result.status, 503);
+    assert.match(result.body.message, /보낼 수 없습니다/);
+    assert.doesNotMatch(result.body.message, /SMTP|secret/);
+    assert.equal((await get(db, "SELECT COUNT(*) AS count FROM email_verification_tokens")).count, 0);
+
+    const retried = await app.request("POST", "/api/auth/verification/resend", {
+      body: { email: "resend-failure@example.com" },
+      headers: { origin: "http://cards.test", host: "cards.test" }
+    });
+    assert.equal(retried.status, 202);
+    assert.equal(sendCount, 3);
+  }, {
+    sendMail: async (message) => {
+      sendCount += 1;
+      if (sendCount !== 2) {
+        sentMessages.push(message);
+        return;
+      }
+      throw Object.assign(new Error("SMTP secret must not be exposed"), { code: "EAUTH" });
+    }
+  });
+});
+
 test("검증된 계정 로그인은 원문이 아닌 세션 토큰 해시를 저장하고 현재 사용자를 읽는다", async () => {
   await withAuthApp(async ({ app, db }) => {
     const passwordHash = await hashPassword("safe-password-123");
@@ -350,6 +392,10 @@ test("비밀번호 변경은 현재 비밀번호를 확인하고 다른 세션�
     };
     const rejected = await app.request("PATCH", "/api/auth/password", request);
     const afterRejected = await get(db, "SELECT password_hash FROM users WHERE id = ?", [inserted.lastID]);
+    const shortPassword = await app.request("PATCH", "/api/auth/password", {
+      ...request,
+      body: { currentPassword: "safe-password-123", newPassword: "abcd" }
+    });
     const updated = await app.request("PATCH", "/api/auth/password", {
       ...request,
       body: { currentPassword: "safe-password-123", newPassword: "abcde" }
@@ -359,6 +405,8 @@ test("비밀번호 변경은 현재 비밀번호를 확인하고 다른 세션�
     const newToken = decodeURIComponent(updated.headers["set-cookie"].match(/bcm_session=([^;]+)/)[1]);
 
     assert.equal(rejected.status, 400);
+    assert.equal(shortPassword.status, 400);
+    assert.match(shortPassword.body.message, /5~128자/);
     assert.equal(afterRejected.password_hash, passwordHash);
     assert.equal(updated.status, 200);
     assert.equal(await verifyPassword("abcde", changed.password_hash), true);

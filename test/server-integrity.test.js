@@ -139,7 +139,7 @@ test("bulk restore and permanent deletion reject missing ids without changing va
   });
 });
 
-test("cropped upload cannot delete an unrelated image named by originalPath", async () => {
+test("cropped upload rejects an untracked originalPath without deleting its file", async () => {
   await isolatedServer(async ({ uploads, request }) => {
     const original = path.join(uploads, "other.png");
     const cropped = path.join(uploads, "crop.png");
@@ -147,8 +147,8 @@ test("cropped upload cannot delete an unrelated image named by originalPath", as
     fs.writeFileSync(cropped, "cropped image");
     const result = await request("POST", "/api/cards/cropped-image", { originalPath: "/uploads/other.png" }, {}, {
       path: cropped, filename: "crop.png", originalname: "crop.png", size: 13
-    });
-    assert.equal(result.status, 200);
+    }, { id: 7 });
+    assert.equal(result.status, 403);
     await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal(fs.readFileSync(original, "utf8"), "other image");
   });
@@ -160,13 +160,93 @@ test("a server-tracked extract can replace its own source image", async () => {
     const cropped = path.join(uploads, "crop.png");
     fs.writeFileSync(original, "original image");
     fs.writeFileSync(cropped, "cropped image");
-    runCode("rememberCropSource('pending.png')");
+    runCode("rememberCropSource('pending.png', 7)");
     const result = await request("POST", "/api/cards/cropped-image", { originalPath: "/uploads/pending.png" }, {}, {
       path: cropped, filename: "crop.png", originalname: "crop.png", size: 13
-    });
+    }, { id: 7 });
     assert.equal(result.status, 200);
     assert.equal(fs.existsSync(original), false);
     assert.equal(fs.existsSync(cropped), true);
+  });
+});
+
+test("명함 분석 실패 시 업로드된 원본 파일을 정리한다", async () => {
+  await isolatedServer(async ({ uploads, request }) => {
+    const uploaded = path.join(uploads, "analysis-failed.png");
+    fs.writeFileSync(uploaded, "uploaded image");
+
+    const result = await request("POST", "/api/cards/extract", {}, {}, {
+      path: uploaded, filename: "analysis-failed.png", originalname: "card.png", size: 14
+    }, { id: 7 });
+
+    assert.equal(result.status, 502);
+    assert.equal(fs.existsSync(uploaded), false);
+  });
+});
+
+test("명함 등록 전 취소할 때 본인 소유의 미저장 업로드만 정리한다", async () => {
+  await isolatedServer(async ({ uploads, request }) => {
+    const uploaded = path.join(uploads, "owned-logo.jpg");
+    fs.writeFileSync(uploaded, "logo image");
+    const uploadResult = await request("POST", "/api/cards/logo-image", {}, {}, {
+      path: uploaded, filename: "owned-logo.jpg", originalname: "logo.jpg", size: 10
+    }, { id: 7 });
+
+    const cleanup = await request("POST", "/api/cards/uploads/cleanup", {
+      paths: [uploadResult.body.file.path]
+    }, {}, undefined, { id: 7 });
+
+    assert.equal(cleanup.status, 200);
+    assert.equal(cleanup.body.deletedCount, 1);
+    assert.equal(fs.existsSync(uploaded), false);
+  });
+});
+
+test("명함 저장 후에는 업로드 파일의 임시 소유 추적을 해제한다", async () => {
+  await isolatedServer(async ({ uploads, request, runCode }) => {
+    const uploaded = path.join(uploads, "saved-logo.jpg");
+    fs.writeFileSync(uploaded, "logo image");
+    const logo = await request("POST", "/api/cards/logo-image", {}, {}, {
+      path: uploaded, filename: "saved-logo.jpg", originalname: "logo.jpg", size: 10
+    }, { id: 7 });
+
+    const saved = await request("POST", "/api/cards", {
+      name: "저장된 명함", logo_path: logo.body.file.path
+    }, {}, undefined, { id: 7 });
+
+    assert.equal(saved.status, 201);
+    assert.equal(runCode("pendingUploads.has('saved-logo.jpg')"), false);
+    assert.equal(fs.existsSync(uploaded), true);
+  });
+});
+
+test("업로드 정리는 다른 사용자 파일과 이미 명함에 저장된 파일을 보존한다", async () => {
+  await isolatedServer(async ({ uploads, request, card }) => {
+    const ownedFile = path.join(uploads, "another-users-logo.jpg");
+    const savedFile = path.join(uploads, "saved-logo.jpg");
+    fs.writeFileSync(ownedFile, "other user logo");
+    fs.writeFileSync(savedFile, "saved logo");
+    await request("POST", "/api/cards/logo-image", {}, {}, {
+      path: ownedFile, filename: "another-users-logo.jpg", originalname: "logo.jpg", size: 16
+    }, { id: 7 });
+    const savedUpload = await request("POST", "/api/cards/logo-image", {}, {}, {
+      path: savedFile, filename: "saved-logo.jpg", originalname: "saved.jpg", size: 10
+    }, { id: 8 });
+    await card("Saved card", "", savedUpload.body.file.path);
+
+    const otherUserCleanup = await request("POST", "/api/cards/uploads/cleanup", {
+      paths: ["/uploads/another-users-logo.jpg"]
+    }, {}, undefined, { id: 8 });
+    const referencedCleanup = await request("POST", "/api/cards/uploads/cleanup", {
+      paths: [savedUpload.body.file.path]
+    }, {}, undefined, { id: 8 });
+
+    assert.equal(otherUserCleanup.status, 200);
+    assert.equal(otherUserCleanup.body.deletedCount, 0);
+    assert.equal(referencedCleanup.status, 200);
+    assert.equal(referencedCleanup.body.deletedCount, 0);
+    assert.equal(fs.existsSync(ownedFile), true);
+    assert.equal(fs.existsSync(savedFile), true);
   });
 });
 

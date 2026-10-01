@@ -343,6 +343,27 @@ async function requestCardAnalysis(preparedImage, temporary = false) {
   return result;
 }
 
+async function cleanupPendingUploads(item) {
+  const paths = [item.imagePath, item.logoPath].filter(Boolean);
+  if (paths.length === 0) return true;
+
+  try {
+    const response = await fetch("/api/cards/uploads/cleanup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paths })
+    });
+    if (!response.ok) throw new Error("업로드 파일 정리 요청이 실패했습니다.");
+    item.imagePath = "";
+    item.logoPath = "";
+    return true;
+  } catch (error) {
+    console.warn("미저장 명함 이미지 정리에 실패했습니다:", error);
+    alert("업로드 파일 정리에 실패했습니다. 네트워크를 확인한 후 다시 시도해 주세요.");
+    return false;
+  }
+}
+
 function e8ightLogoBounds(cardBounds) {
   if (!cardBounds) return null;
 
@@ -825,6 +846,13 @@ nextButton.addEventListener("click", async () => {
     return;
   }
 
+  isSaving = true;
+  updateActionState();
+  const cleaned = await cleanupPendingUploads(currentItem);
+  isSaving = false;
+  updateActionState();
+  if (!cleaned) return;
+
   currentItem.status = "skipped";
   renderQueue();
   await moveToNextCard();
@@ -836,6 +864,13 @@ cancelButton.addEventListener("click", async () => {
   if (!currentItem || isAnalyzing || isSaving) {
     return;
   }
+
+  isSaving = true;
+  updateActionState();
+  const cleaned = await cleanupPendingUploads(currentItem);
+  isSaving = false;
+  updateActionState();
+  if (!cleaned) return;
 
   URL.revokeObjectURL(currentItem.previewUrl);
   if (currentItem.logoPreviewUrl) URL.revokeObjectURL(currentItem.logoPreviewUrl);

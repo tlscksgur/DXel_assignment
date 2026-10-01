@@ -7,6 +7,7 @@ const tagViewToggle = document.querySelector(".tagViewToggle");
 const duplicateToggle = document.querySelector(".duplicateToggle");
 const duplicateCountBadge = document.querySelector(".duplicateCountBadge");
 const cardSortSelect = document.querySelector(".cardSortSelect");
+const myCardsOnlyOption = document.querySelector('.cardSortSelect option[value="mine"]');
 const tagFilterSelect = document.querySelector(".tagFilterSelect");
 const favoriteViewToggle = document.querySelector(".favoriteViewToggle");
 const sortDirectionButtons = [
@@ -35,6 +36,8 @@ let visibleCards = [];
 let viewMode = "all";
 let sortKey = "recent";
 let sortDirection = "desc";
+let myCardsOnly = false;
+let currentUser = null;
 let favoritesOnly = false;
 let tagFilter = "";
 const selectionModeByView = new Map([
@@ -350,6 +353,10 @@ function canManagePersonalData(contact) {
 
 function canEditCard(contact) {
   return contact.can_edit !== 0 && contact.can_edit !== false;
+}
+
+function filterCardsByCurrentUser(cards) {
+  return cards.filter((card) => card.can_edit === true || Number(card.can_edit) === 1);
 }
 
 function createCard(contact) {
@@ -1413,9 +1420,10 @@ function exportSelectedCards(format) {
 // ===== 명함 목록 검색 및 불러오기 =====
 function renderCurrentView() {
   syncSelectionUi();
+  const ownedCards = myCardsOnly ? filterCardsByCurrentUser(visibleCards) : visibleCards;
   const cardsForView = favoritesOnly
-    ? visibleCards.filter((card) => Boolean(Number(card.is_favorite)))
-    : visibleCards;
+    ? ownedCards.filter((card) => Boolean(Number(card.is_favorite)))
+    : ownedCards;
   const sortedCards = sortCards(cardsForView);
   const duplicateGroups = groupDuplicateCards(sortedCards);
   duplicateCountBadge.textContent = String(duplicateGroups.length);
@@ -1475,7 +1483,9 @@ function renderCurrentView() {
   renderAllCards(sortedCards);
   resultSummary.textContent = favoritesOnly
     ? `즐겨찾기 ${sortedCards.length}장`
-    : `전체 ${visibleCards.length}장`;
+    : myCardsOnly
+      ? `내가 등록한 명함 ${sortedCards.length}장`
+      : `전체 ${visibleCards.length}장`;
 }
 
 function setViewMode(nextViewMode) {
@@ -1564,8 +1574,24 @@ duplicateToggle.addEventListener("click", () => {
 });
 
 cardSortSelect.addEventListener("change", () => {
-  sortKey = cardSortSelect.value;
+  if (cardSortSelect.value === "mine") {
+    myCardsOnly = Boolean(currentUser);
+    if (!myCardsOnly) cardSortSelect.value = sortKey;
+  } else {
+    myCardsOnly = false;
+    sortKey = cardSortSelect.value;
+  }
   renderCurrentView();
+});
+
+document.addEventListener("auth:ready", (event) => {
+  currentUser = event.detail?.user || null;
+  myCardsOnlyOption.hidden = !currentUser;
+  if (!currentUser && myCardsOnly) {
+    myCardsOnly = false;
+    cardSortSelect.value = sortKey;
+    renderCurrentView();
+  }
 });
 
 sortDirectionButtons.forEach((button) => {

@@ -1217,7 +1217,10 @@ test("신규 명함의 태그를 SQLite에 저장하고 다시 조회한다", as
 
 test("다음 명함 버튼은 현재 항목을 건너뛰고 다음 이미지를 분석한다", async () => {
   let extractRequests = 0;
-  const browser = createCardAddBrowser(async () => {
+  const browser = createCardAddBrowser(async (url) => {
+    if (url === "/api/cards/uploads/cleanup") {
+      return { ok: true, json: async () => ({ success: true, deletedCount: 1 }) };
+    }
     extractRequests += 1;
     return {
       ok: true,
@@ -1253,7 +1256,10 @@ test("다음 명함 버튼은 현재 항목을 건너뛰고 다음 이미지를 
 
 test("건너뛴 명함을 누르면 해당 이미지를 다시 분석한다", async () => {
   let extractRequests = 0;
-  const browser = createCardAddBrowser(async () => {
+  const browser = createCardAddBrowser(async (url) => {
+    if (url === "/api/cards/uploads/cleanup") {
+      return { ok: true, json: async () => ({ success: true, deletedCount: 1 }) };
+    }
     extractRequests += 1;
     return {
       ok: true,
@@ -1294,7 +1300,10 @@ test("건너뛴 명함을 누르면 해당 이미지를 다시 분석한다", as
 
 test("취소 버튼은 현재 항목을 제거하고 다음 이미지를 분석한다", async () => {
   let extractRequests = 0;
-  const browser = createCardAddBrowser(async () => {
+  const browser = createCardAddBrowser(async (url) => {
+    if (url === "/api/cards/uploads/cleanup") {
+      return { ok: true, json: async () => ({ success: true, deletedCount: 1 }) };
+    }
     extractRequests += 1;
     return {
       ok: true,
@@ -1327,6 +1336,37 @@ test("취소 버튼은 현재 항목을 제거하고 다음 이미지를 분석�
   assert.equal(browser.element("#name").value, "명함 2");
   assert.doesNotMatch(browser.element(".queueBox").innerHTML, /first\.png/);
   assert.match(browser.element(".queueBox").innerHTML, /second\.png/);
+});
+
+test("건너뛰거나 취소한 미저장 명함 이미지는 서버 정리를 요청한다", async () => {
+  const cleanupRequests = [];
+  let extractRequests = 0;
+  const browser = createCardAddBrowser(async (url, options) => {
+    if (url === "/api/cards/uploads/cleanup") {
+      cleanupRequests.push(JSON.parse(options.body));
+      return { ok: true, json: async () => ({ success: true, deletedCount: 1 }) };
+    }
+
+    extractRequests += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: `/uploads/unsaved-${extractRequests}.jpg` },
+        extracted: { name: `명함 ${extractRequests}` }
+      })
+    };
+  });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: { files: [namedImage("skip.jpg"), namedImage("cancel.jpg")], value: "selected" }
+  });
+  await browser.handler(".subAction", "click")();
+  await browser.handler(".ghostAction", "click")();
+
+  assert.deepEqual(cleanupRequests, [
+    { paths: ["/uploads/unsaved-1.jpg"] },
+    { paths: ["/uploads/unsaved-2.jpg"] }
+  ]);
 });
 
 test("상태 API가 사내 AI 서버 연결 상태를 반환한다", async () => {

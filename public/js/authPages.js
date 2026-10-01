@@ -47,7 +47,11 @@
       body: JSON.stringify(body)
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.message || "요청을 처리하지 못했습니다.");
+    if (!response.ok) {
+      const error = new Error(result.message || "요청을 처리하지 못했습니다.");
+      error.status = response.status;
+      throw error;
+    }
     return result;
   }
 
@@ -122,6 +126,11 @@
         form.reset();
       }
     } catch (error) {
+      if (form.dataset.authForm === "signup" && error.status === 409) {
+        rememberPendingVerificationEmail(String(data.get("email") || "").trim().toLowerCase());
+        window.location.assign("./verify-email.html?resend=1");
+        return;
+      }
       showStatus(error.message || "요청을 처리하지 못했습니다.", "error");
     } finally {
       if (submit) submit.disabled = false;
@@ -133,7 +142,10 @@
     const button = verifyForm.querySelector("button[type=submit]");
     if (button) button.disabled = true;
     if (pendingVerificationEmail) {
-      showStatus("인증 안내 메일이 발송되었습니다.", "success");
+      const resendRequested = new URLSearchParams(window.location.search).get("resend") === "1";
+      showStatus(resendRequested
+        ? "이미 가입 요청된 이메일입니다. 인증 전이라면 아래에서 인증 메일을 다시 보내세요."
+        : "인증 안내 메일이 발송되었습니다.", "success");
     } else {
       showStatus("인증 토큰이 없습니다. 이메일의 인증 링크를 다시 확인해 주세요.", "error");
     }

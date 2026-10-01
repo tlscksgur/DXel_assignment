@@ -106,11 +106,11 @@ test("인증 관련 화면은 홈 링크를 기존 페이지 링크와 같은 �
   assert.match(styles, /\.authVerificationLinkGroup\s*\{[^}]*display:\s*flex;[^}]*gap:\s*12px;/s);
 });
 
-test("프로필 설정 카드는 중복된 홈·명함관리 이동 링크 없이 헤더를 사용한다", () => {
+test("프로필 설정 헤더는 다른 페이지와 같은 세 가지 이동 메뉴를 제공한다", () => {
   const profile = fs.readFileSync(path.join(projectRoot, "public/profile.html"), "utf8");
 
   assert.match(profile, /<a class="logo" href="\.\/index\.html">명함관리<\/a>/);
-  assert.match(profile, /<ul><li><a href="\.\/index\.html">홈<\/a><\/li><li><a href="\.\/BCM\.html">명함관리<\/a><\/li><\/ul>/);
+  assert.match(profile, /<ul><li><a href="\.\/index\.html">홈<\/a><\/li><li><a href="\.\/BCM\.html">명함관리<\/a><\/li><li><a href="\.\/cardImport\.html">명함 데이터 불러오기<\/a><\/li><\/ul>/);
   assert.doesNotMatch(profile, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/BCM\.html">명함관리로 돌아가기<\/a><\/nav>/);
 });
 
@@ -151,4 +151,54 @@ test("이메일 인증 화면은 입력칸 없이 가입 이메일로 재전송�
   assert.match(source, /localStorage\.getItem\(pendingVerificationEmailKey\)/);
   assert.match(source, /email:\s*pendingVerificationEmail,[\s\S]*token:\s*hasVerificationToken \? token : ""/);
   assert.match(source, /window\.location\.assign\("\.\/verify-email\.html"\)/);
+});
+
+test("이미 가입 요청된 이메일은 인증 메일 재발송 화면으로 안내한다", async () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/authPages.js"), "utf8");
+  const localStorage = new Map();
+  const assignedUrls = [];
+  let submitHandler;
+  const statusMessage = { textContent: "" };
+  const status = { dataset: {}, querySelector: () => statusMessage };
+  const submitButton = { disabled: false };
+  const form = {
+    dataset: { authForm: "signup" },
+    addEventListener: (eventName, handler) => { submitHandler = handler; },
+    querySelector: () => submitButton
+  };
+  const document = {
+    querySelector: (selector) => selector === ".authStatus" ? status : null,
+    querySelectorAll: (selector) => selector === "[data-auth-form]" ? [form] : [],
+    body: { classList: { contains: () => false } }
+  };
+  const window = {
+    location: { search: "", assign: (url) => assignedUrls.push(url) },
+    localStorage: {
+      getItem: (key) => localStorage.get(key) || null,
+      setItem: (key, value) => localStorage.set(key, value),
+      removeItem: (key) => localStorage.delete(key)
+    },
+    setTimeout: () => {}
+  };
+  const context = {
+    document,
+    window,
+    URLSearchParams,
+    FormData: class {
+      get(key) {
+        return { displayName: "신찬혁", email: " CHSHIN@DXEL.CO.KR ", password: "password123" }[key];
+      }
+    },
+    fetch: async () => ({
+      ok: false,
+      status: 409,
+      json: async () => ({ success: false, message: "이 이메일은 이미 가입되어 있습니다." })
+    })
+  };
+
+  vm.runInNewContext(source, context);
+  await submitHandler({ preventDefault() {}, currentTarget: form });
+
+  assert.equal(localStorage.get("bcmPendingVerificationEmail"), "chshin@dxel.co.kr");
+  assert.deepEqual(assignedUrls, ["./verify-email.html?resend=1"]);
 });

@@ -26,6 +26,7 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   assert.match(html, /value="meeting"[^>]*>최근 만남순/);
   assert.match(html, /value="name"[^>]*>이름순/);
   assert.match(html, /value="company"[^>]*>회사순/);
+  assert.match(html, /<option value="mine"[^>]*data-auth-only[^>]*hidden>내가 등록한 명함<\/option>/);
   assert.match(html, /class="sortDirectionButton active"[^>]*data-sort-direction="desc"[^>]*>내림차순/);
   assert.match(html, /data-sort-direction="asc"[^>]*>오름차순/);
   assert.match(html, /class="favoriteViewToggle"/);
@@ -35,6 +36,86 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   const searchForm = html.match(/<form class="cardSearchForm"[\s\S]*?<\/form>/)?.[0] || "";
   assert.doesNotMatch(searchForm, /class="duplicateToggle"/);
   assert.doesNotMatch(html, /총\s*\d+개\s*보관/);
+});
+
+test("내가 등록한 명함은 로그인 사용자에게만 표시되고 기존 정렬을 유지하며 소유 카드만 보여준다", () => {
+  const management = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const documentListeners = new Map();
+  const elements = new Map();
+  const renderedCards = [];
+  const createElement = () => {
+    const listeners = new Map();
+    return {
+      value: "", innerHTML: "", textContent: "", hidden: false, dataset: {},
+      classList: { add() {}, remove() {}, toggle() {} },
+      addEventListener(type, listener) { listeners.set(type, listener); },
+      getListener(type) { return listeners.get(type); },
+      insertAdjacentHTML(_position, html) { renderedCards.push(html); },
+      setAttribute() {}
+    };
+  };
+  const board = createElement();
+  const sortSelect = createElement();
+  const myCardsOption = createElement();
+  myCardsOption.hidden = true;
+  const resultSummary = createElement();
+  const getElement = (selector) => {
+    if (selector === ".bcmBoard") return board;
+    if (selector === ".cardSortSelect") return sortSelect;
+    if (selector === '.cardSortSelect option[value="mine"]') return myCardsOption;
+    if (selector === ".resultSummary") return resultSummary;
+    if (selector === '[data-sort-direction="asc"]') {
+      const element = createElement();
+      element.dataset.sortDirection = "asc";
+      return element;
+    }
+    if (selector === '[data-sort-direction="desc"]') {
+      const element = createElement();
+      element.dataset.sortDirection = "desc";
+      return element;
+    }
+    if (!elements.has(selector)) elements.set(selector, createElement());
+    return elements.get(selector);
+  };
+  const context = {
+    console,
+    document: {
+      querySelector: getElement,
+      addEventListener(type, listener) { documentListeners.set(type, listener); },
+      body: createElement()
+    },
+    fetch: () => new Promise(() => {}),
+    setTimeout, clearTimeout
+  };
+  vm.runInNewContext(management, context);
+
+  documentListeners.get("auth:ready")({ detail: { user: { id: 1 } } });
+  assert.equal(myCardsOption.hidden, false);
+  vm.runInContext(`visibleCards = [
+    { id: 1, name: "내 명함", can_edit: 1 },
+    { id: 2, name: "다른 사람 명함", can_edit: 0 }
+  ];`, context);
+
+  sortSelect.value = "name";
+  sortSelect.getListener("change")();
+  assert.equal(vm.runInContext("sortKey", context), "name");
+  renderedCards.length = 0;
+  sortSelect.value = "mine";
+  sortSelect.getListener("change")();
+  assert.equal(vm.runInContext("sortKey", context), "name");
+  assert.equal(resultSummary.textContent, "내가 등록한 명함 1장");
+  assert.match(renderedCards.join(""), /내 명함/);
+  assert.doesNotMatch(renderedCards.join(""), /다른 사람 명함/);
+
+  documentListeners.get("auth:ready")({ detail: { user: null } });
+  assert.equal(myCardsOption.hidden, true);
+  assert.equal(vm.runInContext("myCardsOnly", context), false);
+  assert.equal(sortSelect.value, "name");
+  sortSelect.value = "mine";
+  sortSelect.getListener("change")();
+  assert.equal(vm.runInContext("myCardsOnly", context), false);
+  assert.equal(vm.runInContext("sortKey", context), "name");
+  assert.equal(sortSelect.value, "name");
 });
 
 test("모바일 헤더는 명함 데이터 불러오기를 계정 메뉴로 옮긴다", () => {
