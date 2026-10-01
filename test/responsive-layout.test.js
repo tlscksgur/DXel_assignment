@@ -235,6 +235,17 @@ test("상세 모달은 내용 높이를 따르고 긴 메모만 내부 스크롤
   );
 });
 
+test("대형 화면의 명함 불러오기 옵션 박스는 업로드와 설정 콘텐츠로 높이를 채운다", () => {
+  const css = read("public/css/cardImport.css");
+  const largeScreenLayout = css.slice(css.indexOf("@media (min-width: 1600px)"));
+
+  assert.match(largeScreenLayout, /\.importOptions\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/);
+  assert.match(largeScreenLayout, /\.importDropzone\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*320px;/);
+  assert.match(largeScreenLayout, /\.importSettings\s*\{[^}]*flex:\s*1 1 0;[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*justify-content:\s*space-between;/);
+  assert.match(largeScreenLayout, /\.importSettings select\s*\{[^}]*height:\s*clamp\(48px,\s*4\.5vh,\s*62px\);/);
+  assert.match(largeScreenLayout, /\.importDuplicateChoices button\s*\{[^}]*min-height:\s*clamp\(44px,\s*4\.5vh,\s*60px\);/);
+});
+
 test("모바일 상세 모달의 작업 버튼은 경계 안에 있고 태그는 작은 크기로 표시된다", () => {
   const css = read("public/css/BCM.css");
   const mobileLayout = css.slice(
