@@ -712,6 +712,8 @@ function createCardAddBrowser(
   return {
     alerts,
     canvasState,
+    balanceLogoCropBounds: context.balanceLogoCropBounds,
+    findLogoForegroundBounds: context.findLogoForegroundBounds,
     element,
     resizeViewport(height) {
       context.visualViewport.height = height;
@@ -722,6 +724,62 @@ function createCardAddBrowser(
     }
   };
 }
+
+test("AI가 로고 오른쪽을 잘라 잡으면 실제 인쇄 영역 기준으로 반대쪽 크롭을 확장한다", () => {
+  const browser = createCardAddBrowser(async () => ({}));
+  const width = 100;
+  const height = 80;
+  const pixels = new Uint8ClampedArray(width * height * 4);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      pixels[index] = 244;
+      pixels[index + 1] = 240;
+      pixels[index + 2] = 232;
+      pixels[index + 3] = 255;
+      if (x >= 20 && x < 99 && y >= 12 && y < 68) {
+        pixels[index] = 180;
+        pixels[index + 1] = 35;
+        pixels[index + 2] = 50;
+      }
+    }
+  }
+
+  const foregroundBounds = browser.findLogoForegroundBounds({
+    width,
+    height,
+    data: pixels
+  });
+  const balancedBounds = browser.balanceLogoCropBounds(
+    { x: 0.5, y: 0.2, width: 0.2, height: 0.16 },
+    foregroundBounds,
+    width,
+    height
+  );
+
+  assert.equal(foregroundBounds.x, 20);
+  assert.equal(foregroundBounds.y, 12);
+  assert.equal(foregroundBounds.width, 79);
+  assert.equal(foregroundBounds.height, 56);
+  assert.equal(balancedBounds.x, 0.5);
+  assert.ok(Math.abs(balancedBounds.width - 0.238) < 1e-9);
+  assert.equal(balancedBounds.y, 0.2);
+  assert.equal(balancedBounds.height, 0.16);
+  assert.ok(balancedBounds.x + balancedBounds.width <= 1);
+
+  const alreadyBalanced = browser.balanceLogoCropBounds(
+    { x: 0.5, y: 0.2, width: 0.2, height: 0.16 },
+    { x: 20, y: 12, width: 60, height: 56 },
+    width,
+    height
+  );
+  assert.equal(alreadyBalanced.x, 0.5);
+  assert.equal(alreadyBalanced.width, 0.2);
+
+  const cardAdd = fs.readFileSync(path.join(projectRoot, "public/js/cardAdd.js"), "utf8");
+  assert.match(cardAdd, /let logoImage = await cropLogoToBounds\(/);
+});
 
 test("고해상도 휴대폰 사진은 긴 변 1600px로 줄여 분석 요청한다", async () => {
   let uploadedImage;

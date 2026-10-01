@@ -383,6 +383,125 @@ function e8ightLogoBounds(cardBounds) {
   };
 }
 
+function findLogoForegroundBounds(imageData) {
+  const width = Number(imageData?.width);
+  const height = Number(imageData?.height);
+  const pixels = imageData?.data;
+  if (!Number.isInteger(width) || !Number.isInteger(height)
+    || width < 8 || height < 8 || !pixels || pixels.length < width * height * 4) {
+    return null;
+  }
+
+  const cornerColors = [
+    [0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1]
+  ].map(([x, y]) => {
+    const index = (y * width + x) * 4;
+    return [pixels[index], pixels[index + 1], pixels[index + 2]];
+  });
+  const background = [0, 1, 2].map((channel) => {
+    const values = cornerColors.map((color) => color[channel]).sort((a, b) => a - b);
+    return (values[1] + values[2]) / 2;
+  });
+  const backgroundIsUniform = cornerColors.every((color) => {
+    return Math.max(...color.map((value, channel) => Math.abs(value - background[channel]))) <= 50;
+  });
+  if (!backgroundIsUniform) return null;
+
+  const columnInk = new Uint16Array(width);
+  const rowInk = new Uint16Array(height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      if (pixels[index + 3] < 32) continue;
+      const distance = Math.max(
+        Math.abs(pixels[index] - background[0]),
+        Math.abs(pixels[index + 1] - background[1]),
+        Math.abs(pixels[index + 2] - background[2])
+      );
+      if (distance < 42) continue;
+      columnInk[x] += 1;
+      rowInk[y] += 1;
+    }
+  }
+
+  const minimumColumnInk = Math.max(1, Math.ceil(height * 0.01));
+  const minimumRowInk = Math.max(1, Math.ceil(width * 0.01));
+  const left = columnInk.findIndex((count) => count >= minimumColumnInk);
+  const top = rowInk.findIndex((count) => count >= minimumRowInk);
+  let right = width - 1;
+  let bottom = height - 1;
+  while (right >= 0 && columnInk[right] < minimumColumnInk) right -= 1;
+  while (bottom >= 0 && rowInk[bottom] < minimumRowInk) bottom -= 1;
+  if (left < 0 || top < 0 || right < left || bottom < top) return null;
+
+  return {
+    x: left,
+    y: top,
+    width: right - left + 1,
+    height: bottom - top + 1
+  };
+}
+
+function balanceLogoCropBounds(bounds, foregroundBounds, cropWidth, cropHeight) {
+  const next = { ...bounds };
+  if (!foregroundBounds || !Number.isFinite(cropWidth) || !Number.isFinite(cropHeight)
+    || cropWidth <= 0 || cropHeight <= 0) {
+    return next;
+  }
+
+  const axes = [
+    {
+      start: "x",
+      size: "width",
+      leading: foregroundBounds.x,
+      trailing: cropWidth - foregroundBounds.x - foregroundBounds.width,
+      dimension: cropWidth
+    },
+    {
+      start: "y",
+      size: "height",
+      leading: foregroundBounds.y,
+      trailing: cropHeight - foregroundBounds.y - foregroundBounds.height,
+      dimension: cropHeight
+    }
+  ];
+
+  axes.forEach(({ start, size, leading, trailing, dimension }) => {
+    const difference = leading - trailing;
+    const minimumDifference = Math.max(6, dimension * 0.06);
+    if (Math.abs(difference) < minimumDifference
+      || Math.min(leading, trailing) > dimension * 0.08
+      || Math.max(leading, trailing) < dimension * 0.12) return;
+
+    const extraBounds = Math.min(Math.abs(difference), dimension * 0.25)
+      / dimension * next[size];
+    if (difference > 0) {
+      next[size] += Math.min(extraBounds, Math.max(0, 1 - next[start] - next[size]));
+    } else {
+      const extra = Math.min(extraBounds, next[start]);
+      next[start] -= extra;
+      next[size] += extra;
+    }
+  });
+  return next;
+}
+
+async function readLogoForegroundBounds(blob) {
+  if (typeof createImageBitmap !== "function") return null;
+  const image = await createImageBitmap(blob, { imageOrientation: "from-image" });
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext("2d");
+    if (!context?.getImageData) return null;
+    context.drawImage(image, 0, 0, image.width, image.height);
+    return findLogoForegroundBounds(context.getImageData(0, 0, image.width, image.height));
+  } finally {
+    image.close();
+  }
+}
+
 async function cropImageToBounds(blob, bounds, filename) {
   if (!bounds || typeof createImageBitmap !== "function") return null;
 
@@ -427,6 +546,29 @@ async function cropImageToBounds(blob, bounds, filename) {
     };
   } finally {
     image.close();
+  }
+}
+
+async function cropLogoToBounds(blob, bounds, filename) {
+  const initialCrop = await cropImageToBounds(blob, bounds, filename);
+  if (!initialCrop) return null;
+
+  try {
+    const foregroundBounds = await readLogoForegroundBounds(initialCrop.blob);
+    const balancedBounds = balanceLogoCropBounds(
+      bounds,
+      foregroundBounds,
+      initialCrop.width,
+      initialCrop.height
+    );
+    const boundsChanged = Object.keys(bounds).some((key) => {
+      return Math.abs(balancedBounds[key] - bounds[key]) > 1e-6;
+    });
+    if (!boundsChanged) return initialCrop;
+    return await cropImageToBounds(blob, balancedBounds, filename) || initialCrop;
+  } catch (error) {
+    console.warn("로고 여백을 균형 있게 조정하지 못해 기존 크롭을 사용합니다:", error);
+    return initialCrop;
   }
 }
 
@@ -524,7 +666,7 @@ async function analyzeCurrentCard() {
     let logoPath = "";
     if (logoBounds) {
       try {
-        let logoImage = await cropImageToBounds(
+        let logoImage = await cropLogoToBounds(
           logoImageSource.blob,
           logoBounds,
           logoImageSource.filename
