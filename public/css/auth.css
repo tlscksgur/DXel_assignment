@@ -149,6 +149,8 @@
   outline: none;
 }
 
+.accountMenuImport { display: none; }
+
 .accountMenuLogout {
   border-top: 1px solid #efede9;
   color: #c13e49;
@@ -348,6 +350,7 @@
   .authHeaderActions { padding: 4px; }
   .authHeaderActions .cardAdd { height: 36px; padding: 0 12px; }
   .accountMenuTrigger { min-height: 36px; gap: 7px; padding: 4px 6px 4px 9px; }
+  .accountMenuImport { display: flex; }
   .accountAvatar { width: 26px; height: 26px; }
   .accountTriggerName { max-width: 92px; font-size: 12px; }
   .authLoginLink { min-height: 36px; padding: 0 12px; font-size: 12px; }

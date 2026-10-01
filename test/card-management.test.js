@@ -37,11 +37,11 @@ test("명함관리 검색창은 유지하고 목록 도구에서 그룹·중복�
   assert.doesNotMatch(html, /총\s*\d+개\s*보관/);
 });
 
-test("모바일 헤더에서도 명함 데이터 불러오기 링크를 짧은 이름으로 유지한다", () => {
+test("모바일 헤더는 명함 데이터 불러오기를 계정 메뉴로 옮긴다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/style.css"), "utf8");
 
-  assert.match(css, /@media \(max-width: 680px\) \{[\s\S]*?\.headerBox1 ul li:nth-child\(3\) \{ display: block; \}/);
-  assert.match(css, /\.headerBox1 ul li:nth-child\(3\) a::after \{\s*content: "불러오기";/);
+  assert.match(css, /@media \(max-width: 680px\) \{[\s\S]*?\.headerBox1 ul li:nth-child\(3\) \{ display: none; \}/);
+  assert.doesNotMatch(css, /\.headerBox1 ul li:nth-child\(3\) a::after/);
 });
 
 test("명함 분석은 AI 크롭 좌표를 받아 Canvas 크롭본으로 원본을 안전하게 교체한다", () => {

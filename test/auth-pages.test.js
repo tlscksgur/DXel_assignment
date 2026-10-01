@@ -74,20 +74,44 @@ test("계정 메뉴 패널은 헤더 버튼 묶음의 전체 너비에 맞춘다
   assert.doesNotMatch(styles, /\.accountMenuPanel\s*\{[^}]*width:\s*min\(260px,/s);
 });
 
+test("모바일 헤더는 불러오기를 계정 메뉴로 옮기고 데스크톱 내비게이션은 유지한다", () => {
+  const headerStyles = fs.readFileSync(path.join(projectRoot, "public/css/style.css"), "utf8");
+  const authStyles = fs.readFileSync(path.join(projectRoot, "public/css/auth.css"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/authUI.js"), "utf8");
+  const mobileHeader = headerStyles.slice(
+    headerStyles.indexOf("@media (max-width: 680px)"),
+    headerStyles.indexOf("@media (max-width: 380px)")
+  );
+
+  assert.match(source, /const importLink = makeMenuItem\(\s*"불러오기",[\s\S]*?"\.\/cardImport\.html",\s*null,[\s\S]*?"import"\s*\)/);
+  assert.match(source, /importLink\.classList\.add\("accountMenuImport"\)/);
+  assert.doesNotMatch(source, /데이터 백업|backup:/);
+  assert.match(authStyles, /\.accountMenuImport\s*\{\s*display:\s*none;\s*\}/);
+  assert.ok(authStyles.lastIndexOf(".accountMenuImport { display: flex; }") > authStyles.lastIndexOf("@media (max-width: 680px)"));
+  assert.match(mobileHeader, /\.headerBox1 ul li:nth-child\(3\)\s*\{\s*display:\s*none;\s*\}/);
+  assert.doesNotMatch(mobileHeader, /li:nth-child\(3\) a::after/);
+});
+
 test("인증 관련 화면은 홈 링크를 기존 페이지 링크와 같은 가로 줄에 둔다", () => {
   const signup = fs.readFileSync(path.join(projectRoot, "public/signup.html"), "utf8");
   const reset = fs.readFileSync(path.join(projectRoot, "public/reset-password.html"), "utf8");
   const verification = fs.readFileSync(path.join(projectRoot, "public/verify-email.html"), "utf8");
-  const profile = fs.readFileSync(path.join(projectRoot, "public/profile.html"), "utf8");
   const styles = fs.readFileSync(path.join(projectRoot, "public/css/auth.css"), "utf8");
 
   assert.match(signup, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/login\.html">로그인으로 돌아가기<\/a><\/nav>/);
   assert.match(reset, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/login\.html">로그인으로 돌아가기<\/a><\/nav>/);
   assert.match(verification, /<nav class="authLinks authVerificationLinks">\s*<a href="\.\/index\.html">홈으로<\/a>\s*<span class="authVerificationLinkGroup"><a href="\.\/login\.html">[\s\S]*?<\/a><span class="authVerificationHelp">도움이 필요하신가요\?<\/span><\/span>\s*<\/nav>/);
-  assert.match(profile, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/BCM\.html">명함관리로 돌아가기<\/a><\/nav>/);
   assert.doesNotMatch(styles, /authHomeLinks/);
   assert.doesNotMatch(styles, /\.authHomeButton/);
   assert.match(styles, /\.authVerificationLinkGroup\s*\{[^}]*display:\s*flex;[^}]*gap:\s*12px;/s);
+});
+
+test("프로필 설정 카드는 중복된 홈·명함관리 이동 링크 없이 헤더를 사용한다", () => {
+  const profile = fs.readFileSync(path.join(projectRoot, "public/profile.html"), "utf8");
+
+  assert.match(profile, /<a class="logo" href="\.\/index\.html">명함관리<\/a>/);
+  assert.match(profile, /<ul><li><a href="\.\/index\.html">홈<\/a><\/li><li><a href="\.\/BCM\.html">명함관리<\/a><\/li><\/ul>/);
+  assert.doesNotMatch(profile, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/BCM\.html">명함관리로 돌아가기<\/a><\/nav>/);
 });
 
 test("로그인 화면은 홈 링크를 왼쪽에, 비밀번호 찾기와 회원가입을 오른쪽에 나란히 둔다", () => {

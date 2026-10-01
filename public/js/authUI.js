@@ -5,7 +5,7 @@
   const menuIcons = {
     profile: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-3.2 3.1-5 7-5s6.4 1.8 7 5"/>',
     share: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 19c.4-3.3 2.3-5 5.5-5s5.1 1.7 5.5 5M14 14c3.4-.8 6 .8 6.5 4"/>',
-    backup: '<path d="M12 3.5 14 5l2.5-.2.8 2.4 2.2 1.3-.8 2.4.8 2.4-2.2 1.3-.8 2.4-2.5-.2-2 1.5-2-1.5-2.5.2-.8-2.4-2.2-1.3.8-2.4-.8-2.4 2.2-1.3.8-2.4L10 5z"/><circle cx="12" cy="11.8" r="3"/>',
+    import: '<path d="M12 4v10m0 0 4-4m-4 4-4-4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>',
     logout: '<path d="M10 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20H10M14 16l4-4-4-4M18 12H9"/>',
   };
 
@@ -74,11 +74,20 @@
     }, "logout");
     logout.classList.add("accountMenuLogout");
 
+    const importLink = makeMenuItem(
+      "불러오기",
+      "CSV 또는 vCard 명함 데이터 불러오기",
+      "./cardImport.html",
+      null,
+      "import"
+    );
+    importLink.classList.add("accountMenuImport");
+
     menu.append(
       identity,
       makeMenuItem("내 프로필 설정", "이름과 비밀번호 변경", "./profile.html", null, "profile"),
       makeMenuItem("명함 공유", "준비 중", null, () => window.alert("명함 공유 기능은 준비 중입니다."), "share"),
-      makeMenuItem("데이터 백업", "준비 중", null, () => window.alert("데이터 백업 기능은 준비 중입니다."), "backup"),
+      importLink,
       logout
     );
     wrapper.append(trigger, menu);
