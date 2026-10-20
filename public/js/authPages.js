@@ -32,6 +32,10 @@
   const pendingVerificationEmail = readPendingVerificationEmail();
 
   const resendButton = document.querySelector("[data-verification-resend-button]");
+  const resendForm = document.querySelector('[data-auth-form="verification-resend"]');
+  const verifyForm = document.querySelector('[data-auth-form="verify"]');
+  if (resendForm) resendForm.hidden = hasVerificationToken || !pendingVerificationEmail;
+  if (verifyForm) verifyForm.hidden = !hasVerificationToken;
   if (resendButton && !hasVerificationToken && !pendingVerificationEmail) resendButton.disabled = true;
 
   function showStatus(message, state = "") {
@@ -83,6 +87,8 @@
         const result = await requestJson("./api/auth/verify", "POST", { token });
         showStatus(result.message || "이메일 인증이 완료되었습니다.", "success");
         clearPendingVerificationEmail();
+        form.hidden = true;
+        if (resendForm) resendForm.hidden = true;
         window.setTimeout(() => window.location.assign("./login.html"), 1200);
       } else if (form.dataset.authForm === "verification-resend") {
         const result = await requestJson("./api/auth/verification/resend", "POST", {
@@ -126,6 +132,10 @@
         form.reset();
       }
     } catch (error) {
+      if (form.dataset.authForm === "verify" && error.status === 400) {
+        form.hidden = true;
+        if (resendForm) resendForm.hidden = false;
+      }
       if (form.dataset.authForm === "signup" && error.status === 409) {
         rememberPendingVerificationEmail(String(data.get("email") || "").trim().toLowerCase());
         window.location.assign("./verify-email.html?resend=1");
@@ -137,7 +147,6 @@
     }
   }));
 
-  const verifyForm = document.querySelector('[data-auth-form="verify"]');
   if (verifyForm && !hasVerificationToken) {
     const button = verifyForm.querySelector("button[type=submit]");
     if (button) button.disabled = true;

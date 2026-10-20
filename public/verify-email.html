@@ -33,7 +33,7 @@
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>
           </button>
         </form>
-        <form class="authForm authVerificationResend" data-auth-form="verification-resend">
+        <form class="authForm authVerificationResend" data-auth-form="verification-resend" hidden>
           <button class="authSecondaryButton" type="submit" data-verification-resend-button>
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 11.9-3"/></svg>
             인증 메일 다시 보내기
@@ -43,7 +43,7 @@
       <hr class="authDivider">
       <nav class="authLinks authVerificationLinks">
         <a href="./index.html">홈으로</a>
-        <span class="authVerificationLinkGroup"><a href="./login.html"><span aria-hidden="true"></span>로그인으로 이동</a><span class="authVerificationHelp">도움이 필요하신가요?</span></span>
+        <a href="./login.html">로그인으로 이동</a>
       </nav>
     </section>
     <p class="authHelpNote">스팸 메일함으로 분류되었는지도 함께 확인해 주세요.</p>

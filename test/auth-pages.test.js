@@ -100,10 +100,11 @@ test("인증 관련 화면은 홈 링크를 기존 페이지 링크와 같은 �
 
   assert.match(signup, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/login\.html">로그인으로 돌아가기<\/a><\/nav>/);
   assert.match(reset, /<nav class="authLinks"><a href="\.\/index\.html">홈으로<\/a><a href="\.\/login\.html">로그인으로 돌아가기<\/a><\/nav>/);
-  assert.match(verification, /<nav class="authLinks authVerificationLinks">\s*<a href="\.\/index\.html">홈으로<\/a>\s*<span class="authVerificationLinkGroup"><a href="\.\/login\.html">[\s\S]*?<\/a><span class="authVerificationHelp">도움이 필요하신가요\?<\/span><\/span>\s*<\/nav>/);
+  assert.match(verification, /<nav class="authLinks authVerificationLinks">\s*<a href="\.\/index\.html">홈으로<\/a>\s*<a href="\.\/login\.html">로그인으로 이동<\/a>\s*<\/nav>/);
+  assert.doesNotMatch(verification, /도움이 필요하신가요/);
   assert.doesNotMatch(styles, /authHomeLinks/);
   assert.doesNotMatch(styles, /\.authHomeButton/);
-  assert.match(styles, /\.authVerificationLinkGroup\s*\{[^}]*display:\s*flex;[^}]*gap:\s*12px;/s);
+  assert.match(styles, /\.authVerificationCard \.authLinks\s*\{[^}]*justify-content:\s*space-between;/s);
 });
 
 test("프로필 설정 헤더는 다른 페이지와 같은 세 가지 이동 메뉴를 제공한다", () => {

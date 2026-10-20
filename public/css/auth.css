@@ -518,6 +518,7 @@
 
 .authVerificationActions { display: grid; gap: 12px; }
 .authVerificationActions .authForm { display: block; }
+.authVerificationActions .authForm[hidden] { display: none; }
 
 .authVerificationCard .authPrimaryButton,
 .authVerificationCard .authSecondaryButton {
@@ -568,6 +569,7 @@
 
 .authVerificationCard .authLinks {
   margin: 0;
+  justify-content: space-between;
   align-items: center;
   color: #8a99ad;
   font-size: 13px;
@@ -580,22 +582,8 @@
   color: #657993;
 }
 
-.authVerificationCard .authLinks a span {
-  font-size: 25px;
-  line-height: .7;
-}
-
-.authVerificationLinkGroup {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.authVerificationHelp { white-space: nowrap; }
-
 @media (max-width: 380px) {
   .authVerificationCard .authLinks { gap: 6px; font-size: 11px; }
-  .authVerificationLinkGroup { gap: 6px; }
 }
 
 .authHelpNote {
