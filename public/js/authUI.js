@@ -64,7 +64,7 @@
     const logout = makeMenuItem("로그아웃", "현재 계정에서 나가기", null, async () => {
       logout.disabled = true;
       try {
-        const response = await fetch("/api/auth/logout", { method: "POST" });
+        const response = await fetch("./api/auth/logout", { method: "POST" });
         if (!response.ok) throw new Error("로그아웃하지 못했습니다.");
         window.location.assign("./BCM.html");
       } catch (error) {
@@ -141,7 +141,7 @@
 
   async function initializeAuthUi() {
     try {
-      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      const response = await fetch("./api/auth/me", { cache: "no-store" });
       if (!response.ok) throw new Error("계정 정보를 확인할 수 없습니다.");
       const result = await response.json();
       const user = result.user || null;

@@ -4,11 +4,62 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const vm = require("node:vm");
-const { spawn } = require("node:child_process");
+const { spawn: spawnProcess } = require("node:child_process");
+const sqlite3 = require("sqlite3");
+const { createOpaqueToken, hashToken } = require("../auth/security");
 const { test } = require("node:test");
 const { parseModelJson } = require("../localAi");
 
 const projectRoot = path.join(__dirname, "..");
+const nativeFetch = globalThis.fetch;
+const testSessions = new Map();
+
+function spawn(command, args, options) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bcm-upload-auth-"));
+  const child = spawnProcess(command, args, {
+    ...options,
+    env: {
+      ...options.env,
+      NODE_ENV: "test",
+      HOST: "127.0.0.1",
+      TRUST_PROXY: "",
+      APP_BASE_URL: `http://127.0.0.1:${options.env.PORT}`,
+      DATABASE_PATH: path.join(dir, "test.db")
+    }
+  });
+  child.testDatabasePath = path.join(dir, "test.db");
+  child.testOrigin = `http://127.0.0.1:${options.env.PORT}`;
+  child.once("exit", () => {
+    testSessions.delete(child.testOrigin);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  return child;
+}
+
+async function prepareTestSession(child) {
+  const db = new sqlite3.Database(child.testDatabasePath);
+  const token = createOpaqueToken();
+  const run = (sql, params) => new Promise((resolve, reject) => {
+    db.run(sql, params, (error) => error ? reject(error) : resolve());
+  });
+  try {
+    await run("INSERT INTO users (id, display_name, email, password_hash, email_verified_at) VALUES (1, ?, ?, ?, ?)",
+      ["통합 테스트", "upload-test@example.test", "unused-test-hash", new Date().toISOString()]);
+    await run("INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, 1, ?)",
+      [hashToken(token), new Date(Date.now() + 3600000).toISOString()]);
+    testSessions.set(child.testOrigin, token);
+  } finally { await new Promise((resolve) => db.close(resolve)); }
+}
+
+function fetch(url, options = {}) {
+  const origin = new URL(url).origin;
+  const token = testSessions.get(origin);
+  if (!token) return nativeFetch(url, options);
+  return nativeFetch(url, {
+    ...options,
+    headers: { ...options.headers, Cookie: `bcm_session=${token}`, Origin: origin }
+  });
+}
 const onePixelPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9q8ioAAAAASUVORK5CYII=",
   "base64"
@@ -29,12 +80,14 @@ function waitForServer(child) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("서버 시작 시간 초과")), 5000);
     let output = "";
+    let initializingSession = false;
 
     child.stdout.on("data", (chunk) => {
       output += chunk;
-      if (output.includes("Server running")) {
+      if (output.includes("Server running") && !initializingSession) {
+        initializingSession = true;
         clearTimeout(timeout);
-        resolve();
+        prepareTestSession(child).then(resolve, reject);
       }
     });
 
@@ -685,7 +738,7 @@ function createCardAddBrowser(
         };
       }
     },
-    fetch: fetchImplementation,
+    fetch: (url, options) => fetchImplementation(url.replace(/^\.\//, "/"), options),
     innerHeight: 720,
     visualViewport: {
       height: 640,

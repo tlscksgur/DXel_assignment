@@ -8,6 +8,7 @@ const {
 } = require("./security");
 const { get, run, withTransaction } = require("../database/operations");
 const { createPasswordResetService } = require("./password-reset");
+const { publicPageUrl, applicationBasePath } = require("../deployment");
 
 const EMAIL_VERIFICATION_TTL_MS = 30 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -85,11 +86,12 @@ function validPassword(value) {
   return length >= 5 && length <= 128 && Buffer.byteLength(value, "utf8") <= 512;
 }
 
-function requestHasSameOrigin(req, appBaseUrl) {
+function requestHasSameOrigin(req, appBaseUrl, allowedOrigins = []) {
   const origin = req.headers?.origin;
   if (!origin || !appBaseUrl) return false;
   try {
-    return new URL(origin).origin === new URL(appBaseUrl).origin;
+    const requestOrigin = new URL(origin).origin;
+    return requestOrigin === new URL(appBaseUrl).origin || allowedOrigins.includes(requestOrigin);
   } catch (error) {
     return false;
   }
@@ -142,11 +144,19 @@ function createSessionMiddleware(db, { now = () => new Date() } = {}) {
   };
 }
 
-function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = false, now = () => new Date() }) {
+function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = false, allowedOrigins = [], now = () => new Date() }) {
+  const cookiePath = `${applicationBasePath(appBaseUrl)}/`;
   const passwordReset = createPasswordResetService({ db, sendMail, appBaseUrl, now });
+  const sessionCookies = (token, maxAge) => {
+    const cookie = sessionCookie(token, { secure: secureCookie, maxAge, path: cookiePath });
+    return cookiePath === "/" ? cookie : [
+      cookie,
+      sessionCookie("", { secure: secureCookie, maxAge: 0, path: "/" })
+    ];
+  };
 
   app.post("/api/auth/signup", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl)) {
+    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
 
@@ -199,7 +209,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       return res.status(500).json({ success: false, message: "계정을 만들지 못했습니다." });
     }
 
-    const verificationUrl = new URL("/verify-email.html", appBaseUrl);
+    const verificationUrl = publicPageUrl(appBaseUrl, "verify-email.html");
     verificationUrl.searchParams.set("token", token);
     try {
       await sendMail(createVerificationMessage(email, verificationUrl.toString()));
@@ -223,7 +233,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
   });
 
   app.post("/api/auth/verify", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl)) {
+    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
 
@@ -279,7 +289,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
   });
 
   app.post("/api/auth/verification/resend", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl)) {
+    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
     if (typeof sendMail !== "function" || !appBaseUrl) {
@@ -342,7 +352,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       });
       if (!tokenCreated) return res.status(202).json(verificationResendMessage());
 
-      const verificationUrl = new URL("/verify-email.html", appBaseUrl);
+      const verificationUrl = publicPageUrl(appBaseUrl, "verify-email.html");
       verificationUrl.searchParams.set("token", token);
       verificationResendBuckets.set(cooldownKey, timestamp + VERIFICATION_RESEND_COOLDOWN_MS);
       try {
@@ -375,7 +385,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
   });
 
   app.post("/api/auth/login", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl)) {
+    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
 
@@ -411,10 +421,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
         "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)",
         [hashToken(token), user.id, expiresAt]
       );
-      res.setHeader("Set-Cookie", sessionCookie(token, {
-        secure: secureCookie,
-        maxAge: SESSION_TTL_SECONDS
-      }));
+      res.setHeader("Set-Cookie", sessionCookies(token, SESSION_TTL_SECONDS));
       return res.json({
         success: true,
         user: { id: user.id, displayName: user.display_name, email: user.email }
@@ -426,7 +433,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
   });
 
   app.post("/api/auth/logout", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl)) {
+    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
 
@@ -435,7 +442,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       if (token && /^[A-Za-z0-9_-]{43}$/.test(token)) {
         await run(db, "DELETE FROM sessions WHERE token_hash = ?", [hashToken(token)]);
       }
-      res.setHeader("Set-Cookie", sessionCookie("", { secure: secureCookie, maxAge: 0 }));
+      res.setHeader("Set-Cookie", sessionCookies("", 0));
       return res.json({ success: true, message: "로그아웃했습니다." });
     } catch (error) {
       console.error("로그아웃 처리 실패:", error.message);
@@ -448,7 +455,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
   });
 
   app.patch("/api/auth/profile", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl)) {
+    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
     if (!req.user?.id) {
@@ -480,7 +487,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
   });
 
   app.patch("/api/auth/password", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl)) {
+    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
     if (!req.user?.id) {
@@ -517,10 +524,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
           [tokenHash, req.user.id, expiresAt]
         );
       });
-      res.setHeader("Set-Cookie", sessionCookie(token, {
-        secure: secureCookie,
-        maxAge: SESSION_TTL_SECONDS
-      }));
+      res.setHeader("Set-Cookie", sessionCookies(token, SESSION_TTL_SECONDS));
       return res.json({ success: true, message: "비밀번호를 변경했습니다." });
     } catch (error) {
       console.error("비밀번호 변경 실패:", error.message);
@@ -529,7 +533,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
   });
 
   app.post("/api/auth/password-reset/request", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl)) {
+    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
     if (typeof sendMail !== "function" || !appBaseUrl) {
@@ -552,7 +556,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
   });
 
   app.post("/api/auth/password-reset/complete", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl)) {
+    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
 

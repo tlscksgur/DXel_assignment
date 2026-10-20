@@ -4,7 +4,7 @@
 
 ## 공통
 
-- 기본 주소는 현재 접속한 웹 앱과 같은 origin입니다. 개발 기본값은 `http://localhost:3000`이며, 메일 인증 링크에는 `APP_BASE_URL`이 사용됩니다.
+- 기본 주소는 현재 접속한 웹 앱과 같은 origin입니다. 개발 기본값은 `http://localhost:3000`이며, 메일 인증 링크에는 `APP_BASE_URL`이 사용됩니다. 하위 경로 배포에서는 아래 API 경로 앞에 앱 경로를 붙입니다. 예: `APP_BASE_URL=http://61.39.70.66:7777/businessCard`이면 `/api/auth/login`의 실제 주소는 `/businessCard/api/auth/login`입니다. 다른 접속 origin도 허용하려면 `APP_ALLOWED_ORIGINS`에 경로 없는 주소를 명시합니다.
 - JSON 요청은 `Content-Type: application/json`, 로그인 상태는 HttpOnly 쿠키 `bcm_session`으로 유지합니다. 브라우저 fetch는 기본 same-origin 쿠키를 사용하세요.
 - 변경 요청은 `Origin` 검사에 통과해야 합니다. 로그인·가입·명함 변경을 다른 origin에서 직접 호출하지 마세요.
 - 기본 오류 형식: `{ "success": false, "message": "오류 설명" }`. 성공은 각 API 설명을 따릅니다.

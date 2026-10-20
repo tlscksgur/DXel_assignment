@@ -19,7 +19,7 @@ function setServiceStatus(service, isOnline) {
 // ===== Local AI 및 SQLite 실제 연결 상태 확인 =====
 async function updateFooterStatus() {
   try {
-    const response = await fetch("/api/status", { cache: "no-store" });
+    const response = await fetch("./api/status", { cache: "no-store" });
 
     if (!response.ok) {
       throw new Error("status request failed");
@@ -43,7 +43,7 @@ const csvExportBtn = document.querySelector(".csvExport")
 
 if(csvExportBtn) {
   csvExportBtn.addEventListener("click", () => {
-    window.location.href = "/api/cards/export/csv";
+    window.location.href = "./api/cards/export/csv";
   })
 }
 
@@ -52,6 +52,6 @@ const vcardExportBtn = document.querySelector(".vcardExport");
 
 if (vcardExportBtn) {
   vcardExportBtn.addEventListener("click", () => {
-    window.location.href = "/api/cards/export/vcard";
+    window.location.href = "./api/cards/export/vcard";
   });
 }

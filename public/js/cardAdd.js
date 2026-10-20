@@ -331,7 +331,7 @@ async function requestCardAnalysis(preparedImage, temporary = false) {
   formData.append("image", preparedImage.blob, preparedImage.filename);
   if (temporary) formData.append("temporary", "true");
 
-  const response = await fetch("/api/cards/extract", {
+  const response = await fetch("./api/cards/extract", {
     method: "POST",
     body: formData
   });
@@ -348,7 +348,7 @@ async function cleanupPendingUploads(item) {
   if (paths.length === 0) return true;
 
   try {
-    const response = await fetch("/api/cards/uploads/cleanup", {
+    const response = await fetch("./api/cards/uploads/cleanup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paths })
@@ -646,7 +646,7 @@ async function analyzeCurrentCard() {
           const croppedFormData = new FormData();
           croppedFormData.append("image", croppedImage.blob, croppedImage.filename);
           croppedFormData.append("originalPath", result.file.path);
-          const croppedResponse = await fetch("/api/cards/cropped-image", {
+          const croppedResponse = await fetch("./api/cards/cropped-image", {
             method: "POST",
             body: croppedFormData
           });
@@ -677,7 +677,7 @@ async function analyzeCurrentCard() {
           }
           const logoFormData = new FormData();
           logoFormData.append("image", logoImage.blob, logoImageSource.filename.replace(/\.[^.]+$/, "-logo.jpg"));
-          const logoResponse = await fetch("/api/cards/logo-image", {
+          const logoResponse = await fetch("./api/cards/logo-image", {
             method: "POST",
             body: logoFormData
           });
@@ -928,7 +928,7 @@ async function submitCard(allowDuplicate = false) {
   saveButton.textContent = "저장 중";
 
   try {
-    const response = await fetch("/api/cards", {
+    const response = await fetch("./api/cards", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

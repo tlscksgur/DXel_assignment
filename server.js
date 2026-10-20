@@ -3,6 +3,7 @@ require("dotenv").config();
 
 const express = require("express");
 const fs = require("fs");
+const { applicationBasePath, mountApplication, additionalOrigins } = require("./deployment");
 const db = require("./database/db");
 const { all, run, withTransaction } = require("./database/operations");
 const { createSessionMiddleware, registerAuthRoutes } = require("./auth/routes");
@@ -17,6 +18,7 @@ const {
 } = require("./localAi");
 
 const app = express();
+if (process.env.TRUST_PROXY === "loopback") app.set("trust proxy", "loopback");
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === "production";
 const smtpMailer = createSmtpMailer();
@@ -31,6 +33,8 @@ if (isProduction) {
   if (!usesHttps) throw new Error("운영 환경에는 HTTPS APP_BASE_URL이 필요합니다.");
   if (!smtpMailer) throw new Error("운영 환경에는 계정 인증 메일 SMTP 설정이 필요합니다.");
 }
+const appBasePath = applicationBasePath(appBaseUrl);
+const allowedOrigins = additionalOrigins(process.env.APP_ALLOWED_ORIGINS);
 const pendingCropSources = new Map();
 const pendingUploads = new Map();
 
@@ -87,9 +91,10 @@ registerAuthRoutes(app, {
   db,
   sendMail: smtpMailer?.sendMail,
   appBaseUrl,
-  secureCookie: isProduction
+  secureCookie: isProduction,
+  allowedOrigins
 });
-app.use(createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin: !isProduction }));
+app.use(createCardAccessMiddleware(db, { appBaseUrl, allowedOrigins, allowRequestOrigin: !isProduction }));
 
 // ===== 공통 문자열 및 주소 정규화 =====
 function text(value) {
@@ -1757,7 +1762,7 @@ const LOGIN_REQUIRED_PAGES = new Set([
 app.use((req, res, next) => {
   if (req.method === "GET" && LOGIN_REQUIRED_PAGES.has(req.path) && !req.user?.id) {
     const returnPath = encodeURIComponent(req.path.slice(1));
-    return res.redirect(302, `/login.html?next=${returnPath}`);
+    return res.redirect(302, `${appBasePath}/login.html?next=${returnPath}`);
   }
   return next();
 });
@@ -1777,8 +1782,8 @@ app.use((error, req, res, next) => {
 });
 
 Promise.resolve(db.ready).then(() => {
-  const server = app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+  const server = mountApplication(express, app, appBasePath).listen(PORT, process.env.HOST || "0.0.0.0", () => {
+    console.log(`Server running at http://localhost:${PORT}${appBasePath}/`);
   });
 
   server.on("error", (error) => {

@@ -79,7 +79,7 @@ test("내가 등록한 명함은 로그인 사용자에게만 표시되고 기�
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       querySelector: getElement,
       addEventListener(type, listener) { documentListeners.set(type, listener); },
       body: createElement()
@@ -137,7 +137,7 @@ test("명함 분석은 AI 크롭 좌표를 받아 Canvas 크롭본으로 원본�
   assert.match(serverSource, /cropBounds:\s*normalizeCropBounds\(parsed\.crop_bounds\)/);
   assert.match(serverSource, /app\.post\("\/api\/cards\/cropped-image", upload\.single\("image"\)/);
   assert.match(addSource, /async function cropImageToBounds\(blob, bounds, filename\)/);
-  assert.match(addSource, /fetch\("\/api\/cards\/cropped-image"/);
+  assert.match(addSource, /fetch\("\.\/api\/cards\/cropped-image"/);
   assert.match(addSource, /imagePath = croppedResult\.file\.path/);
   assert.match(addSource, /catch \(cropError\) \{[\s\S]*원본 이미지를 사용합니다/);
 });
@@ -152,7 +152,7 @@ test("신규 명함은 로고 좌표를 추출하고 별도 저장해 목록에 
   assert.match(ai, /logo_bounds/);
   assert.match(server, /logoBounds:\s*normalizeLogoBounds\(parsed\.logo_bounds/);
   assert.match(server, /app\.post\("\/api\/cards\/logo-image", upload\.single\("image"\)/);
-  assert.match(add, /fetch\("\/api\/cards\/logo-image"/);
+  assert.match(add, /fetch\("\.\/api\/cards\/logo-image"/);
   assert.match(add, /logo_path:\s*currentItem\?\.logoPath/);
   assert.match(database, /logo_path TEXT/);
   assert.match(server, /logo_path = COALESCE\(\?, logo_path\)/);
@@ -163,12 +163,12 @@ test("신규 명함은 로고 좌표를 추출하고 별도 저장해 목록에 
   };
   const context = {
     console,
-    document: { querySelector: () => inertElement },
+    document: { addEventListener() {}, querySelector: () => inertElement },
     fetch: async () => ({ ok: true, json: async () => ({ success: true, cards: [] }) }),
     setTimeout, clearTimeout
   };
   vm.runInNewContext(management, context);
-  assert.match(context.createCard({ id: 1, name: "홍길동", logo_path: "/uploads/logo.jpg" }), /class="profileCardLogo"[^>]*src="\/uploads\/logo\.jpg"/);
+  assert.match(context.createCard({ id: 1, name: "홍길동", logo_path: "/uploads/logo.jpg" }), /class="profileCardLogo"[^>]*src="\.\/uploads\/logo\.jpg"/);
   assert.doesNotMatch(context.createCard({ id: 2, name: "홍길동", logo_path: "javascript:alert(1)" }), /profileCardLogo/);
 });
 
@@ -246,8 +246,8 @@ test("상세 명함은 연락처 필드와 전체 정보를 빠르게 복사할 
     /<div class="cardDetailHeader">[\s\S]*class="cardDetailCopyAllButton" data-action="copy-all">전체 복사<\/[\s\S]*?<\/div>\s*<dl class="cardDetailGrid">/
   );
   assert.doesNotMatch(
-    source,
-    /<div class="cardDetailActions">[\s\S]*cardDetailCopyAllButton/
+    source.match(/<div class="cardDetailActions">([\s\S]*?)<\/div>/)?.[1] || "",
+    /cardDetailCopyAllButton/
   );
   assert.match(source, /action === "copy-field"/);
   assert.match(source, /action === "copy-all"/);
@@ -286,7 +286,7 @@ test("즐겨찾기는 DB에 저장하고 단건 토글 API로 변경한다", () 
   assert.match(databaseSource, /is_favorite\s+INTEGER\s+NOT\s+NULL\s+DEFAULT\s+0/i);
   assert.match(databaseSource, /\["is_favorite", "INTEGER NOT NULL DEFAULT 0"\]/);
   assert.match(serverSource, /app\.patch\("\/api\/cards\/:id\/favorite"/);
-  assert.match(serverSource, /SET is_favorite = \? WHERE id = \?/);
+  assert.match(serverSource, /INSERT OR IGNORE INTO card_favorites \(user_id, card_id\)/);
 });
 
 test("이름이 비어 있는 명함은 임의 이름 대신 하이픈으로 표시한다", () => {
@@ -369,7 +369,7 @@ test("명함 목록은 선택한 기준과 방향으로 정렬한다", () => {
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement,
       querySelectorAll: () => []
@@ -431,7 +431,7 @@ test("그룹별 보기에서는 그룹이 지정되지 않은 명함을 제외�
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement,
       querySelectorAll: () => []
@@ -488,7 +488,7 @@ test("같은 그룹을 다시 지정하려 하면 요청 전에 안내하고 중
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement,
       querySelectorAll: () => []
@@ -527,7 +527,7 @@ test("기존 그룹 빠른 선택은 검색 결과가 아닌 전체 그룹 API�
   const requests = [];
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement,
       querySelectorAll: () => []
@@ -548,12 +548,12 @@ test("기존 그룹 빠른 선택은 검색 결과가 아닌 전체 그룹 API�
 
   const groups = await context.requestGroupNames();
 
-  assert.equal(requests[0], "/api/cards/groups");
+  assert.equal(requests[0], "./api/cards/groups");
   assert.deepEqual(Array.from(groups), ["거래처", "고객"]);
   assert.match(source, /function renderGroupAssignmentOptions\(groupNames\)/);
   assert.doesNotMatch(source, /function renderGroupAssignmentOptions\(\)[\s\S]*visibleCards\s*\.map\(\(card\) => String\(card\.group_name/);
   assert.match(serverSource, /app\.get\("\/api\/cards\/groups"/);
-  assert.match(serverSource, /SELECT DISTINCT group_name FROM business_cards/);
+  assert.match(serverSource, /SELECT DISTINCT groups.group_name FROM user_card_groups/);
 });
 
 test("빈 명함 목록은 검색 여부와 보기 방식에 맞는 동일 크기 안내 영역을 표시한다", () => {
@@ -664,8 +664,8 @@ test("선택 명함 CSV와 vCard는 각각 올바른 내보내기 API를 사용�
 
   vm.runInNewContext(source.match(/function selectedExportPath[\s\S]*?\n\}/)?.[0] || "", context);
 
-  assert.equal(context.selectedExportPath("csv", [9, 7]), "/api/cards/export/csv?ids=9%2C7");
-  assert.equal(context.selectedExportPath("vcard", [9, 7]), "/api/cards/export/vcard?ids=9%2C7");
+  assert.equal(context.selectedExportPath("csv", [9, 7]), "./api/cards/export/csv?ids=9%2C7");
+  assert.equal(context.selectedExportPath("vcard", [9, 7]), "./api/cards/export/vcard?ids=9%2C7");
 });
 
 test("그룹 저장소와 선택 명함 일괄 처리 API를 제공한다", () => {
@@ -741,7 +741,7 @@ test("선택 명함의 그룹 지정과 삭제 요청은 ID 전체를 전송한�
   const requests = [];
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement
     },
@@ -764,16 +764,16 @@ test("선택 명함의 그룹 지정과 삭제 요청은 ID 전체를 전송한�
   await context.requestGroupAssignment([9, 7], "");
   await context.requestBulkDelete([9, 7]);
 
-  assert.equal(requests[0].url, "/api/cards/groups");
+  assert.equal(requests[0].url, "./api/cards/groups");
   assert.equal(requests[0].options.method, "PATCH");
   assert.deepEqual(JSON.parse(requests[0].options.body), {
     cardIds: [9, 7],
     groupName: "거래처"
   });
-  assert.equal(requests[1].url, "/api/cards/groups");
+  assert.equal(requests[1].url, "./api/cards/groups");
   assert.equal(requests[1].options.method, "PATCH");
   assert.deepEqual(JSON.parse(requests[1].options.body), { cardIds: [9, 7], groupName: "" });
-  assert.equal(requests[2].url, "/api/cards/bulk-delete");
+  assert.equal(requests[2].url, "./api/cards/bulk-delete");
   assert.equal(requests[2].options.method, "POST");
   assert.deepEqual(JSON.parse(requests[2].options.body), { cardIds: [9, 7] });
   assert.match(source, /function renderGroupedCards/);
@@ -940,7 +940,7 @@ test("중복 후보 그룹은 병합 버튼으로 선택한 명함 ID 전체를 
   const requests = [];
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector(selector) {
         if (selector === ".bcmBoard") return board;
@@ -973,7 +973,7 @@ test("중복 후보 그룹은 병합 버튼으로 선택한 명함 ID 전체를 
 
   await context.requestDuplicateMerge([9, 7]);
 
-  assert.equal(requests[0].url, "/api/cards/merge-group");
+  assert.equal(requests[0].url, "./api/cards/merge-group");
   assert.equal(requests[0].options.method, "POST");
   assert.equal(requests[0].options.headers["Content-Type"], "application/json");
   assert.deepEqual(JSON.parse(requests[0].options.body), { cardIds: [9, 7] });
@@ -1000,7 +1000,7 @@ test("그룹별 보기 헤더에는 그룹 전체 해제 버튼과 해당 명함
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector(selector) {
         if (selector === ".bcmBoard") return board;
@@ -1071,7 +1071,7 @@ test("전화번호 또는 이름과 회사가 같은 명함을 인접 그룹으�
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       querySelector(selector) {
         if (selector === ".bcmBoard") return board;
         return inertElement;
@@ -1115,7 +1115,7 @@ test("명함 디자인은 목록 순서가 바뀌어도 카드 ID별로 유지�
   };
   const context = {
     console,
-    document: { querySelector: () => inertElement },
+    document: { addEventListener() {}, querySelector: () => inertElement },
     fetch: async () => ({
       ok: true,
       json: async () => ({ success: true, cards: [] })
@@ -1190,7 +1190,7 @@ test("명함 상세 팝업은 작은 카드 디자인을 이어받고 빈 필드
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement
     },
@@ -1317,7 +1317,7 @@ test("상세 명함 홈페이지는 안전한 새 탭 링크로 표시한다", (
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement
     },
@@ -1359,7 +1359,7 @@ test("명함 상세 편집 화면은 저장하는 9개 필드와 저장·취소 
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement
     },
@@ -1422,7 +1422,7 @@ test("명함 수정과 삭제 요청은 선택한 명함 API에 올바른 메서
   const requests = [];
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement
     },
@@ -1457,11 +1457,11 @@ test("명함 수정과 삭제 요청은 선택한 명함 API에 올바른 메서
   await context.requestCardUpdate(18, payload);
   await context.requestCardDelete(18);
 
-  assert.equal(requests[0].url, "/api/cards/18");
+  assert.equal(requests[0].url, "./api/cards/18");
   assert.equal(requests[0].options.method, "PUT");
   assert.equal(requests[0].options.headers["Content-Type"], "application/json");
   assert.deepEqual(JSON.parse(requests[0].options.body), payload);
-  assert.equal(requests[1].url, "/api/cards/18");
+  assert.equal(requests[1].url, "./api/cards/18");
   assert.equal(requests[1].options.method, "DELETE");
 });
 
@@ -1482,7 +1482,7 @@ test("명함 상세 모달은 읽기 상태에서 수정과 삭제 동작을 제
   };
   const context = {
     console,
-    document: {
+    document: { addEventListener() {},
       body: { classList: { add() {}, remove() {} } },
       querySelector: () => inertElement
     },

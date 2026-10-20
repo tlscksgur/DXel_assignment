@@ -68,7 +68,7 @@ function checkSlide(data){
 // ===== SQLite 명함 데이터 불러오기 =====
 async function loadCards() {
   try {
-    const response = await fetch("/api/cards", {
+    const response = await fetch("./api/cards", {
       cache: "no-store"
     });
 

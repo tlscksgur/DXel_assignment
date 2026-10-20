@@ -19,10 +19,10 @@ function isPublicRead(req) {
   return /^\/api\/cards\/[1-9]\d*$/.test(req.path);
 }
 
-function sameOrigin(req, appBaseUrl, allowRequestOrigin) {
+function sameOrigin(req, appBaseUrl, allowRequestOrigin, allowedOrigins) {
   try {
     const origin = new URL(req.headers?.origin).origin;
-    if (origin === new URL(appBaseUrl).origin) return true;
+    if (origin === new URL(appBaseUrl).origin || allowedOrigins.includes(origin)) return true;
     if (!allowRequestOrigin || !req.protocol || !req.headers?.host) return false;
 
     return origin === new URL(`${req.protocol}://${req.headers.host}`).origin;
@@ -38,13 +38,13 @@ function requestedBulkIds(value) {
   return new Set(ids).size === ids.length ? ids : [];
 }
 
-function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false }) {
+function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false, allowedOrigins = [] }) {
   return async (req, res, next) => {
     if (!isCardApi(req.path) || isPublicRead(req)) return next();
     if (!req.user?.id) {
       return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
     }
-    if (req.method !== "GET" && !sameOrigin(req, appBaseUrl, allowRequestOrigin)) {
+    if (req.method !== "GET" && !sameOrigin(req, appBaseUrl, allowRequestOrigin, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
 

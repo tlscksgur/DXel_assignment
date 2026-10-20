@@ -54,6 +54,7 @@ async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
       if (name === "./auth/mailer") return { createSmtpMailer: () => null };
       if (name === "./upload") return { UPLOAD_DIR: uploads, upload };
       if (name === "./localAi") return localAi;
+      if (name === "./deployment") return require("../deployment");
       return require(name);
     },
     console, process, fetch, AbortSignal, Buffer, setTimeout, clearTimeout

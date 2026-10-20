@@ -1,7 +1,7 @@
 const sqlite3 = require("sqlite3").verbose();
 const { initializeSchema } = require("./schema");
 
-const db = new sqlite3.Database("./database/businesscard.db", (error) => {
+const db = new sqlite3.Database(process.env.DATABASE_PATH || "./database/businesscard.db", (error) => {
   if (error) {
     console.error(error.message);
   } else {

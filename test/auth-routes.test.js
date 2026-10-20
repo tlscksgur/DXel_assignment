@@ -61,7 +61,7 @@ function createRouteApp() {
   return app;
 }
 
-async function withAuthApp(runTest, { sendMail } = {}) {
+async function withAuthApp(runTest, { sendMail, appBaseUrl = "http://cards.test", allowedOrigins = [] } = {}) {
   assert.equal(typeof registerAuthRoutes, "function", "registerAuthRoutes 함수를 제공해야 합니다.");
   const db = new sqlite3.Database(":memory:");
   const mails = [];
@@ -70,7 +70,8 @@ async function withAuthApp(runTest, { sendMail } = {}) {
     await initializeSchema(db);
     registerAuthRoutes(app, {
       db,
-      appBaseUrl: "http://cards.test",
+      appBaseUrl,
+      allowedOrigins,
       secureCookie: false,
       now: () => new Date("2026-09-29T00:00:00.000Z"),
       sendMail: sendMail || (async (message) => { mails.push(message); })
@@ -80,6 +81,47 @@ async function withAuthApp(runTest, { sendMail } = {}) {
     await close(db);
   }
 }
+
+test("외부 하위 경로에서 가입·재전송·로그인·비밀번호 재설정 링크를 유지한다", async () => {
+  const appBaseUrl = "http://61.39.70.66:7777/businessCard";
+  const headers = { origin: "http://61.39.70.66:7777" };
+  await withAuthApp(async ({ app, db, mails }) => {
+    const signup = await app.request("POST", "/api/auth/signup", {
+      headers, body: { displayName: "배포 확인", email: "subpath@example.com", password: "abcde" }
+    });
+    assert.equal(signup.status, 201);
+    assert.match(mails[0].url, /^http:\/\/61\.39\.70\.66:7777\/businessCard\/verify-email\.html\?token=/);
+    await run(db, "UPDATE email_verification_tokens SET created_at = ?", ["2026-09-28T00:00:00.000Z"]);
+    const resend = await app.request("POST", "/api/auth/verification/resend", {
+      headers, body: { email: "subpath@example.com" }
+    });
+    assert.equal(resend.status, 202);
+    assert.equal(mails.length, 2);
+    assert.equal(new URL(mails[1].url).pathname, "/businessCard/verify-email.html");
+    const token = new URL(mails[1].url).searchParams.get("token");
+    assert.equal((await app.request("POST", "/api/auth/verify", { headers, body: { token } })).status, 200);
+    const login = await app.request("POST", "/api/auth/login", {
+      headers, body: { email: "subpath@example.com", password: "abcde" }
+    });
+    assert.equal(login.status, 200);
+    assert.match(login.headers["set-cookie"][0], /Path=\/businessCard\//);
+    assert.match(login.headers["set-cookie"][1], /Path=\/;.*Max-Age=0/);
+    const internalLogin = await app.request("POST", "/api/auth/login", {
+      headers: { origin: "http://192.168.210.10:7777" },
+      body: { email: "subpath@example.com", password: "abcde" }
+    });
+    assert.equal(internalLogin.status, 200);
+    const reset = await app.request("POST", "/api/auth/password-reset/request", {
+      headers, body: { email: "subpath@example.com" }
+    });
+    assert.equal(reset.status, 202);
+    assert.equal(new URL(mails.at(-1).url).pathname, "/businessCard/reset-password.html");
+    const rejected = await app.request("POST", "/api/auth/login", {
+      headers: { origin: "http://unrelated.test" }, body: { email: "subpath@example.com", password: "abcde" }
+    });
+    assert.equal(rejected.status, 403);
+  }, { appBaseUrl, allowedOrigins: ["http://192.168.210.10:7777"] });
+});
 
 test("가입은 표시 이름·이메일·비밀번호만 받아 정규화된 미인증 계정을 만든다", async () => {
   await withAuthApp(async ({ app, db, mails }) => {

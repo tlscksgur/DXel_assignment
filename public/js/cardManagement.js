@@ -305,7 +305,7 @@ function createCopyAllCardText(contact) {
 function createCardOriginalImage(contact) {
   const imagePath = String(contact.image_path || "").trim();
   const safeImagePath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(imagePath)
-    ? escapeHtml(imagePath)
+    ? escapeHtml(`.${imagePath}`)
     : "";
   const imageContent = safeImagePath
     ? `<img src="${safeImagePath}" alt="${escapeHtml(contact.name || "명함")} 원본 이미지" loading="eager" decoding="async">`
@@ -321,7 +321,7 @@ function createCardOriginalImage(contact) {
 function createCardImageLightbox(contact) {
   const imagePath = String(contact.image_path || "").trim();
   const safeImagePath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(imagePath)
-    ? escapeHtml(imagePath)
+    ? escapeHtml(`.${imagePath}`)
     : "";
   if (!safeImagePath) return "";
 
@@ -372,7 +372,7 @@ function createCard(contact) {
   const email = escapeHtml(contact.email);
   const logoPath = String(contact.logo_path || "").trim();
   const safeLogoPath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(logoPath)
-    ? escapeHtml(logoPath)
+    ? escapeHtml(`.${logoPath}`)
     : "";
 
   return `
@@ -547,7 +547,7 @@ function createCardEditor(contact, statusMessage = "") {
 
 // ===== 명함 수정·삭제 API 요청 =====
 async function requestCardUpdate(cardId, card, allowDuplicate = false) {
-  const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+  const response = await fetch(`./api/cards/${encodeURIComponent(cardId)}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json"
@@ -567,7 +567,7 @@ async function requestCardUpdate(cardId, card, allowDuplicate = false) {
 }
 
 async function requestCardDelete(cardId) {
-  const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+  const response = await fetch(`./api/cards/${encodeURIComponent(cardId)}`, {
     method: "DELETE"
   });
   const result = await response.json();
@@ -580,7 +580,7 @@ async function requestCardDelete(cardId) {
 }
 
 async function requestFavoriteUpdate(cardId, isFavorite) {
-  const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}/favorite`, {
+  const response = await fetch(`./api/cards/${encodeURIComponent(cardId)}/favorite`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json"
@@ -597,7 +597,7 @@ async function requestFavoriteUpdate(cardId, isFavorite) {
 }
 
 async function requestTagUpdate(cardId, tags) {
-  const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}/tags`, {
+  const response = await fetch(`./api/cards/${encodeURIComponent(cardId)}/tags`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json"
@@ -1068,7 +1068,7 @@ function renderDuplicateGroups(groups) {
 
 // ===== 중복 명함 병합 =====
 async function requestDuplicateMerge(cardIds) {
-  const response = await fetch("/api/cards/merge-group", {
+  const response = await fetch("./api/cards/merge-group", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -1122,7 +1122,7 @@ async function mergeDuplicateGroup(button) {
 
 // ===== 선택 명함 그룹 지정·삭제 API 요청 =====
 async function requestGroupAssignment(cardIds, groupName) {
-  const response = await fetch("/api/cards/groups", {
+  const response = await fetch("./api/cards/groups", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json"
@@ -1139,7 +1139,7 @@ async function requestGroupAssignment(cardIds, groupName) {
 }
 
 async function requestGroupNames() {
-  const response = await fetch("/api/cards/groups", { cache: "no-store" });
+  const response = await fetch("./api/cards/groups", { cache: "no-store" });
   const result = await response.json();
 
   if (!response.ok) {
@@ -1150,7 +1150,7 @@ async function requestGroupNames() {
 }
 
 async function requestBulkDelete(cardIds) {
-  const response = await fetch("/api/cards/bulk-delete", {
+  const response = await fetch("./api/cards/bulk-delete", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -1407,7 +1407,7 @@ async function removeGroupAssignment(button) {
 function selectedExportPath(format, cardIds) {
   const exportFormat = format === "vcard" ? "vcard" : "csv";
   const params = new URLSearchParams({ ids: cardIds.join(",") });
-  return `/api/cards/export/${exportFormat}?${params.toString()}`;
+  return `./api/cards/export/${exportFormat}?${params.toString()}`;
 }
 
 function exportSelectedCards(format) {
@@ -1513,7 +1513,7 @@ async function loadCards() {
   resultSummary.textContent = "명함을 불러오는 중입니다.";
 
   try {
-    const response = await fetch(`/api/cards${query}`, { cache: "no-store" });
+    const response = await fetch(`./api/cards${query}`, { cache: "no-store" });
     const result = await response.json();
 
     if (!response.ok) {

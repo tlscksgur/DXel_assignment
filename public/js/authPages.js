@@ -65,14 +65,14 @@
 
     try {
       if (form.dataset.authForm === "login") {
-        await requestJson("/api/auth/login", "POST", {
+        await requestJson("./api/auth/login", "POST", {
           email: data.get("email"), password: data.get("password")
         });
         const next = new URLSearchParams(window.location.search).get("next") || "BCM.html";
         const safeNext = new Set(["index.html", "BCM.html", "cardAdd.html", "cardImport.html", "cardTrash.html", "profile.html"]);
         window.location.assign(`./${safeNext.has(next) ? next : "BCM.html"}`);
       } else if (form.dataset.authForm === "signup") {
-        const result = await requestJson("/api/auth/signup", "POST", {
+        const result = await requestJson("./api/auth/signup", "POST", {
           displayName: data.get("displayName"),
           email: data.get("email"),
           password: data.get("password")
@@ -80,31 +80,31 @@
         rememberPendingVerificationEmail(result.user?.email || String(data.get("email") || "").trim().toLowerCase());
         window.location.assign("./verify-email.html");
       } else if (form.dataset.authForm === "verify") {
-        const result = await requestJson("/api/auth/verify", "POST", { token });
+        const result = await requestJson("./api/auth/verify", "POST", { token });
         showStatus(result.message || "이메일 인증이 완료되었습니다.", "success");
         clearPendingVerificationEmail();
         window.setTimeout(() => window.location.assign("./login.html"), 1200);
       } else if (form.dataset.authForm === "verification-resend") {
-        const result = await requestJson("/api/auth/verification/resend", "POST", {
+        const result = await requestJson("./api/auth/verification/resend", "POST", {
           email: pendingVerificationEmail,
           token: hasVerificationToken ? token : ""
         });
         showStatus(result.message || "인증이 필요한 계정이라면 새 인증 링크를 보냈습니다.", "success");
       } else if (form.dataset.authForm === "reset-request") {
-        const result = await requestJson("/api/auth/password-reset/request", "POST", {
+        const result = await requestJson("./api/auth/password-reset/request", "POST", {
           email: data.get("email")
         });
         showStatus(result.message || "가입된 이메일이라면 재설정 링크를 보냈습니다.", "success");
         form.reset();
       } else if (form.dataset.authForm === "reset-complete") {
-        const result = await requestJson("/api/auth/password-reset/complete", "POST", {
+        const result = await requestJson("./api/auth/password-reset/complete", "POST", {
           token,
           newPassword: data.get("newPassword")
         });
         showStatus(result.message || "비밀번호를 재설정했습니다.", "success");
         window.setTimeout(() => window.location.assign("./login.html"), 1200);
       } else if (form.dataset.authForm === "profile") {
-        const result = await requestJson("/api/auth/profile", "PATCH", {
+        const result = await requestJson("./api/auth/profile", "PATCH", {
           displayName: data.get("displayName")
         });
         showStatus("이름을 변경했습니다.", "success");
@@ -118,7 +118,7 @@
           document.querySelectorAll(".accountMenuIdentity strong").forEach((element) => { element.textContent = updatedName; });
         }
       } else if (form.dataset.authForm === "password") {
-        const result = await requestJson("/api/auth/password", "PATCH", {
+        const result = await requestJson("./api/auth/password", "PATCH", {
           currentPassword: data.get("currentPassword"),
           newPassword: data.get("newPassword")
         });
@@ -154,7 +154,7 @@
   }
 
   if (document.body.classList.contains("profile-page")) {
-    fetch("/api/auth/me", { cache: "no-store" })
+    fetch("./api/auth/me", { cache: "no-store" })
       .then((response) => response.json())
       .then((result) => {
         if (!result.user) return;

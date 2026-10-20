@@ -70,11 +70,12 @@ function hashToken(token) {
   return crypto.createHash("sha256").update(String(token)).digest("hex");
 }
 
-function sessionCookie(token, { secure = false, maxAge = DEFAULT_SESSION_AGE_SECONDS } = {}) {
+function sessionCookie(token, { secure = false, maxAge = DEFAULT_SESSION_AGE_SECONDS, path = "/" } = {}) {
+  if (!/^\/[A-Za-z0-9/_-]*$/.test(path)) throw new Error("잘못된 세션 쿠키 경로입니다.");
   const safeMaxAge = Number.isInteger(maxAge) && maxAge >= 0 ? maxAge : DEFAULT_SESSION_AGE_SECONDS;
   const attributes = [
     `bcm_session=${encodeURIComponent(token)}`,
-    "Path=/",
+    `Path=${path}`,
     "HttpOnly",
     "SameSite=Lax",
     `Max-Age=${safeMaxAge}`

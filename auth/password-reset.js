@@ -4,6 +4,7 @@ const {
   hashToken
 } = require("./security");
 const { get, run, withTransaction } = require("../database/operations");
+const { publicPageUrl } = require("../deployment");
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -57,7 +58,7 @@ function createPasswordResetService({ db, sendMail, appBaseUrl, now = () => new 
     });
     if (!issued) return true;
 
-    const resetUrl = new URL("/reset-password.html", appBaseUrl);
+    const resetUrl = publicPageUrl(appBaseUrl, "reset-password.html");
     resetUrl.searchParams.set("token", token);
     try {
       await sendMail({

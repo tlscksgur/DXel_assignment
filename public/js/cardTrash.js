@@ -66,7 +66,7 @@ function renderTrash() {
 }
 
 async function loadTrash() {
-  const result = await requestTrash("/api/cards?trash=1");
+  const result = await requestTrash("./api/cards?trash=1");
   trashedCards = Array.isArray(result.cards) ? result.cards : [];
   const availableIds = new Set(trashedCards.map((card) => Number(card.id)));
   selectedTrashIds.forEach((id) => { if (!availableIds.has(id)) selectedTrashIds.delete(id); });
@@ -76,9 +76,9 @@ async function loadTrash() {
 async function restoreCards(cardIds) {
   if (cardIds.length === 0 || !window.confirm(`선택한 명함 ${cardIds.length}장을 복원할까요?`)) return;
   if (cardIds.length === 1) {
-    await requestTrash(`/api/cards/${encodeURIComponent(cardIds[0])}/restore`, { method: "PATCH" });
+    await requestTrash(`./api/cards/${encodeURIComponent(cardIds[0])}/restore`, { method: "PATCH" });
   } else {
-    await requestTrash("/api/cards/bulk-restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cardIds }) });
+    await requestTrash("./api/cards/bulk-restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cardIds }) });
   }
   cardIds.forEach((id) => selectedTrashIds.delete(id));
   await loadTrash();
@@ -87,9 +87,9 @@ async function restoreCards(cardIds) {
 async function permanentlyDeleteCards(cardIds) {
   if (cardIds.length === 0 || !window.confirm(`선택한 명함 ${cardIds.length}장을 영구 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
   if (cardIds.length === 1) {
-    await requestTrash(`/api/cards/${encodeURIComponent(cardIds[0])}/permanent`, { method: "DELETE" });
+    await requestTrash(`./api/cards/${encodeURIComponent(cardIds[0])}/permanent`, { method: "DELETE" });
   } else {
-    await requestTrash("/api/cards/bulk-permanent-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cardIds }) });
+    await requestTrash("./api/cards/bulk-permanent-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cardIds }) });
   }
   cardIds.forEach((id) => selectedTrashIds.delete(id));
   await loadTrash();
