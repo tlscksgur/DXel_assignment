@@ -7,7 +7,7 @@ const { applicationBasePath, mountApplication, additionalOrigins } = require("./
 const db = require("./database/db");
 const { all, run, withTransaction } = require("./database/operations");
 const { createSessionMiddleware, registerAuthRoutes } = require("./auth/routes");
-const { createCardAccessMiddleware } = require("./auth/card-access");
+const { createCardAccessMiddleware, isCardAdmin } = require("./auth/card-access");
 const { createSmtpMailer } = require("./auth/mailer");
 const { UPLOAD_DIR, upload } = require("./upload");
 const {
@@ -35,6 +35,7 @@ if (isProduction) {
 }
 const appBasePath = applicationBasePath(appBaseUrl);
 const allowedOrigins = additionalOrigins(process.env.APP_ALLOWED_ORIGINS);
+const cardAdminEmail = process.env.CARD_ADMIN_EMAIL || "";
 const pendingCropSources = new Map();
 const pendingUploads = new Map();
 
@@ -71,7 +72,8 @@ const CARD_READ_COLUMNS = [
 
 function cardReadSql() {
   return `SELECT ${CARD_READ_COLUMNS.map((column) => `bc.${column}`).join(", ")},
-      CASE WHEN bc.created_by = ? THEN 1 ELSE 0 END AS can_edit,
+      CASE WHEN bc.created_by = ? OR ? = 1 THEN 1 ELSE 0 END AS can_edit,
+      CASE WHEN bc.created_by = ? THEN 1 ELSE 0 END AS is_mine,
       CASE WHEN ? > 0 THEN 1 ELSE 0 END AS can_manage_personal,
       CASE WHEN cf.card_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
       COALESCE(ucg.group_name, '') AS group_name
@@ -82,7 +84,7 @@ function cardReadSql() {
 
 function cardReadParams(req) {
   const userId = Number(req.user?.id) || 0;
-  return [userId, userId, userId, userId];
+  return [userId, isCardAdmin(req.user, cardAdminEmail) ? 1 : 0, userId, userId, userId, userId];
 }
 
 app.use(express.json());
@@ -94,7 +96,7 @@ registerAuthRoutes(app, {
   secureCookie: isProduction,
   allowedOrigins
 });
-app.use(createCardAccessMiddleware(db, { appBaseUrl, allowedOrigins, allowRequestOrigin: !isProduction }));
+app.use(createCardAccessMiddleware(db, { appBaseUrl, allowedOrigins, allowRequestOrigin: !isProduction, adminEmail: cardAdminEmail }));
 
 // ===== 공통 문자열 및 주소 정규화 =====
 function text(value) {
@@ -1155,7 +1157,7 @@ app.get("/api/cards", (req, res) => {
   const params = cardReadParams(req);
   const whereParts = [trashOnly ? "bc.deleted_at IS NOT NULL" : "bc.deleted_at IS NULL"];
 
-  if (trashOnly) {
+  if (trashOnly && !isCardAdmin(req.user, cardAdminEmail)) {
     whereParts.push("bc.created_by = ?");
     params.push(userId);
   }

@@ -92,8 +92,8 @@ test("내가 등록한 명함은 로그인 사용자에게만 표시되고 기�
   documentListeners.get("auth:ready")({ detail: { user: { id: 1 } } });
   assert.equal(myCardsOption.hidden, false);
   vm.runInContext(`visibleCards = [
-    { id: 1, name: "내 명함", can_edit: 1 },
-    { id: 2, name: "다른 사람 명함", can_edit: 0 }
+    { id: 1, name: "내 명함", can_edit: 1, is_mine: 1 },
+    { id: 2, name: "다른 사람 명함", can_edit: 1, is_mine: 0 }
   ];`, context);
 
   sortSelect.value = "name";

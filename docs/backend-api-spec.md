@@ -95,7 +95,9 @@ if (!response.ok) throw new Error(result.message);
 {"success":true,"cards":[{"id":123,"name":"홍길동","tags":"[\"고객\"]","can_edit":1,"can_manage_personal":1,"is_favorite":0,"group_name":""}]}
 ```
 
-카드 응답은 명함 필드와 `created_at`, `deleted_at`을 포함합니다. `tags`는 JSON 배열이 아니라 JSON 문자열입니다. `can_edit`, `can_manage_personal`, `is_favorite`는 정수 `0`/`1`; 즐겨찾기와 `group_name`은 현재 로그인 사용자 기준입니다. 현재 목록은 페이지네이션 없이 전체를 반환합니다.
+카드 응답은 명함 필드와 `created_at`, `deleted_at`을 포함합니다. `tags`는 JSON 배열이 아니라 JSON 문자열입니다. `can_edit`, `is_mine`, `can_manage_personal`, `is_favorite`는 정수 `0`/`1`; 즐겨찾기와 `group_name`은 현재 로그인 사용자 기준입니다. `can_edit`는 관리자 또는 등록자 여부, `is_mine`은 실제 등록자 여부로 서로 다릅니다. 현재 목록은 페이지네이션 없이 전체를 반환합니다.
+
+서버의 `CARD_ADMIN_EMAIL`에 지정된 이메일로 인증·로그인한 계정은 위 표의 등록자 제한을 예외 적용합니다. 다른 등록자의 명함 변경·태그 변경·병합·삭제·복원·영구 삭제와 전체 휴지통 조회가 가능하며, 개인 즐겨찾기·그룹은 관리자도 자신의 정보만 조회·변경합니다. 미설정 시 관리자 예외는 없고, 요청 본문의 권한·이메일 값으로 승격할 수 없습니다.
 
 중복 기준: 정규화된 휴대폰 번호가 겹치거나 이름과 회사가 모두 일치. `POST /api/cards` 및 `PUT`의 중복 응답은 `409`와 `duplicates:[{id,name,company,mobile,phone,email}]`입니다.
 
@@ -130,7 +132,7 @@ if (!response.ok) throw new Error(result.message);
 ## 권한·주의사항
 
 - 그룹과 즐겨찾기는 로그인 사용자 개인 데이터라 다른 사용자의 화면에는 보이지 않습니다. 다른 사용자가 등록한 활성 명함에도 개인 그룹/즐겨찾기를 지정할 수 있습니다.
-- 등록자 정보가 없는 과거 명함은 수정/삭제 권한자가 없습니다.
+- 등록자 정보가 없는 과거 명함은 설정된 관리자만 수정/삭제할 수 있습니다.
 - 그룹 병합은 최신 명함을 대표로 하고 비어 있는 필드만 다른 행에서 채우지만, 나머지 행은 실제 삭제합니다. 중복 행의 태그·그룹·즐겨찾기는 합쳐지지 않아 사라질 수 있습니다.
 - 조회와 내보내기는 전체 활성 명함 기준입니다. 로그인 사용자는 CSV/vCard로 모든 활성 명함을 내보낼 수 있습니다.
 - `APP_BASE_URL`을 실제 서비스 주소로 설정해야 합니다. 운영 시 HTTPS가 필수이며 SMTP 설정도 필요합니다. DB와 `uploads/`는 영속 저장해야 합니다.

@@ -12,6 +12,8 @@ try { deployment = require('../deployment'); } catch (error) {
   if (error.code !== 'MODULE_NOT_FOUND') throw error;
 }
 const { sessionCookie } = require('../auth/security');
+const { createOpaqueToken, hashToken } = require('../auth/security');
+const sqlite3 = require('sqlite3');
 
 test('공개 주소의 하위 경로를 메일 링크에서도 보존한다', () => {
   assert.equal(typeof deployment.publicPageUrl, 'function');
@@ -85,6 +87,7 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
       ...process.env, PORT: String(port), HOST: '127.0.0.1', NODE_ENV: 'test',
       APP_BASE_URL: `${origin}/businessCard`, APP_ALLOWED_ORIGINS: '', TRUST_PROXY: '',
       DATABASE_PATH: path.join(dir, 'cards.db'),
+      CARD_ADMIN_EMAIL: 'chshin@dxel.co.kr',
       SMTP_HOST: '', SMTP_PORT: '', SMTP_USER: '', SMTP_PASSWORD: '', MAIL_FROM: ''
     },
     stdio: ['ignore', 'pipe', 'pipe']
@@ -109,6 +112,47 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
     assert.equal((await fetch(`${origin}/businessCard/api/cards`)).status, 200);
     assert.equal((await fetch(`${origin}/api/cards`)).status, 404);
     assert.equal((await fetch(`${origin}/businessCard/api/cards/extract`, { method: 'POST' })).status, 401);
+    const db = new sqlite3.Database(path.join(dir, 'cards.db'));
+    const execute = (sql, params = []) => new Promise((resolve, reject) => {
+      db.run(sql, params, (error) => error ? reject(error) : resolve());
+    });
+    const tokens = [createOpaqueToken(), createOpaqueToken()];
+    try {
+      for (const [index, email] of ['chshin@dxel.co.kr', 'owner@example.test'].entries()) {
+        await execute('INSERT INTO users (id, display_name, email, password_hash, email_verified_at) VALUES (?, ?, ?, ?, ?)',
+          [index + 1, '권한 테스트', email, 'unused', new Date().toISOString()]);
+        await execute('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)',
+          [hashToken(tokens[index]), index + 1, new Date(Date.now() + 60000).toISOString()]);
+      }
+      await execute('INSERT INTO business_cards (id, name, created_by) VALUES (1, ?, 2)', ['다른 사람 명함']);
+      await execute('INSERT INTO business_cards (id, name, created_by) VALUES (3, ?, 1)', ['관리자 본인 명함']);
+      await execute('INSERT INTO business_cards (id, name, created_by, deleted_at) VALUES (2, ?, 2, ?)', ['휴지통 명함', new Date().toISOString()]);
+      await execute('INSERT INTO card_favorites (user_id, card_id) VALUES (2, 1)');
+      await execute('INSERT INTO user_card_groups (user_id, card_id, group_name) VALUES (2, 1, ?)', ['등록자 개인 그룹']);
+    } finally { await new Promise((resolve) => db.close(resolve)); }
+    const request = (token, url, method = 'GET', body) => fetch(`${origin}/businessCard/api/cards${url}`, {
+      method, headers: { Cookie: `bcm_session=${token}`, Origin: origin, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    const adminCards = (await (await request(tokens[0], '')).json()).cards;
+    const otherCardForAdmin = adminCards.find((card) => card.id === 1);
+    assert.equal(otherCardForAdmin.can_edit, 1);
+    assert.equal(otherCardForAdmin.is_mine, 0);
+    assert.equal(adminCards.find((card) => card.id === 3).is_mine, 1);
+    assert.equal(otherCardForAdmin.is_favorite, 0);
+    assert.equal(otherCardForAdmin.group_name, '');
+    const ownerCards = (await (await request(tokens[1], '')).json()).cards;
+    assert.equal(ownerCards.find((card) => card.id === 1).is_favorite, 1);
+    assert.equal(ownerCards.find((card) => card.id === 1).group_name, '등록자 개인 그룹');
+    assert.equal(ownerCards.find((card) => card.id === 3).can_edit, 0);
+    assert.equal((await request(tokens[1], '/3', 'PUT', { name: '권한 위조', isAdmin: true })).status, 403);
+    assert.equal((await request(tokens[1], '/3', 'DELETE')).status, 403);
+    assert.equal((await (await request(tokens[0], '?trash=1')).json()).cards.length, 1);
+    assert.equal((await request(tokens[0], '/2/restore', 'PATCH', {})).status, 200);
+    assert.equal((await request(tokens[0], '/1', 'PUT', { name: '관리자 수정' })).status, 200);
+    assert.equal((await request(tokens[0], '/1', 'DELETE')).status, 200);
+    // 소유권을 넘기거나 개인 분류를 조회하는 권한은 부여하지 않는다.
+    assert.equal((await (await request(tokens[1], '?trash=1')).json()).cards[0].name, '관리자 수정');
   } finally {
     child.kill('SIGTERM');
     await exited;

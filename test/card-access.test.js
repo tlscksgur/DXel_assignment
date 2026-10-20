@@ -15,11 +15,11 @@ function close(db) {
     (error) => error ? reject(error) : resolve()));
 }
 
-async function withAccess(runTest) {
+async function withAccess(runTest, options = {}) {
   const db = new sqlite3.Database(":memory:");
   try {
     await initializeSchema(db);
-    const middleware = createCardAccessMiddleware(db, { appBaseUrl: "http://cards.test" });
+    const middleware = createCardAccessMiddleware(db, { appBaseUrl: "http://cards.test", ...options });
     await runTest({ db, middleware });
   } finally {
     await close(db);
@@ -62,6 +62,35 @@ test("비로그인 사용자는 활성 명함을 조회할 수 있지만 변경�
       assert.equal(result.status, 401, `${method} ${path}`);
       assert.equal(result.continued, false);
     }
+  });
+});
+
+test("지정 이메일 관리자는 전체 명함 변경이 가능하지만 출처 검사와 개인 데이터 격리는 유지한다", async () => {
+  await withAccess(async ({ db, middleware }) => {
+    const card = await run(db, "INSERT INTO business_cards (name) VALUES (?)", ["다른 사람 명함"]);
+    const user = { id: 9, email: "CHSHIN@dxel.co.kr" };
+    for (const [method, suffix] of [["PUT", ""], ["DELETE", ""], ["PATCH", "/tags"], ["PATCH", "/restore"], ["DELETE", "/permanent"]]) {
+      assert.equal((await request(middleware, method, `/api/cards/${card.lastID}${suffix}`, { user })).continued, true);
+    }
+    for (const path of ["bulk-delete", "bulk-restore", "bulk-permanent-delete", "merge-group"]) {
+      assert.equal((await request(middleware, "POST", `/api/cards/${path}`, { user, body: { cardIds: [card.lastID] } })).continued, true);
+    }
+    assert.equal((await request(middleware, "DELETE", `/api/cards/${card.lastID}`, { user, origin: "https://evil.test" })).status, 403);
+    assert.equal((await request(middleware, "DELETE", `/api/cards/${card.lastID}`, {
+      user: { id: 10, email: "other@example.com", isAdmin: true }, body: { email: user.email, isAdmin: true }
+    })).status, 403);
+    assert.equal((await request(middleware, "DELETE", `/api/cards/${card.lastID}`, {
+      user: { email: user.email }
+    })).status, 401);
+  }, { adminEmail: " chshin@dxel.co.kr " });
+});
+
+test("관리자 이메일 설정이 없으면 관리자 권한은 기본적으로 없다", async () => {
+  await withAccess(async ({ db, middleware }) => {
+    const card = await run(db, "INSERT INTO business_cards (name) VALUES (?)", ["타인 명함"]);
+    assert.equal((await request(middleware, "DELETE", `/api/cards/${card.lastID}`, {
+      user: { id: 9, email: "chshin@dxel.co.kr" }
+    })).status, 403);
   });
 });
 

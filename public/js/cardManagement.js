@@ -356,7 +356,7 @@ function canEditCard(contact) {
 }
 
 function filterCardsByCurrentUser(cards) {
-  return cards.filter((card) => card.can_edit === true || Number(card.can_edit) === 1);
+  return cards.filter((card) => card.is_mine === true || Number(card.is_mine) === 1);
 }
 
 function createCard(contact) {
@@ -1336,7 +1336,7 @@ async function deleteSelectedCards() {
     .map((card) => Number(card.id));
   if (
     cardIds.length === 0 ||
-    !window.confirm(`내가 등록한 명함 ${cardIds.length}장을 휴지통으로 옮길까요?\n휴지통에서 다시 복원할 수 있습니다.`)
+    !window.confirm(`선택한 명함 ${cardIds.length}장을 휴지통으로 옮길까요?\n휴지통에서 다시 복원할 수 있습니다.`)
   ) {
     return;
   }

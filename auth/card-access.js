@@ -38,7 +38,13 @@ function requestedBulkIds(value) {
   return new Set(ids).size === ids.length ? ids : [];
 }
 
-function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false, allowedOrigins = [] }) {
+function isCardAdmin(user, adminEmail) {
+  const configuredEmail = typeof adminEmail === "string" ? adminEmail.trim().toLowerCase() : "";
+  return Boolean(user?.id && configuredEmail && typeof user.email === "string"
+    && user.email.trim().toLowerCase() === configuredEmail);
+}
+
+function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false, allowedOrigins = [], adminEmail = "" }) {
   return async (req, res, next) => {
     if (!isCardApi(req.path) || isPublicRead(req)) return next();
     if (!req.user?.id) {
@@ -59,7 +65,7 @@ function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false
         `SELECT id, created_by FROM business_cards WHERE id IN (${placeholders})`,
         ids
       );
-      if (rows.some((row) => row.created_by !== req.user.id)) {
+      if (!isCardAdmin(req.user, adminEmail) && rows.some((row) => row.created_by !== req.user.id)) {
         return res.status(403).json({ success: false, message: "등록자만 명함을 변경할 수 있습니다." });
       }
       return next();
@@ -69,4 +75,4 @@ function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false
   };
 }
 
-module.exports = { createCardAccessMiddleware };
+module.exports = { createCardAccessMiddleware, isCardAdmin };
