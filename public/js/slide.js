@@ -74,6 +74,14 @@ async function loadCards() {
 
     const result = await response.json();
 
+    if (response.status === 401) {
+      contacts = [];
+      cardTrack.classList.remove("slide");
+      cardTrack.classList.add("is-empty");
+      cardTrack.innerHTML = '<div class="emptyBox"><p class="emptyText">로그인 후 명함을 확인할 수 있습니다.</p></div>';
+      return;
+    }
+
     if (!response.ok) {
       throw new Error(result.message || "명함을 불러오지 못했습니다.");
     }
@@ -88,7 +96,8 @@ async function loadCards() {
 }
 
 window.addEventListener("resize", () => {
-  renderCards(contacts);
+  // 로그인 안내를 빈 목록 안내로 덮어쓰지 않는다.
+  if (contacts.length > 0) renderCards(contacts);
 });
 
 

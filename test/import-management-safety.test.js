@@ -64,6 +64,34 @@ async function flushPromises() {
   await new Promise(setImmediate);
 }
 
+test("로그인하지 않은 명함 관리 화면은 명함 데이터를 지우고 로그인 안내만 표시한다", async () => {
+  const { context, elements, requests } = managementContext();
+  vm.runInContext('visibleCards = [{ id: 1, name: "비공개 명함" }]', context);
+  requests[0].resolve({ ok: false, status: 401, json: async () => ({ message: "로그인이 필요합니다." }) });
+  await flushPromises();
+  assert.equal(vm.runInContext("visibleCards.length", context), 0);
+  assert.match(elements.get(".bcmBoard").innerHTML, /로그인 후 명함을 확인할 수 있습니다/);
+  assert.doesNotMatch(elements.get(".bcmBoard").innerHTML, /비공개 명함|profileCard/);
+});
+
+test("홈에서 로그인 안내는 창 크기를 바꿔도 빈 목록 안내로 바뀌지 않는다", async () => {
+  const source = fs.readFileSync(path.join(root, "public/js/slide.js"), "utf8");
+  const track = makeElement();
+  const events = new Map();
+  const context = vm.createContext({
+    document: { querySelector: () => track },
+    window: { addEventListener: (event, callback) => events.set(event, callback) },
+    console: { error() {} },
+    fetch: async () => ({ ok: false, status: 401, json: async () => ({ message: "로그인이 필요합니다." }) })
+  });
+  vm.runInContext(source, context);
+  await flushPromises();
+  assert.match(track.innerHTML, /로그인 후 명함을 확인할 수 있습니다/);
+  events.get("resize")();
+  assert.match(track.innerHTML, /로그인 후 명함을 확인할 수 있습니다/);
+  assert.doesNotMatch(track.innerHTML, /등록된 명함이 없습니다|명함을 등록해주세요/);
+});
+
 test("CSV 필드 안의 줄바꿈과 이스케이프된 따옴표를 한 명함으로 읽는다", () => {
   const context = importContext();
   const csv = '\uFEFF"이름","회사","이메일"\r\n"홍길동","가, 나","first@example.com\r\nsecond@example.com"\r\n"김\"\"철수","다","third@example.com"\r\n';

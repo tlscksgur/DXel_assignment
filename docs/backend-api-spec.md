@@ -8,14 +8,14 @@
 - JSON 요청은 `Content-Type: application/json`, 로그인 상태는 HttpOnly 쿠키 `bcm_session`으로 유지합니다. 브라우저 fetch는 기본 same-origin 쿠키를 사용하세요.
 - 변경 요청은 `Origin` 검사에 통과해야 합니다. 로그인·가입·명함 변경을 다른 origin에서 직접 호출하지 마세요.
 - 기본 오류 형식: `{ "success": false, "message": "오류 설명" }`. 성공은 각 API 설명을 따릅니다.
-- 비로그인 사용자도 활성 명함 전체 정보를 조회할 수 있습니다. 등록·수정·삭제는 인증/권한 규칙에 따릅니다.
+- 명함 조회·검색·상세·중복 조회·이미지 접근을 포함한 모든 명함 데이터 요청은 로그인이 필요합니다. 비로그인 요청은 `401`이며 홈·명함 관리 페이지는 로그인 안내만 표시합니다. 명함 데이터·이미지 응답은 `Cache-Control: no-store`를 적용합니다.
 
 ## 계정 API
 
 | 메서드 / 경로 | 로그인 | 입력 | 성공 |
 |---|---:|---|---|
 | `POST /api/auth/signup` | 불필요 | `{displayName,email,password}` | `201 {success,message,user}`; 이메일 인증 메일 발송 |
-| `POST /api/auth/verify` | 불필요 | `{token,newPassword}` | `200 {success,message}`; 최종 비밀번호 확정과 계정 활성화. 비밀번호 오류 `422`, 토큰 오류 `400` |
+| `POST /api/auth/verify` | 불필요 | `{token}` | `200 {success,message}`; 가입 시 설정한 비밀번호를 유지하며 계정 활성화. 토큰 오류 `400` |
 | `POST /api/auth/verification/resend` | 불필요 | `{email}` 또는 `{token}` | `202 {success,message}`; 계정 존재 여부 비공개 |
 | `POST /api/auth/login` | 불필요 | `{email,password}` | `200 {success,user}` + 세션 쿠키 |
 | `POST /api/auth/logout` | 선택 | 없음 | `200 {success,message}` + 쿠키 만료 |
@@ -26,7 +26,7 @@
 | `POST /api/auth/password-reset/complete` | 불필요 | `{token,newPassword}` | `200 {success,message}`; 기존 세션 전부 만료 |
 
 - 이름 1~60자, 이메일 최대 254자, 비밀번호 5~128자(UTF-8 최대 512바이트). 이메일 인증·비밀번호 재설정 링크는 30분/1회용입니다.
-- 가입 시 미인증 계정을 만들지만, 메일 소유자가 인증 화면에서 직접 입력한 최종 비밀번호로 교체한 뒤에만 활성화합니다. 토큰만 보내면 활성화되지 않습니다. 기존 인증된 계정은 변경하지 않고, 인증 성공 시 남은 인증 토큰과 기존 세션을 폐기합니다.
+- 회원가입 화면에서 이름·이메일·비밀번호를 입력하고 메일 링크의 '인증하기' 버튼으로 활성화합니다. 미인증 이메일로 다시 가입하면 새 이름·비밀번호로 교체하고 이전 인증 토큰·세션을 폐기합니다. 이미 인증된 계정의 재가입은 `409`이며 기존 정보를 바꾸지 않습니다. 인증 성공 시 남은 인증 토큰과 기존 세션을 폐기합니다.
 - 인증 메일 재발송과 비밀번호 재설정은 계정당 60초 제한. 로그인 시도 초과는 `429`입니다.
 - 주요 상태 코드: 입력 오류 `400`, 로그인 필요/자격 증명 오류 `401`, 출처·권한 오류 `403`, 중복 이메일 `409`, 메일 설정/발송 사용 불가 `503`.
 - 현재 `PATCH /api/auth/password`는 비밀번호 최소 5자를 허용하지만 오류 메시지에는 10자라고 표시되는 문구 불일치가 있습니다.
@@ -55,11 +55,11 @@
 | 메서드 / 경로 | 인증 / 권한 | 요청 또는 결과 |
 |---|---|---|
 | `GET /api/status` | 공개 | `{sqlite,localAi}` 상태 |
-| `GET /api/cards?q=검색어` | 공개 | 전체 활성 명함 최신순. `q`/`keyword`는 이름·회사·전화·이메일·태그 검색 |
+| `GET /api/cards?q=검색어` | 로그인 | 전체 활성 명함 최신순. `q`/`keyword`는 이름·회사·전화·이메일·태그 검색 |
 | `GET /api/cards?trash=1` | 로그인, 본인 것만 | 내 휴지통 |
-| `GET /api/cards/:id` | 공개 | `{success,card}` 활성 명함 상세 |
-| `GET /api/cardSelect` | 공개 | 활성 명함 전체 목록(레거시 별칭; `/api/cards` 권장) |
-| `GET /api/cards/duplicates?...` | 공개 | 명함 필드 query로 중복 후보 조회; `excludeId` 선택 |
+| `GET /api/cards/:id` | 로그인 | `{success,card}` 활성 명함 상세 |
+| `GET /api/cardSelect` | 로그인 | 활성 명함 전체 목록(레거시 별칭; `/api/cards` 권장) |
+| `GET /api/cards/duplicates?...` | 로그인 | 명함 필드 query로 중복 후보 조회; `excludeId` 선택 |
 | `POST /api/cards` | 로그인 | 명함 JSON 저장; 성공 `201 {success,message,id}` |
 | `POST /api/cardStorage` | 로그인 | `/api/cards`와 같은 레거시 주소; 신규 연동은 `/api/cards` 사용 |
 | `PUT /api/cards/:id` | 로그인, 등록자만 | 명함 필드 수정; 중복이면 기본 `409`, 허용 시 `allowDuplicate:true` |

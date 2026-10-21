@@ -109,7 +109,12 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
     const account = await fetch(`${origin}/businessCard/api/auth/me`);
     assert.equal(account.status, 200);
     assert.equal((await account.json()).user, null);
-    assert.equal((await fetch(`${origin}/businessCard/api/cards`)).status, 200);
+    for (const path of ['/api/cards', '/api/cards?q=검색', '/api/cards/1', '/api/cardSelect', '/api/cards/duplicates', '/API/CARDS/01/', '/uploads/test.jpg']) {
+      const denied = await fetch(`${origin}/businessCard${path}`);
+      assert.equal(denied.status, 401, path);
+      assert.match(denied.headers.get('cache-control'), /no-store/);
+      assert.deepEqual(await denied.json(), { success: false, message: '로그인이 필요합니다.' });
+    }
     assert.equal((await fetch(`${origin}/api/cards`)).status, 404);
     assert.equal((await fetch(`${origin}/businessCard/api/cards/extract`, { method: 'POST' })).status, 401);
     const db = new sqlite3.Database(path.join(dir, 'cards.db'));

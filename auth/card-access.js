@@ -5,13 +5,6 @@ function isCardApi(path) {
     || path === "/api/cards" || path.startsWith("/api/cards/");
 }
 
-function isPublicRead(req, path) {
-  if (req.method !== "GET") return false;
-  if (path === "/api/cardselect" || path === "/api/cards/duplicates") return true;
-  if (path === "/api/cards") return req.query?.trash !== "1";
-  return /^\/api\/cards\/[1-9]\d*$/.test(path);
-}
-
 function sameOrigin(req, appBaseUrl, allowRequestOrigin, allowedOrigins) {
   try {
     const origin = new URL(req.headers?.origin).origin;
@@ -44,7 +37,8 @@ function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false
   return async (req, res, next) => {
     // Express는 기본적으로 경로 대소문자를 구분하지 않고 끝 슬래시를 허용한다.
     const path = req.path.toLowerCase().replace(/\/+$/, "");
-    if (!isCardApi(path) || isPublicRead(req, path)) return next();
+    if (!isCardApi(path)) return next();
+    res.setHeader?.("Cache-Control", "no-store");
     if (!req.user?.id) {
       return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
     }

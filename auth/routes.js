@@ -101,7 +101,7 @@ function createVerificationMessage(email, verificationUrl) {
   return {
     to: email,
     subject: "명함관리 계정 이메일 인증",
-    text: `아래 링크를 열어 사용할 비밀번호를 직접 설정하고 이메일 인증을 완료해 주세요.\n\n${verificationUrl}\n\n링크는 30분 동안 한 번만 사용할 수 있습니다. 가입을 요청하지 않았다면 링크를 열지 마세요.`,
+    text: `아래 링크를 열어 '인증하기'를 누르면 회원가입이 완료됩니다. 가입할 때 입력한 비밀번호로 로그인해 주세요.\n\n${verificationUrl}\n\n링크는 30분 동안 한 번만 사용할 수 있습니다. 가입을 요청하지 않았다면 링크를 열지 마세요.`,
     url: verificationUrl
   };
 }
@@ -184,22 +184,32 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     try {
       const passwordHash = await hashPassword(password);
       userId = await withTransaction(db, async (transactionDb) => {
-        const existingUser = await get(transactionDb, "SELECT id FROM users WHERE email = ?", [email]);
-        if (existingUser) {
+        const existingUser = await get(transactionDb, "SELECT id, email_verified_at FROM users WHERE email = ?", [email]);
+        if (existingUser?.email_verified_at) {
           const error = new Error("duplicate email");
           error.code = "DUPLICATE_EMAIL";
           throw error;
         }
 
-        const inserted = await run(transactionDb,
-          "INSERT INTO users (display_name, email, password_hash) VALUES (?, ?, ?)",
-          [displayName, email, passwordHash]
-        );
+        let pendingUserId = existingUser?.id;
+        if (existingUser) {
+          // 재가입은 새 입력으로 교체하고 예전 인증 링크를 폐기한다.
+          await run(transactionDb,
+            "UPDATE users SET display_name = ?, password_hash = ?, updated_at = ? WHERE id = ? AND email_verified_at IS NULL",
+            [displayName, passwordHash, now().toISOString(), existingUser.id]);
+          await run(transactionDb, "DELETE FROM email_verification_tokens WHERE user_id = ?", [existingUser.id]);
+          await run(transactionDb, "DELETE FROM sessions WHERE user_id = ?", [existingUser.id]);
+        } else {
+          const inserted = await run(transactionDb,
+            "INSERT INTO users (display_name, email, password_hash) VALUES (?, ?, ?)",
+            [displayName, email, passwordHash]);
+          pendingUserId = inserted.lastID;
+        }
         await run(transactionDb,
           "INSERT INTO email_verification_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)",
-          [tokenHash, inserted.lastID, expiresAt]
+          [tokenHash, pendingUserId, expiresAt]
         );
-        return inserted.lastID;
+        return pendingUserId;
       });
     } catch (error) {
       if (error.code === "DUPLICATE_EMAIL" || String(error.message).includes("users.email")) {
@@ -221,7 +231,8 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
         command: mailError.command || null,
         hostname: mailError.hostname || null
       });
-      await run(db, "DELETE FROM users WHERE id = ? AND email_verified_at IS NULL", [userId]);
+      await run(db, `DELETE FROM users WHERE id = ? AND email_verified_at IS NULL
+        AND EXISTS (SELECT 1 FROM email_verification_tokens WHERE user_id = users.id AND token_hash = ?)`, [userId, tokenHash]);
       return res.status(503).json({ success: false, message: "인증 이메일을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요." });
     }
 
@@ -242,25 +253,9 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       return res.status(400).json({ success: false, message: "인증 링크가 올바르지 않거나 만료되었습니다." });
     }
 
-    const newPassword = req.body?.newPassword;
-    if (!validPassword(newPassword)) {
-      return res.status(422).json({ success: false, message: "사용할 비밀번호를 5~128자로 입력해 주세요." });
-    }
-
     const tokenHash = hashToken(token);
     const verifiedAt = now().toISOString();
     try {
-      // 없는/만료된 토큰은 비용이 큰 비밀번호 해시 계산 전에 거부한다.
-      const pending = await get(db,
-        `SELECT tokens.expires_at FROM email_verification_tokens AS tokens
-          JOIN users ON users.id = tokens.user_id
-          WHERE tokens.token_hash = ? AND users.email_verified_at IS NULL`,
-        [tokenHash]
-      );
-      if (!pending || new Date(pending.expires_at).getTime() <= now().getTime()) {
-        return res.status(400).json({ success: false, message: "인증 링크가 올바르지 않거나 만료되었습니다." });
-      }
-      const passwordHash = await hashPassword(newPassword);
       await withTransaction(db, async (transactionDb) => {
         const stored = await get(transactionDb,
           "SELECT user_id, expires_at FROM email_verification_tokens WHERE token_hash = ?",
@@ -283,8 +278,8 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
         }
 
         const updated = await run(transactionDb,
-          "UPDATE users SET password_hash = ?, email_verified_at = ?, updated_at = ? WHERE id = ? AND email_verified_at IS NULL",
-          [passwordHash, verifiedAt, verifiedAt, stored.user_id]
+          "UPDATE users SET email_verified_at = ?, updated_at = ? WHERE id = ? AND email_verified_at IS NULL",
+          [verifiedAt, verifiedAt, stored.user_id]
         );
         if (updated.changes !== 1) {
           const error = new Error("account is already verified");

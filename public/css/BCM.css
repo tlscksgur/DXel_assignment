@@ -42,6 +42,10 @@ body.bcm-page .bcmBoard {
   z-index: 1;
 }
 
+.bcmTools[hidden] {
+  display: none;
+}
+
 .bcmTools {
   width: min(1280px, 100%);
   margin: 0 auto 42px;

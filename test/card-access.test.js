@@ -58,10 +58,12 @@ async function request(middleware, method, path, {
   return result;
 }
 
-test("비로그인 사용자는 활성 명함을 조회할 수 있지만 변경·휴지통·내보내기는 거부된다", async () => {
+test("비로그인 사용자는 명함 조회·검색·상세·변경·휴지통·내보내기 모두 거부된다", async () => {
   await withAccess(async ({ middleware }) => {
     for (const path of ["/api/cards", "/api/cards/3", "/api/cardSelect", "/api/cards/duplicates"]) {
-      assert.equal((await request(middleware, "GET", path)).continued, true, path);
+      const result = await request(middleware, "GET", path);
+      assert.equal(result.status, 401, path);
+      assert.equal(result.continued, false, path);
     }
     for (const [method, path] of [
       ["POST", "/api/cards"],

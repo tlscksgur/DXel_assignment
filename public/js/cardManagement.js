@@ -1530,7 +1530,9 @@ async function loadCards() {
     const result = await response.json();
 
     if (!response.ok) {
-      throw new Error(result.message || "명함 목록을 불러오지 못했습니다.");
+      throw new Error(response.status === 401
+        ? "로그인 후 명함을 확인할 수 있습니다."
+        : result.message || "명함 목록을 불러오지 못했습니다.");
     }
 
     if (sequence !== requestSequence) {

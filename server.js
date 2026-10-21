@@ -1760,9 +1760,13 @@ app.use((req, res, next) => {
 });
 
 app.use("/uploads", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  if (!req.user?.id) {
+    return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
+  }
   next();
-}, express.static(UPLOAD_DIR));
+}, express.static(UPLOAD_DIR, { cacheControl: false }));
 app.use(express.static("public"));
 
 app.use((error, req, res, next) => {

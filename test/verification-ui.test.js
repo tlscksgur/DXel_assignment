@@ -52,16 +52,16 @@ test('인증 링크에서는 재전송을 숨기고 인증 완료 후에도 표�
   assert.equal(ui.verify.hidden, true);
 });
 
-test('인증 요청은 메일 소유자가 입력한 최종 비밀번호를 본문으로만 전달하고 성공 후 지운다', async () => {
+test('인증 요청은 비밀번호 없이 토큰만 전달하고 완료 후 폼을 숨긴다', async () => {
   const ui = screen();
   await ui.verify.submit({ preventDefault() {}, currentTarget: ui.verify });
   assert.equal(ui.requests[0].url, './api/auth/verify');
-  assert.deepEqual(ui.requests[0].body, { token: 'a'.repeat(43), newPassword: 'owner-final-password' });
+  assert.deepEqual(ui.requests[0].body, { token: 'a'.repeat(43) });
   assert.equal(ui.verify.resetCalled, true);
 });
 
-test('비밀번호 검증 오류는 인증 링크 만료로 처리하지 않는다', async () => {
-  const ui = screen({ responseStatus: 422, password: 'bad' });
+test('인증 요청의 입력 오류는 폼을 숨기거나 링크를 만료시키지 않는다', async () => {
+  const ui = screen({ responseStatus: 422 });
   await ui.verify.submit({ preventDefault() {}, currentTarget: ui.verify });
   assert.equal(ui.verify.hidden, false);
   assert.equal(ui.resend.hidden, true);
@@ -69,9 +69,13 @@ test('비밀번호 검증 오류는 인증 링크 만료로 처리하지 않는�
   assert.equal(ui.verify.resetCalled, false);
 });
 
-test('인증 화면은 최종 비밀번호를 필수 입력받고 새 비밀번호 자동완성을 사용한다', () => {
+test('회원가입에서 비밀번호를 입력하고 이메일 인증 화면에는 인증하기 버튼만 표시한다', () => {
   const html = fs.readFileSync('public/verify-email.html', 'utf8');
-  assert.match(html, /name="newPassword" type="password" autocomplete="new-password" minlength="5" maxlength="128" required/);
+  const signup = fs.readFileSync('public/signup.html', 'utf8');
+  assert.doesNotMatch(html, /type="password"|name="newPassword"/);
+  assert.match(html, /class="authPrimaryButton" type="submit">\s*인증하기/);
+  assert.match(signup, /name="password" type="password"/);
+  assert.match(signup, />인증 메일 받기<\/button>/);
 });
 
 test('만료되거나 무효인 링크를 서버에서 확인하면 재전송으로 전환한다', async () => {

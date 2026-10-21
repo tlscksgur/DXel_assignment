@@ -130,7 +130,7 @@
 
     if (!user) {
       document.querySelectorAll(
-        '.headerBox1 a[href="./cardImport.html"], .trashFooterLink, .csvExport, .vcardExport, .selectionToggle, .selectionActionBar, .favoriteViewToggle, .groupViewToggle, .duplicateToggle, [data-auth-only]'
+        '.headerBox1 a[href="./cardImport.html"], .bcmTools, .trashFooterLink, .csvExport, .vcardExport, .selectionToggle, .selectionActionBar, .favoriteViewToggle, .groupViewToggle, .duplicateToggle, [data-auth-only]'
       ).forEach((element) => { element.hidden = true; });
     }
 
