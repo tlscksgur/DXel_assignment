@@ -517,7 +517,7 @@
 .authVerificationNotice[data-state="success"] .authVerificationNoticeIcon { color: #70829a; }
 
 .authVerificationActions { display: grid; gap: 12px; }
-.authVerificationActions .authForm { display: block; }
+.authVerificationActions .authForm { display: grid; }
 .authVerificationActions .authForm[hidden] { display: none; }
 
 .authVerificationCard .authPrimaryButton,

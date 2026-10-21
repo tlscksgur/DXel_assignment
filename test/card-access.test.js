@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const sqlite3 = require("sqlite3");
 const { test } = require("node:test");
 const { initializeSchema } = require("../database/schema");
-const { createCardAccessMiddleware } = require("../auth/card-access");
+const { createCardAccessMiddleware, createCardOwnerMiddleware, parseCardIds } = require("../auth/card-access");
 
 function run(db, sql, params = []) {
   return new Promise((resolve, reject) => db.run(sql, params, function (error) {
@@ -19,7 +19,11 @@ async function withAccess(runTest, options = {}) {
   const db = new sqlite3.Database(":memory:");
   try {
     await initializeSchema(db);
-    const middleware = createCardAccessMiddleware(db, { appBaseUrl: "http://cards.test", ...options });
+    const middleware = {
+      access: createCardAccessMiddleware(db, { appBaseUrl: "http://cards.test", ...options }),
+      singleOwner: createCardOwnerMiddleware(db, options),
+      bulkOwner: createCardOwnerMiddleware(db, { ...options, bulk: true })
+    };
     await runTest({ db, middleware });
   } finally {
     await close(db);
@@ -36,10 +40,21 @@ async function request(middleware, method, path, {
     status(value) { result.status = value; return this; },
     json(value) { result.body = value; return this; }
   };
-  await middleware(req, res, (error) => {
+  const next = (error) => {
     if (error) throw error;
     result.continued = true;
-  });
+  };
+  await (middleware.access || middleware)(req, res, next);
+  // 단위 테스트에서 명시적으로 라우트 가드를 연결한다. 실제 Express 매칭은 통합 테스트가 검증한다.
+  if (result.continued && middleware.singleOwner && method !== "GET") {
+    const single = path.match(/^\/api\/cards\/(\d+)(?:\/(?:tags|merge|restore|permanent))?$/);
+    const bulk = ["/api/cards/bulk-delete", "/api/cards/bulk-restore", "/api/cards/bulk-permanent-delete", "/api/cards/merge-group"].includes(path);
+    if (single || bulk) {
+      result.continued = false;
+      req.params = single ? { id: single[1] } : {};
+      await (single ? middleware.singleOwner : middleware.bulkOwner)(req, res, next);
+    }
+  }
   return result;
 }
 
@@ -63,6 +78,13 @@ test("비로그인 사용자는 활성 명함을 조회할 수 있지만 변경�
       assert.equal(result.continued, false);
     }
   });
+});
+
+test("단건·일괄 명함 ID는 같은 파서로 해석하고 잘못된 값은 일부만 살리지 않는다", () => {
+  for (const value of [[1, 2], ["01", "2"], "1,2"]) assert.deepEqual(parseCardIds(value), [1, 2]);
+  for (const value of [[], {}, 1, true, [null], [1, 1], [1, true], [1, ""], "1,", "1.0", "1e0", "9007199254740993"]) {
+    assert.deepEqual(parseCardIds(value), [], JSON.stringify(value));
+  }
 });
 
 test("지정 이메일 관리자는 전체 명함 변경이 가능하지만 출처 검사와 개인 데이터 격리는 유지한다", async () => {

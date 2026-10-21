@@ -106,7 +106,7 @@ trashBoard.addEventListener("change", (event) => {
 
 trashBoard.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-trash-action]");
-  if (!button) return;
+  if (!button || button.disabled) return;
   button.disabled = true;
   try {
     const id = Number(button.dataset.cardId);
@@ -114,6 +114,7 @@ trashBoard.addEventListener("click", async (event) => {
     else await permanentlyDeleteCards([id]);
   } catch (error) {
     window.alert(error.message);
+  } finally {
     button.disabled = false;
   }
 });

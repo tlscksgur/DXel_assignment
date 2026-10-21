@@ -33,9 +33,9 @@ async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
     use() {}, listen() { listenCalls += 1; return { on() {} }; },
     get(url, handler) { routes.set(`GET ${url}`, handler); },
     post(url, ...handlers) { routes.set(`POST ${url}`, handlers.at(-1)); },
-    patch(url, handler) { routes.set(`PATCH ${url}`, handler); },
-    put(url, handler) { routes.set(`PUT ${url}`, handler); },
-    delete(url, handler) { routes.set(`DELETE ${url}`, handler); }
+    patch(url, ...handlers) { routes.set(`PATCH ${url}`, handlers.at(-1)); },
+    put(url, ...handlers) { routes.set(`PUT ${url}`, handlers.at(-1)); },
+    delete(url, ...handlers) { routes.set(`DELETE ${url}`, handlers.at(-1)); }
   };
   const express = Object.assign(() => app, { json: () => () => {}, static: () => () => {} });
   const upload = { single: () => () => {} };

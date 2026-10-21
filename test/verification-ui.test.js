@@ -3,16 +3,19 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const { test } = require('node:test');
 
-function screen({ token = 'a'.repeat(43), pending = '', responseStatus = 200 } = {}) {
+function screen({ token = 'a'.repeat(43), pending = '', responseStatus = 200, password = 'owner-final-password' } = {}) {
   const forms = ['verify', 'verification-resend'].map((name) => ({
     dataset: { authForm: name }, hidden: false,
     button: { disabled: false },
     querySelector() { return this.button; },
+    resetCalled: false,
+    reset() { this.resetCalled = true; },
     addEventListener(event, handler) { this.submit = handler; }
   }));
   const message = { textContent: '' };
   const status = { dataset: {}, querySelector: () => message };
   let calls = 0;
+  const requests = [];
   vm.runInNewContext(fs.readFileSync('public/js/authPages.js', 'utf8'), {
     document: {
       querySelector: (selector) => ({
@@ -30,13 +33,14 @@ function screen({ token = 'a'.repeat(43), pending = '', responseStatus = 200 } =
       setTimeout() {}
     },
     URLSearchParams,
-    FormData: class {},
-    fetch: async () => {
+    FormData: class { get(name) { return name === 'newPassword' ? password : null; } },
+    fetch: async (url, options) => {
       calls += 1;
+      requests.push({ url, body: JSON.parse(options.body) });
       return { ok: responseStatus === 200, status: responseStatus, json: async () => ({ message: '서버 응답' }) };
     }
   });
-  return { verify: forms[0], resend: forms[1], calls: () => calls };
+  return { verify: forms[0], resend: forms[1], calls: () => calls, requests };
 }
 
 test('인증 링크에서는 재전송을 숨기고 인증 완료 후에도 표시하지 않는다', async () => {
@@ -46,6 +50,28 @@ test('인증 링크에서는 재전송을 숨기고 인증 완료 후에도 표�
   await ui.verify.submit({ preventDefault() {}, currentTarget: ui.verify });
   assert.equal(ui.resend.hidden, true);
   assert.equal(ui.verify.hidden, true);
+});
+
+test('인증 요청은 메일 소유자가 입력한 최종 비밀번호를 본문으로만 전달하고 성공 후 지운다', async () => {
+  const ui = screen();
+  await ui.verify.submit({ preventDefault() {}, currentTarget: ui.verify });
+  assert.equal(ui.requests[0].url, './api/auth/verify');
+  assert.deepEqual(ui.requests[0].body, { token: 'a'.repeat(43), newPassword: 'owner-final-password' });
+  assert.equal(ui.verify.resetCalled, true);
+});
+
+test('비밀번호 검증 오류는 인증 링크 만료로 처리하지 않는다', async () => {
+  const ui = screen({ responseStatus: 422, password: 'bad' });
+  await ui.verify.submit({ preventDefault() {}, currentTarget: ui.verify });
+  assert.equal(ui.verify.hidden, false);
+  assert.equal(ui.resend.hidden, true);
+  assert.equal(ui.verify.button.disabled, false);
+  assert.equal(ui.verify.resetCalled, false);
+});
+
+test('인증 화면은 최종 비밀번호를 필수 입력받고 새 비밀번호 자동완성을 사용한다', () => {
+  const html = fs.readFileSync('public/verify-email.html', 'utf8');
+  assert.match(html, /name="newPassword" type="password" autocomplete="new-password" minlength="5" maxlength="128" required/);
 });
 
 test('만료되거나 무효인 링크를 서버에서 확인하면 재전송으로 전환한다', async () => {

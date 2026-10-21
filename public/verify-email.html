@@ -21,13 +21,14 @@
         </span> -->
       </div>
       <h1 id="verification-title">이메일 인증</h1>
-      <p class="authIntro">가입을 마치려면 인증 링크를 확인해 주세요. 링크가 만료됐거나 메일을 못 받았다면 다시 요청할 수 있습니다.</p>
+      <p class="authIntro">메일로 받은 링크에서 사용할 비밀번호를 직접 확정하면 가입이 완료됩니다.</p>
       <p class="authStatus authVerificationNotice" aria-live="polite">
         <span class="authVerificationNoticeIcon" aria-hidden="true">@</span>
         <span data-auth-status-message></span>
       </p>
       <div class="authVerificationActions">
-        <form class="authForm" data-auth-form="verify">
+        <form class="authForm" data-auth-form="verify" hidden>
+          <label>사용할 비밀번호<input name="newPassword" type="password" autocomplete="new-password" minlength="5" maxlength="128" required></label>
           <button class="authPrimaryButton" type="submit">
             이메일 인증 완료
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>

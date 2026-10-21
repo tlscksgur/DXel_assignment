@@ -74,7 +74,7 @@ test('페이지와 API는 앱 경로 안에서 제공하고 뒤 슬래시를 정
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 
-test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를 따른다', async () => {
+test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를 따른다', async (t) => {
   const probe = http.createServer();
   await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
   const port = probe.address().port;
@@ -116,9 +116,9 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
     const execute = (sql, params = []) => new Promise((resolve, reject) => {
       db.run(sql, params, (error) => error ? reject(error) : resolve());
     });
-    const tokens = [createOpaqueToken(), createOpaqueToken()];
+    const tokens = [createOpaqueToken(), createOpaqueToken(), createOpaqueToken()];
     try {
-      for (const [index, email] of ['chshin@dxel.co.kr', 'owner@example.test'].entries()) {
+      for (const [index, email] of ['chshin@dxel.co.kr', 'owner@example.test', 'viewer@example.test'].entries()) {
         await execute('INSERT INTO users (id, display_name, email, password_hash, email_verified_at) VALUES (?, ?, ?, ?, ?)',
           [index + 1, '권한 테스트', email, 'unused', new Date().toISOString()]);
         await execute('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)',
@@ -133,6 +133,63 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
     const request = (token, url, method = 'GET', body) => fetch(`${origin}/businessCard/api/cards${url}`, {
       method, headers: { Cookie: `bcm_session=${token}`, Origin: origin, 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    const apiRequest = (apiPath, method, token, body) => fetch(`${origin}/businessCard${apiPath}`, {
+      method, headers: { ...(token ? { Cookie: `bcm_session=${token}` } : {}), Origin: origin, 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    const paths = ['/API/CARDS/1', '/api/cards/1/', '/api/cards/01', '/api/cards/%31', '/api/cards/1.0', '/api/cards/1e0'];
+    for (const apiPath of paths) {
+      await t.test(`비로그인 변경 거부: ${apiPath}`, async () => {
+        assert.equal((await apiRequest(apiPath, 'DELETE')).status, 401);
+      });
+      await t.test(`타인 변경 거부: ${apiPath}`, async () => {
+        assert.ok([400, 403].includes((await apiRequest(apiPath, 'DELETE', tokens[2])).status));
+      });
+    }
+    for (const [method, suffix] of [['PUT', ''], ['PATCH', '/tags'], ['POST', '/merge'], ['PATCH', '/restore'], ['DELETE', '/permanent']]) {
+      await t.test(`타인 라우트 변경 거부: ${method} ${suffix}`, async () => {
+        assert.equal((await apiRequest(`/API/cards/%31${suffix}/`, method, tokens[2], { name: '금지', tags: [] })).status, 403);
+      });
+    }
+    for (const endpoint of ['bulk-delete', 'bulk-restore', 'bulk-permanent-delete', 'merge-group']) {
+      for (const cardIds of ['1', '1,3', ['1'], [1, 3]]) {
+        await t.test(`타인 일괄 변경 거부: ${endpoint} ${JSON.stringify(cardIds)}`, async () => {
+          assert.equal((await apiRequest(`/api/cards/${endpoint}/`, 'POST', tokens[2], { cardIds })).status, 403);
+        });
+      }
+      for (const cardIds of [[], [1, 1], [1, 'invalid'], {}, true, 1, '1,', '1e0', '1.0', [null], '9007199254740993']) {
+        await t.test(`잘못된 일괄 ID 거부: ${endpoint} ${JSON.stringify(cardIds)}`, async () => {
+          assert.equal((await apiRequest(`/api/cards/${endpoint}`, 'POST', tokens[0], { cardIds })).status, 400);
+        });
+      }
+    }
+    await t.test('대소문자가 바뀐 등록 API도 인증 필요', async () => {
+      assert.equal((await apiRequest('/API/CARDSTORAGE/', 'POST', null, { name: '금지' })).status, 401);
+    });
+    await t.test('대소문자가 바뀐 개인 데이터 및 휴지통 조회도 인증 필요', async () => {
+      for (const apiPath of ['/API/CARDS/GROUPS', '/API/CARDS/?trash=1', '/API/CARDS/EXPORT/CSV']) {
+        assert.equal((await apiRequest(apiPath, 'GET')).status, 401);
+      }
+    });
+    for (const idPath of ['1', '01', '%31']) {
+      for (const [role, token] of [['등록자', tokens[1]], ['관리자', tokens[0]]]) {
+        await t.test(`${role}의 유효한 변형 경로 변경은 허용: ${idPath}`, async () => {
+          assert.equal((await apiRequest(`/API/CARDS/${idPath}/TAGS/`, 'PATCH', token, { tags: ['고객'] })).status, 200);
+        });
+      }
+    }
+    await t.test('관리자도 변형 경로의 출처 검사를 우회할 수 없다', async () => {
+      const response = await fetch(`${origin}/businessCard/API/CARDS/01/TAGS/`, {
+        method: 'PATCH', headers: { Cookie: `bcm_session=${tokens[0]}`, Origin: 'https://attacker.test', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: [] })
+      });
+      assert.equal(response.status, 403);
+    });
+    await t.test('우회 요청은 원본 명함 데이터를 변경하지 않는다', async () => {
+      const card = (await (await request(tokens[1], '/1')).json()).card;
+      assert.equal(card.name, '다른 사람 명함');
+      assert.equal((await (await request(tokens[1], '')).json()).cards.length, 2);
     });
     const adminCards = (await (await request(tokens[0], '')).json()).cards;
     const otherCardForAdmin = adminCards.find((card) => card.id === 1);
@@ -151,6 +208,14 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
     assert.equal((await request(tokens[0], '/2/restore', 'PATCH', {})).status, 200);
     assert.equal((await request(tokens[0], '/1', 'PUT', { name: '관리자 수정' })).status, 200);
     assert.equal((await request(tokens[0], '/1', 'DELETE')).status, 200);
+    await t.test('CSV API는 수식 접두를 보호하지만 저장된 명함 값은 바꾸지 않는다', async () => {
+      assert.equal((await request(tokens[0], '/3', 'PUT', { name: '=1+1' })).status, 200);
+      const csvResponse = await request(tokens[0], '/export/csv');
+      assert.equal(csvResponse.status, 200);
+      assert.match(await csvResponse.text(), /"\t=1\+1"/);
+      const original = (await (await request(tokens[0], '/3')).json()).card;
+      assert.equal(original.name, '=1+1');
+    });
     // 소유권을 넘기거나 개인 분류를 조회하는 권한은 부여하지 않는다.
     assert.equal((await (await request(tokens[1], '?trash=1')).json()).cards[0].name, '관리자 수정');
   } finally {

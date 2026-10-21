@@ -1,22 +1,15 @@
 const { all } = require("../database/operations");
 
-const BULK_OWNER_PATHS = new Set([
-  "/api/cards/bulk-delete",
-  "/api/cards/bulk-restore",
-  "/api/cards/bulk-permanent-delete",
-  "/api/cards/merge-group"
-]);
-
 function isCardApi(path) {
-  return path === "/api/cardStorage" || path === "/api/cardSelect"
+  return path === "/api/cardstorage" || path === "/api/cardselect"
     || path === "/api/cards" || path.startsWith("/api/cards/");
 }
 
-function isPublicRead(req) {
+function isPublicRead(req, path) {
   if (req.method !== "GET") return false;
-  if (req.path === "/api/cardSelect" || req.path === "/api/cards/duplicates") return true;
-  if (req.path === "/api/cards") return req.query?.trash !== "1";
-  return /^\/api\/cards\/[1-9]\d*$/.test(req.path);
+  if (path === "/api/cardselect" || path === "/api/cards/duplicates") return true;
+  if (path === "/api/cards") return req.query?.trash !== "1";
+  return /^\/api\/cards\/[1-9]\d*$/.test(path);
 }
 
 function sameOrigin(req, appBaseUrl, allowRequestOrigin, allowedOrigins) {
@@ -31,9 +24,12 @@ function sameOrigin(req, appBaseUrl, allowRequestOrigin, allowedOrigins) {
   }
 }
 
-function requestedBulkIds(value) {
-  if (!Array.isArray(value) || value.length === 0) return [];
-  const ids = value.map(Number);
+function parseCardIds(value) {
+  const values = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+  if (values.length === 0) return [];
+  if (values.some((id) => typeof id !== "number" && typeof id !== "string")) return [];
+  if (values.some((id) => !/^\d+$/.test(String(id).trim()))) return [];
+  const ids = values.map(Number);
   if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) return [];
   return new Set(ids).size === ids.length ? ids : [];
 }
@@ -44,9 +40,11 @@ function isCardAdmin(user, adminEmail) {
     && user.email.trim().toLowerCase() === configuredEmail);
 }
 
-function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false, allowedOrigins = [], adminEmail = "" }) {
+function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false, allowedOrigins = [] }) {
   return async (req, res, next) => {
-    if (!isCardApi(req.path) || isPublicRead(req)) return next();
+    // Express는 기본적으로 경로 대소문자를 구분하지 않고 끝 슬래시를 허용한다.
+    const path = req.path.toLowerCase().replace(/\/+$/, "");
+    if (!isCardApi(path) || isPublicRead(req, path)) return next();
     if (!req.user?.id) {
       return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
     }
@@ -54,10 +52,20 @@ function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
 
-    const singleCard = req.path.match(/^\/api\/cards\/([1-9]\d*)(?:\/(?:tags|merge|restore|permanent))?$/);
-    const ids = singleCard ? [Number(singleCard[1])]
-      : BULK_OWNER_PATHS.has(req.path) ? requestedBulkIds(req.body?.cardIds) : [];
-    if (ids.length === 0) return next();
+    return next();
+  };
+}
+
+function createCardOwnerMiddleware(db, { adminEmail = "", bulk = false } = {}) {
+  return async (req, res, next) => {
+    if (!req.user?.id) {
+      return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
+    }
+    // 원시 URL이 아닌 실제 Express 라우트의 디코딩된 파라미터를 확인한다.
+    const ids = parseCardIds(bulk ? req.body?.cardIds : [req.params?.id]);
+    if (ids.length === 0) {
+      return res.status(400).json({ success: false, message: "명함 ID를 올바르게 지정해 주세요." });
+    }
 
     try {
       const placeholders = ids.map(() => "?").join(", ");
@@ -75,4 +83,4 @@ function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false
   };
 }
 
-module.exports = { createCardAccessMiddleware, isCardAdmin };
+module.exports = { createCardAccessMiddleware, createCardOwnerMiddleware, parseCardIds, isCardAdmin };

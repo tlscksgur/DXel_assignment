@@ -101,7 +101,7 @@ function createVerificationMessage(email, verificationUrl) {
   return {
     to: email,
     subject: "명함관리 계정 이메일 인증",
-    text: `아래 링크를 열어 이메일 인증을 완료해 주세요.\n\n${verificationUrl}\n\n링크는 30분 동안 한 번만 사용할 수 있습니다.`,
+    text: `아래 링크를 열어 사용할 비밀번호를 직접 설정하고 이메일 인증을 완료해 주세요.\n\n${verificationUrl}\n\n링크는 30분 동안 한 번만 사용할 수 있습니다. 가입을 요청하지 않았다면 링크를 열지 마세요.`,
     url: verificationUrl
   };
 }
@@ -242,9 +242,25 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       return res.status(400).json({ success: false, message: "인증 링크가 올바르지 않거나 만료되었습니다." });
     }
 
+    const newPassword = req.body?.newPassword;
+    if (!validPassword(newPassword)) {
+      return res.status(422).json({ success: false, message: "사용할 비밀번호를 5~128자로 입력해 주세요." });
+    }
+
     const tokenHash = hashToken(token);
     const verifiedAt = now().toISOString();
     try {
+      // 없는/만료된 토큰은 비용이 큰 비밀번호 해시 계산 전에 거부한다.
+      const pending = await get(db,
+        `SELECT tokens.expires_at FROM email_verification_tokens AS tokens
+          JOIN users ON users.id = tokens.user_id
+          WHERE tokens.token_hash = ? AND users.email_verified_at IS NULL`,
+        [tokenHash]
+      );
+      if (!pending || new Date(pending.expires_at).getTime() <= now().getTime()) {
+        return res.status(400).json({ success: false, message: "인증 링크가 올바르지 않거나 만료되었습니다." });
+      }
+      const passwordHash = await hashPassword(newPassword);
       await withTransaction(db, async (transactionDb) => {
         const stored = await get(transactionDb,
           "SELECT user_id, expires_at FROM email_verification_tokens WHERE token_hash = ?",
@@ -267,14 +283,16 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
         }
 
         const updated = await run(transactionDb,
-          "UPDATE users SET email_verified_at = ?, updated_at = ? WHERE id = ? AND email_verified_at IS NULL",
-          [verifiedAt, verifiedAt, stored.user_id]
+          "UPDATE users SET password_hash = ?, email_verified_at = ?, updated_at = ? WHERE id = ? AND email_verified_at IS NULL",
+          [passwordHash, verifiedAt, verifiedAt, stored.user_id]
         );
         if (updated.changes !== 1) {
           const error = new Error("account is already verified");
           error.code = "INVALID_TOKEN";
           throw error;
         }
+        await run(transactionDb, "DELETE FROM email_verification_tokens WHERE user_id = ?", [stored.user_id]);
+        await run(transactionDb, "DELETE FROM sessions WHERE user_id = ?", [stored.user_id]);
       });
     } catch (error) {
       return res.status(error.code === "INVALID_TOKEN" ? 400 : 500).json({
@@ -413,14 +431,19 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
         return res.status(401).json({ success: false, message: "이메일 또는 비밀번호를 확인해 주세요." });
       }
 
-      clearLoginPairFailures(req, email);
-
       const token = createOpaqueToken();
       const expiresAt = new Date(now().getTime() + SESSION_TTL_MS).toISOString();
-      await run(db,
-        "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)",
-        [hashToken(token), user.id, expiresAt]
+      const inserted = await run(db,
+        `INSERT INTO sessions (token_hash, user_id, expires_at)
+          SELECT ?, id, ? FROM users
+          WHERE id = ? AND password_hash = ? AND email_verified_at IS NOT NULL`,
+        [hashToken(token), expiresAt, user.id, user.password_hash]
       );
+      if (inserted.changes !== 1) {
+        recordLoginFailure(req, email);
+        return res.status(401).json({ success: false, message: "이메일 또는 비밀번호를 확인해 주세요." });
+      }
+      clearLoginPairFailures(req, email);
       res.setHeader("Set-Cookie", sessionCookies(token, SESSION_TTL_SECONDS));
       return res.json({
         success: true,

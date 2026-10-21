@@ -170,9 +170,8 @@ async function requestChatCompletion(body) {
     : 300000;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new Error("AI 요청 시간이 초과되었습니다.")), timeoutMs);
-  let response;
   try {
-    response = await fetch(process.env.AI_SERVER_ENDPOINT, {
+    const response = await fetch(process.env.AI_SERVER_ENDPOINT, {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -180,15 +179,15 @@ async function requestChatCompletion(body) {
       },
       body: JSON.stringify(body)
     });
+    if (!response.ok) {
+      throw new Error(`AI 서버 요청 실패: ${response.status}`);
+    }
+
+    // 본문 수신·JSON 파싱이 끝날 때까지 중단 신호를 유지한다.
+    return await response.json();
   } finally {
     clearTimeout(timeout);
   }
-
-  if (!response.ok) {
-    throw new Error(`AI 서버 요청 실패: ${response.status}`);
-  }
-
-  return response.json();
 }
 
 // ===== 명함 전체 필드 추출 =====

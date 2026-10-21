@@ -99,7 +99,7 @@ test("외부 하위 경로에서 가입·재전송·로그인·비밀번호 재�
     assert.equal(mails.length, 2);
     assert.equal(new URL(mails[1].url).pathname, "/businessCard/verify-email.html");
     const token = new URL(mails[1].url).searchParams.get("token");
-    assert.equal((await app.request("POST", "/api/auth/verify", { headers, body: { token } })).status, 200);
+    assert.equal((await app.request("POST", "/api/auth/verify", { headers, body: { token, newPassword: "abcde" } })).status, 200);
     const login = await app.request("POST", "/api/auth/login", {
       headers, body: { email: "subpath@example.com", password: "abcde" }
     });
@@ -145,6 +145,81 @@ test("가입은 표시 이름·이메일·비밀번호만 받아 정규화된 �
     assert.notEqual(user.password_hash, "abcde");
     assert.equal(storedToken.token_hash, hashToken(token));
     assert.equal(result.headers["set-cookie"], undefined);
+  });
+});
+
+test("메일 소유자가 인증할 때 최종 비밀번호를 확정해 사전 가입자의 비밀번호를 무효화한다", async () => {
+  await withAuthApp(async ({ app, db, mails }) => {
+    const headers = { origin: "http://cards.test" };
+    const email = "pre-registration-victim@example.test";
+    await app.request("POST", "/api/auth/signup", {
+      headers, body: { displayName: "사전 가입", email, password: "attacker-password" }
+    });
+    assert.equal((await app.request("POST", "/api/auth/signup", {
+      headers, body: { displayName: "메일 소유자", email, password: "owner-password" }
+    })).status, 409);
+    await run(db, "UPDATE email_verification_tokens SET created_at = ?", ["2026-09-28T00:00:00.000Z"]);
+    await app.request("POST", "/api/auth/verification/resend", { headers, body: { email } });
+    assert.equal(mails.length, 2);
+    const token = new URL(mails[1].url).searchParams.get("token");
+    assert.equal((await app.request("POST", "/api/auth/verify", {
+      headers, body: { token, newPassword: "owner-final-password" }
+    })).status, 200);
+    assert.equal((await app.request("POST", "/api/auth/login", {
+      headers, body: { email, password: "attacker-password" }
+    })).status, 401);
+    assert.equal((await app.request("POST", "/api/auth/login", {
+      headers, body: { email, password: "owner-final-password" }
+    })).status, 200);
+    const user = await get(db, "SELECT password_hash FROM users WHERE email = ?", [email]);
+    assert.equal(await verifyPassword("owner-final-password", user.password_hash), true);
+    assert.equal(await verifyPassword("attacker-password", user.password_hash), false);
+    const originalToken = new URL(mails[0].url).searchParams.get("token");
+    for (const usedToken of [originalToken, token]) {
+      assert.equal((await app.request("POST", "/api/auth/verify", {
+        headers, body: { token: usedToken, newPassword: "attacker-overwrite" }
+      })).status, 400);
+    }
+    assert.equal((await app.request("POST", "/api/auth/login", {
+      headers, body: { email, password: "owner-final-password" }
+    })).status, 200);
+  });
+});
+
+test("토큰만으로 활성화할 수 없고 비밀번호 오류는 토큰을 소비하지 않는다", async () => {
+  await withAuthApp(async ({ app, db, mails }) => {
+    const headers = { origin: "http://cards.test" };
+    await app.request("POST", "/api/auth/signup", {
+      headers, body: { displayName: "소유자", email: "verify-password@example.test", password: "pending-password" }
+    });
+    const token = new URL(mails[0].url).searchParams.get("token");
+    for (const newPassword of [undefined, "", "1234", "a".repeat(129), true]) {
+      const result = await app.request("POST", "/api/auth/verify", { headers, body: { token, newPassword } });
+      assert.equal(result.status, 422);
+      assert.equal((await get(db, "SELECT email_verified_at FROM users WHERE email = ?", ["verify-password@example.test"])).email_verified_at, null);
+      assert.ok(await get(db, "SELECT token_hash FROM email_verification_tokens WHERE token_hash = ?", [hashToken(token)]));
+    }
+    assert.equal((await app.request("POST", "/api/auth/verify", {
+      headers, body: { token, newPassword: "abcde" }
+    })).status, 200);
+  });
+});
+
+test("만료된 인증 링크로는 계정을 활성화하거나 비밀번호를 바꿀 수 없다", async () => {
+  await withAuthApp(async ({ app, db, mails }) => {
+    const headers = { origin: "http://cards.test" };
+    await app.request("POST", "/api/auth/signup", {
+      headers, body: { displayName: "소유자", email: "expired-verification@example.test", password: "pending-password" }
+    });
+    const token = new URL(mails[0].url).searchParams.get("token");
+    await run(db, "UPDATE email_verification_tokens SET expires_at = ?", ["2026-09-28T00:00:00.000Z"]);
+    assert.equal((await app.request("POST", "/api/auth/verify", {
+      headers, body: { token, newPassword: "forbidden-password" }
+    })).status, 400);
+    const user = await get(db, "SELECT password_hash, email_verified_at FROM users WHERE email = ?", ["expired-verification@example.test"]);
+    assert.equal(user.email_verified_at, null);
+    assert.equal(await verifyPassword("pending-password", user.password_hash), true);
+    assert.equal(await verifyPassword("forbidden-password", user.password_hash), false);
   });
 });
 
@@ -212,7 +287,7 @@ test("이메일 인증 링크는 한 번만 사용해 계정을 활성화한다"
     });
     const token = new URL(mails[0].url).searchParams.get("token");
 
-    const request = { body: { token }, headers: { origin: "http://cards.test", host: "cards.test" } };
+    const request = { body: { token, newPassword: "safe-password-123" }, headers: { origin: "http://cards.test", host: "cards.test" } };
     const first = await app.request("POST", "/api/auth/verify", request);
     const user = await get(db, "SELECT email_verified_at FROM users WHERE email = ?", ["user@example.com"]);
     const repeated = await app.request("POST", "/api/auth/verify", request);
@@ -245,11 +320,11 @@ test("인증 메일 재전송은 만료된 인증 토큰으로 원래 가입 이
 
     const resentToken = new URL(mails[1].url).searchParams.get("token");
     const oldTokenResult = await app.request("POST", "/api/auth/verify", {
-      body: { token: originalToken },
+      body: { token: originalToken, newPassword: "safe-password-123" },
       headers: { origin: "http://cards.test", host: "cards.test" }
     });
     const newTokenResult = await app.request("POST", "/api/auth/verify", {
-      body: { token: resentToken },
+      body: { token: resentToken, newPassword: "safe-password-123" },
       headers: { origin: "http://cards.test", host: "cards.test" }
     });
     assert.equal(mails[1].to, email);

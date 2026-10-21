@@ -15,7 +15,7 @@
 | 메서드 / 경로 | 로그인 | 입력 | 성공 |
 |---|---:|---|---|
 | `POST /api/auth/signup` | 불필요 | `{displayName,email,password}` | `201 {success,message,user}`; 이메일 인증 메일 발송 |
-| `POST /api/auth/verify` | 불필요 | `{token}` | `200 {success,message}` |
+| `POST /api/auth/verify` | 불필요 | `{token,newPassword}` | `200 {success,message}`; 최종 비밀번호 확정과 계정 활성화. 비밀번호 오류 `422`, 토큰 오류 `400` |
 | `POST /api/auth/verification/resend` | 불필요 | `{email}` 또는 `{token}` | `202 {success,message}`; 계정 존재 여부 비공개 |
 | `POST /api/auth/login` | 불필요 | `{email,password}` | `200 {success,user}` + 세션 쿠키 |
 | `POST /api/auth/logout` | 선택 | 없음 | `200 {success,message}` + 쿠키 만료 |
@@ -26,6 +26,7 @@
 | `POST /api/auth/password-reset/complete` | 불필요 | `{token,newPassword}` | `200 {success,message}`; 기존 세션 전부 만료 |
 
 - 이름 1~60자, 이메일 최대 254자, 비밀번호 5~128자(UTF-8 최대 512바이트). 이메일 인증·비밀번호 재설정 링크는 30분/1회용입니다.
+- 가입 시 미인증 계정을 만들지만, 메일 소유자가 인증 화면에서 직접 입력한 최종 비밀번호로 교체한 뒤에만 활성화합니다. 토큰만 보내면 활성화되지 않습니다. 기존 인증된 계정은 변경하지 않고, 인증 성공 시 남은 인증 토큰과 기존 세션을 폐기합니다.
 - 인증 메일 재발송과 비밀번호 재설정은 계정당 60초 제한. 로그인 시도 초과는 `429`입니다.
 - 주요 상태 코드: 입력 오류 `400`, 로그인 필요/자격 증명 오류 `401`, 출처·권한 오류 `403`, 중복 이메일 `409`, 메일 설정/발송 사용 불가 `503`.
 - 현재 `PATCH /api/auth/password`는 비밀번호 최소 5자를 허용하지만 오류 메시지에는 10자라고 표시되는 문구 불일치가 있습니다.
@@ -135,6 +136,7 @@ if (!response.ok) throw new Error(result.message);
 - 등록자 정보가 없는 과거 명함은 설정된 관리자만 수정/삭제할 수 있습니다.
 - 그룹 병합은 최신 명함을 대표로 하고 비어 있는 필드만 다른 행에서 채우지만, 나머지 행은 실제 삭제합니다. 중복 행의 태그·그룹·즐겨찾기는 합쳐지지 않아 사라질 수 있습니다.
 - 조회와 내보내기는 전체 활성 명함 기준입니다. 로그인 사용자는 CSV/vCard로 모든 활성 명함을 내보낼 수 있습니다.
+- CSV 출력은 수식 접두(`=`, `+`, `-`, `@` 및 전각 문자, 앞선 공백·제어문자 포함)를 가진 셀의 인용부 안에 TAB을 넣어 텍스트로 보호합니다. DB 값은 변경하지 않습니다. 이 앱으로 재가져올 때는 기존 CSV 파서가 외곽 공백을 정리하므로 국제 전화번호의 `+`도 유지됩니다. 외부 파서에는 TAB이 데이터로 남을 수 있으며 모든 스프레드시트의 동일한 동작을 보장하지 않습니다. 회사에서 쓰는 Excel 버전의 열기·저장·재열기 검증이 필요합니다. 참고: [OWASP CSV Injection](https://community.owasp.org/attacks/CSV_Injection).
 - `APP_BASE_URL`을 실제 서비스 주소로 설정해야 합니다. 운영 시 HTTPS가 필수이며 SMTP 설정도 필요합니다. DB와 `uploads/`는 영속 저장해야 합니다.
 - 로그인 실패 제한 및 크롭 원본 연결 일부는 프로세스 메모리에 있어 현재 구성은 여러 서버 인스턴스 확장에 적합하지 않습니다.
 

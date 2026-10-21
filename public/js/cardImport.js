@@ -77,20 +77,54 @@ function parseCsv(text) {
 }
 
 function unfoldVcard(text) { return text.replace(/\r?\n[ \t]/g, ""); }
+function decodeVcardValue(value) {
+  return value.replace(/\\([\\;,nN])/g, (_, character) => /[nN]/.test(character) ? "\n" : character);
+}
+
+function splitVcardComponents(value) {
+  const components = [""];
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (character === "\\" && index + 1 < value.length) {
+      components[components.length - 1] += character + value[++index];
+    } else if (character === ";") {
+      components.push("");
+    } else {
+      components[components.length - 1] += character;
+    }
+  }
+  return components.map(decodeVcardValue);
+}
+
 function parseVcard(text) {
-  const cards = unfoldVcard(text).split(/END:VCARD/i).map((block) => block.trim()).filter(Boolean);
+  const cards = [];
+  let lines = null;
+  // 값을 먼저 펼친 다음, 완전한 경계 행으로만 연락처를 구분한다.
+  for (const line of unfoldVcard(text.replace(/^\uFEFF/, "")).split(/\r?\n/)) {
+    if (/^BEGIN:VCARD$/i.test(line)) {
+      if (lines !== null) throw new Error("vCard 연락처의 시작·종료 형식을 확인해 주세요.");
+      lines = [];
+    } else if (/^END:VCARD$/i.test(line)) {
+      if (lines === null) throw new Error("vCard 연락처의 시작·종료 형식을 확인해 주세요.");
+      cards.push(lines.join("\n"));
+      lines = null;
+    } else if (lines !== null) {
+      lines.push(line);
+    }
+  }
+  if (lines !== null) throw new Error("vCard 연락처의 시작·종료 형식을 확인해 주세요.");
   if (!cards.length) throw new Error("vCard 연락처를 찾지 못했습니다.");
   return cards.map((block) => {
     const card = { name:"", company:"", department:"", position:"", mobile:"", phone:"", email:"", website:"", address:"" };
     block.split(/\r?\n/).forEach((line) => {
       const separator = line.indexOf(":"); if (separator < 0) return;
-      const key = line.slice(0, separator).toUpperCase(); const value = line.slice(separator + 1).replace(/\\n/g, "\n");
+      const key = line.slice(0, separator).toUpperCase(); const rawValue = line.slice(separator + 1); const value = decodeVcardValue(rawValue);
       if (key.startsWith("FN")) card.name = value;
-      else if (key.startsWith("ORG")) { const [company, department] = value.split(";"); card.company = company || ""; card.department = department || ""; }
+      else if (key.startsWith("ORG")) { const [company, department] = splitVcardComponents(rawValue); card.company = company || ""; card.department = department || ""; }
       else if (key.startsWith("TITLE")) card.position = value;
       else if (key.startsWith("EMAIL")) card.email = card.email ? `${card.email}\n${value}` : value;
       else if (key.startsWith("URL")) card.website = value;
-      else if (key.startsWith("ADR")) card.address = value.replace(/;/g, " ").replace(/\s+/g, " ").trim();
+      else if (key.startsWith("ADR")) card.address = splitVcardComponents(rawValue).filter(Boolean).join(" ").trim();
       else if (key.startsWith("TEL")) { if (/CELL|MOBILE/i.test(key)) card.mobile = card.mobile ? `${card.mobile} / ${value}` : value; else card.phone = card.phone ? `${card.phone} / ${value}` : value; }
     });
     return card;

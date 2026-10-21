@@ -84,7 +84,10 @@
         rememberPendingVerificationEmail(result.user?.email || String(data.get("email") || "").trim().toLowerCase());
         window.location.assign("./verify-email.html");
       } else if (form.dataset.authForm === "verify") {
-        const result = await requestJson("./api/auth/verify", "POST", { token });
+        const result = await requestJson("./api/auth/verify", "POST", {
+          token, newPassword: data.get("newPassword")
+        });
+        form.reset();
         showStatus(result.message || "이메일 인증이 완료되었습니다.", "success");
         clearPendingVerificationEmail();
         form.hidden = true;

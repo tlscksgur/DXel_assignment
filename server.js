@@ -7,7 +7,7 @@ const { applicationBasePath, mountApplication, additionalOrigins } = require("./
 const db = require("./database/db");
 const { all, run, withTransaction } = require("./database/operations");
 const { createSessionMiddleware, registerAuthRoutes } = require("./auth/routes");
-const { createCardAccessMiddleware, isCardAdmin } = require("./auth/card-access");
+const { createCardAccessMiddleware, createCardOwnerMiddleware, parseCardIds, isCardAdmin } = require("./auth/card-access");
 const { createSmtpMailer } = require("./auth/mailer");
 const { UPLOAD_DIR, upload } = require("./upload");
 const {
@@ -96,7 +96,9 @@ registerAuthRoutes(app, {
   secureCookie: isProduction,
   allowedOrigins
 });
-app.use(createCardAccessMiddleware(db, { appBaseUrl, allowedOrigins, allowRequestOrigin: !isProduction, adminEmail: cardAdminEmail }));
+app.use(createCardAccessMiddleware(db, { appBaseUrl, allowedOrigins, allowRequestOrigin: !isProduction }));
+const requireCardOwner = createCardOwnerMiddleware(db, { adminEmail: cardAdminEmail });
+const requireBulkCardOwner = createCardOwnerMiddleware(db, { adminEmail: cardAdminEmail, bulk: true });
 
 // ===== 공통 문자열 및 주소 정규화 =====
 function text(value) {
@@ -367,21 +369,6 @@ function allowDuplicate(body = {}) {
   return body.allowDuplicate === true || body.allowDuplicate === "true";
 }
 
-function parseCardIds(value) {
-  const requestedIds = Array.isArray(value)
-    ? value
-    : String(value || "").split(",").filter(Boolean);
-  const cardIds = [...new Set(
-    requestedIds
-      .map(Number)
-      .filter((id) => Number.isInteger(id) && id > 0)
-  )];
-
-  return cardIds.length > 0 && cardIds.length === requestedIds.length
-    ? cardIds
-    : [];
-}
-
 function selectCardsForExport(req, res, callback) {
   const hasSelection = req.query.ids !== undefined;
   const cardIds = hasSelection ? parseCardIds(req.query.ids) : [];
@@ -410,7 +397,10 @@ function selectCardsForExport(req, res, callback) {
 
 // ===== CSV 및 vCard 변환 =====
 function csvValue(value) {
-  return `"${String(value || "").replace(/"/g, '""')}"`;
+  const cell = String(value || "");
+  // 인용만으로는 수식 실행을 막지 못한다. 공백·제어문자 뒤의 접두도 텍스트로 보호한다.
+  const safeCell = /^[\s\u0000-\u001f\u007f-\u009f]*[=+\-@＝＋－＠]/u.test(cell) ? `\t${cell}` : cell;
+  return `"${safeCell.replace(/"/g, '""')}"`;
 }
 
 function vcardValue(value) {
@@ -1282,7 +1272,7 @@ app.patch("/api/cards/groups", async (req, res) => {
   }
 });
 
-app.post("/api/cards/bulk-delete", (req, res) => {
+app.post("/api/cards/bulk-delete", requireBulkCardOwner, (req, res) => {
   const cardIds = parseCardIds(req.body.cardIds);
 
   if (cardIds.length === 0) {
@@ -1345,7 +1335,7 @@ app.get("/api/cards/:id", (req, res) => {
   });
 });
 
-app.put("/api/cards/:id", (req, res) => {
+app.put("/api/cards/:id", requireCardOwner, (req, res) => {
   const card = makeCard(req.body);
   const validationMessage = validateCard(card);
 
@@ -1462,7 +1452,7 @@ app.patch("/api/cards/:id/favorite", async (req, res) => {
 });
 
 // ===== 명함 분류 태그 API =====
-app.patch("/api/cards/:id/tags", (req, res) => {
+app.patch("/api/cards/:id/tags", requireCardOwner, (req, res) => {
   if (!Array.isArray(req.body.tags)) {
     return res.status(400).json({ success: false, message: "태그 정보를 확인해 주세요." });
   }
@@ -1484,15 +1474,10 @@ app.patch("/api/cards/:id/tags", (req, res) => {
 });
 
 // ===== 중복 명함 그룹 병합 API =====
-app.post("/api/cards/merge-group", (req, res) => {
-  const requestedIds = Array.isArray(req.body.cardIds) ? req.body.cardIds : [];
-  const cardIds = [...new Set(
-    requestedIds
-      .map(Number)
-      .filter((id) => Number.isInteger(id) && id > 0)
-  )];
+app.post("/api/cards/merge-group", requireBulkCardOwner, (req, res) => {
+  const cardIds = parseCardIds(req.body.cardIds);
 
-  if (cardIds.length < 2 || cardIds.length !== requestedIds.length) {
+  if (cardIds.length < 2) {
     return res.status(400).json({
       success: false,
       message: "병합할 명함을 두 장 이상 올바르게 선택해 주세요."
@@ -1562,7 +1547,7 @@ app.post("/api/cards/merge-group", (req, res) => {
 });
 
 // ===== 명함 단건 병합 및 삭제 API =====
-app.post("/api/cards/:id/merge", (req, res) => {
+app.post("/api/cards/:id/merge", requireCardOwner, (req, res) => {
   db.get("SELECT * FROM business_cards WHERE id = ? AND deleted_at IS NULL", [req.params.id], (error, oldCard) => {
     if (error) {
       return res.status(500).json({
@@ -1649,7 +1634,7 @@ app.post("/api/cards/:id/merge", (req, res) => {
   });
 });
 
-app.post("/api/cards/bulk-restore", (req, res) => {
+app.post("/api/cards/bulk-restore", requireBulkCardOwner, (req, res) => {
   const cardIds = parseCardIds(req.body.cardIds);
   if (cardIds.length === 0) {
     return res.status(400).json({ success: false, message: "복원할 명함을 올바르게 선택해 주세요." });
@@ -1708,7 +1693,7 @@ function permanentlyDeleteCards(cardIds, res, missingMessage) {
   );
 }
 
-app.post("/api/cards/bulk-permanent-delete", (req, res) => {
+app.post("/api/cards/bulk-permanent-delete", requireBulkCardOwner, (req, res) => {
   const cardIds = parseCardIds(req.body.cardIds);
   if (cardIds.length === 0) {
     return res.status(400).json({ success: false, message: "영구 삭제할 명함을 올바르게 선택해 주세요." });
@@ -1716,7 +1701,7 @@ app.post("/api/cards/bulk-permanent-delete", (req, res) => {
   permanentlyDeleteCards(cardIds, res, "영구 삭제할 명함 일부를 찾을 수 없습니다.");
 });
 
-app.patch("/api/cards/:id/restore", (req, res) => {
+app.patch("/api/cards/:id/restore", requireCardOwner, (req, res) => {
   db.run("UPDATE business_cards SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL", [req.params.id], function (error) {
     if (error) return res.status(500).json({ success: false, message: "명함 복원에 실패했습니다." });
     if (this.changes === 0) return res.status(404).json({ success: false, message: "복원할 명함을 찾을 수 없습니다." });
@@ -1724,13 +1709,13 @@ app.patch("/api/cards/:id/restore", (req, res) => {
   });
 });
 
-app.delete("/api/cards/:id/permanent", (req, res) => {
+app.delete("/api/cards/:id/permanent", requireCardOwner, (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ success: false, message: "영구 삭제할 명함을 찾을 수 없습니다." });
   permanentlyDeleteCards([id], res, "영구 삭제할 명함을 찾을 수 없습니다.");
 });
 
-app.delete("/api/cards/:id", (req, res) => {
+app.delete("/api/cards/:id", requireCardOwner, (req, res) => {
   db.run("UPDATE business_cards SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL", [req.params.id], function (error) {
     if (error) {
       return res.status(500).json({

@@ -767,6 +767,9 @@ async function saveCardEdits(form) {
     return;
   }
 
+  const cardId = contact.id;
+  const isCurrentEditor = () => detailModal.open &&
+    Number(activeCardId) === Number(cardId) && detailContent.contains(form);
   const formData = new FormData(form);
   const payload = {
     name: String(formData.get("name") || "").trim(),
@@ -787,23 +790,25 @@ async function saveCardEdits(form) {
   };
 
   setEditorBusy(form, true, "저장 중입니다.");
+  let errorMessage = "";
 
   try {
     try {
-      await requestCardUpdate(activeCardId, payload);
+      await requestCardUpdate(cardId, payload);
     } catch (error) {
+      if (!isCurrentEditor()) return;
       if (
         error.status !== 409 ||
         !window.confirm("중복 가능성이 있는 명함입니다. 그래도 수정 내용을 저장할까요?")
       ) {
         throw error;
       }
-      await requestCardUpdate(activeCardId, payload, true);
+      if (!isCurrentEditor()) return;
+      await requestCardUpdate(cardId, payload, true);
     }
 
-    const savedCardId = activeCardId;
     await loadCards();
-    activeCardId = savedCardId;
+    if (!isCurrentEditor()) return;
     if (getActiveCard()) {
       showCardDetail();
     } else {
@@ -811,7 +816,9 @@ async function saveCardEdits(form) {
     }
   } catch (error) {
     console.error(error);
-    setEditorBusy(form, false, error.message || "명함을 수정하지 못했습니다.");
+    errorMessage = error.message || "명함을 수정하지 못했습니다.";
+  } finally {
+    setEditorBusy(form, false, errorMessage);
   }
 }
 
@@ -821,15 +828,21 @@ async function deleteCurrentCard() {
     return;
   }
 
+  const cardId = contact.id;
+  const detailView = detailContent.firstElementChild;
+  const isCurrentDetail = () => detailModal.open &&
+    Number(activeCardId) === Number(cardId) && detailContent.firstElementChild === detailView;
   setDetailStatus("휴지통으로 옮기는 중입니다.");
 
   try {
-    await requestCardDelete(activeCardId);
-    closeCardDetail();
+    await requestCardDelete(cardId);
+    if (isCurrentDetail()) closeCardDetail();
     await loadCards();
   } catch (error) {
     console.error(error);
-    setDetailStatus(error.message || "명함을 휴지통으로 옮기지 못했습니다.");
+    if (isCurrentDetail()) {
+      setDetailStatus(error.message || "명함을 휴지통으로 옮기지 못했습니다.");
+    }
   }
 }
 
