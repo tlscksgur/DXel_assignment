@@ -170,6 +170,9 @@ test("신규 명함은 로고 좌표를 추출하고 별도 저장해 목록에 
   vm.runInNewContext(management, context);
   assert.match(context.createCard({ id: 1, name: "홍길동", logo_path: "/uploads/logo.jpg" }), /class="profileCardLogo"[^>]*src="\.\/uploads\/logo\.jpg"/);
   assert.doesNotMatch(context.createCard({ id: 2, name: "홍길동", logo_path: "javascript:alert(1)" }), /profileCardLogo/);
+  const numberedCard = context.createCard({ id: 42, display_number: 3, name: "홍길동" });
+  assert.match(numberedCard, /class="cardId">#3<\/span>/);
+  assert.match(numberedCard, /data-card-id="42"/);
 });
 
 test("목록 로고는 카드 오른쪽 아래에 배치하고 흰 배경 박스를 두지 않는다", () => {

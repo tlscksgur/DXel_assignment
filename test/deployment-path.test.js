@@ -138,6 +138,22 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
       method, headers: { ...(token ? { Cookie: `bcm_session=${token}` } : {}), Origin: origin, 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body)
     });
+    await t.test('표시 번호는 삭제된 행을 제외한 등록 순서이며 검색·상세에서도 동일하고 복원 시 다시 계산된다', async () => {
+      const numbers = async () => (await (await request(tokens[0], '')).json()).cards
+        .sort((a, b) => a.id - b.id).map(card => [card.id, card.display_number]);
+      assert.deepEqual(await numbers(), [[1, 1], [3, 2]]);
+      const filtered = (await (await request(tokens[0], '?q=관리자 본인')).json()).cards;
+      assert.equal(filtered[0].display_number, 2);
+      assert.equal((await (await request(tokens[0], '/3')).json()).card.display_number, 2);
+      assert.equal((await request(tokens[1], '/1', 'DELETE')).status, 200);
+      assert.deepEqual(await numbers(), [[3, 1]]);
+      assert.equal((await (await request(tokens[0], '/3')).json()).card.id, 3);
+      assert.equal((await request(tokens[1], '/1/restore', 'PATCH', {})).status, 200);
+      assert.deepEqual(await numbers(), [[1, 1], [3, 2]]);
+      const restored = (await (await request(tokens[1], '/1')).json()).card;
+      assert.equal(restored.is_favorite, 1);
+      assert.equal(restored.group_name, '등록자 개인 그룹');
+    });
     const paths = ['/API/CARDS/1', '/api/cards/1/', '/api/cards/01', '/api/cards/%31', '/api/cards/1.0', '/api/cards/1e0'];
     for (const apiPath of paths) {
       await t.test(`비로그인 변경 거부: ${apiPath}`, async () => {

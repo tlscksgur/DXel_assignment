@@ -72,12 +72,17 @@ const CARD_READ_COLUMNS = [
 
 function cardReadSql() {
   return `SELECT ${CARD_READ_COLUMNS.map((column) => `bc.${column}`).join(", ")},
+      card_numbers.display_number,
       CASE WHEN bc.created_by = ? OR ? = 1 THEN 1 ELSE 0 END AS can_edit,
       CASE WHEN bc.created_by = ? THEN 1 ELSE 0 END AS is_mine,
       CASE WHEN ? > 0 THEN 1 ELSE 0 END AS can_manage_personal,
       CASE WHEN cf.card_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
       COALESCE(ucg.group_name, '') AS group_name
     FROM business_cards AS bc
+    LEFT JOIN (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY id ASC) AS display_number
+      FROM business_cards WHERE deleted_at IS NULL
+    ) AS card_numbers ON card_numbers.id = bc.id
     LEFT JOIN card_favorites AS cf ON cf.card_id = bc.id AND cf.user_id = ?
     LEFT JOIN user_card_groups AS ucg ON ucg.card_id = bc.id AND ucg.user_id = ?`;
 }

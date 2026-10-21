@@ -379,7 +379,7 @@ function createCard(contact) {
     <article class="profileCard ${classes}${isSelected ? " is-selected" : ""}${isFavorite ? " has-favorite" : ""}" data-card-id="${cardId}" tabindex="0" role="button" aria-pressed="${isSelected}" aria-label="${name} 명함 ${selectionMode ? "선택" : "상세 보기"}">
       ${isFavorite ? '<span class="profileCardFavoriteMarker" aria-hidden="true">★</span>' : ""}
       <span class="pill">${company || "BUSINESS CARD"}</span>
-      <span class="cardId">#${cardId || "-"}</span>
+      <span class="cardId">#${Number(contact.display_number) || "-"}</span>
       ${safeLogoPath ? `<img class="profileCardLogo" src="${safeLogoPath}" alt="${company || name} 로고" loading="lazy" decoding="async">` : ""}
       <h2>${name}</h2>
       <p class="role">${[position, company].filter(Boolean).join(" · ")}</p>
@@ -468,7 +468,7 @@ function createCardDetail(contact) {
       <div class="cardDetailHeader">
         <div class="cardDetailCompanyLine">
           <span class="pill">${escapeHtml(contact.company) || "BUSINESS CARD"}</span>
-          <span class="cardDetailId">#${Number(contact.id) || "-"}</span>
+          <span class="cardDetailId">#${Number(contact.display_number) || "-"}</span>
         </div>
         <p class="cardDetailEyebrow">BUSINESS CARD DETAIL</p>
         <h2 id="cardDetailTitle">${escapeHtml(contact.name || "-")}</h2>
@@ -529,7 +529,7 @@ function createCardEditor(contact, statusMessage = "") {
         <div class="cardDetailHeader">
           <div class="cardDetailCompanyLine">
             <span class="pill">${escapeHtml(contact.company) || "BUSINESS CARD"}</span>
-            <span class="cardDetailId">#${Number(contact.id) || "-"}</span>
+            <span class="cardDetailId">#${Number(contact.display_number) || "-"}</span>
           </div>
           <p class="cardDetailEyebrow">BUSINESS CARD EDIT</p>
           <h2 id="cardDetailTitle">명함 정보 수정</h2>
