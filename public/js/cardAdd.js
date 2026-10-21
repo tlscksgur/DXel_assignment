@@ -12,6 +12,8 @@ const nextButton = document.querySelector(".subAction");
 const cancelButton = document.querySelector(".ghostAction");
 const previewFrame = document.querySelector(".previewFrame");
 const queueBox = document.querySelector(".queueBox");
+const autoSaveToggle = document.querySelector(".autoSaveToggle");
+const autoSaveHint = document.querySelector(".autoSaveHint");
 const emailInput = document.querySelector("#email");
 const cardTags = document.querySelector(".addCardTags");
 const CARD_TAG_OPTIONS = ["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"];
@@ -48,6 +50,43 @@ let uploadQueue = [];
 let currentQueueIndex = -1;
 let isAnalyzing = false;
 let isSaving = false;
+let autoSaveEnabled = false;
+let autoSaveRunning = false;
+
+function setAutoSave(enabled, message) {
+  autoSaveEnabled = enabled;
+  autoSaveToggle.setAttribute("aria-pressed", String(enabled));
+  autoSaveToggle.textContent = enabled ? "자동 저장 중 · 끄기" : "추출 후 자동 저장 켜기";
+  autoSaveHint.textContent = message || (enabled
+    ? "추출이 끝나면 자동 저장합니다. 중복이나 오류가 생기면 멈춥니다. 페이지를 열어 두세요."
+    : "자동 저장을 껐습니다. 진행 중인 저장 요청은 완료됩니다.");
+}
+
+async function runAutoSave() {
+  if (!autoSaveEnabled || autoSaveRunning || isAnalyzing || isSaving) return;
+  autoSaveRunning = true;
+  try {
+    while (autoSaveEnabled) {
+      const item = uploadQueue[currentQueueIndex];
+      if (!item) break;
+      if (item.status === "saved") {
+        await moveToNextCard();
+        continue;
+      }
+      if (item.status !== "ready") break;
+      if (!await saveCurrentCard(true)) break;
+      if (!autoSaveEnabled) break;
+      await moveToNextCard();
+    }
+  } finally {
+    autoSaveRunning = false;
+  }
+}
+
+autoSaveToggle.addEventListener("click", async () => {
+  setAutoSave(!autoSaveEnabled);
+  await runAutoSave();
+});
 
 function syncEmailFieldHeight() {
   emailInput.classList.toggle(
@@ -584,6 +623,7 @@ async function analyzeCurrentCard() {
     showQueueItem(item);
     runningBadge.textContent = completedAnalysisLabel(item);
     updateActionState();
+    await runAutoSave();
     return;
   }
 
@@ -709,6 +749,7 @@ async function analyzeCurrentCard() {
     item.error = error.message;
     runningBadge.textContent = `분석 실패 · ${(item.analysisDurationMs / 1000).toFixed(1)}초`;
 
+    setAutoSave(false, `자동 저장 중지: ${error.message}`);
     alert(error.message);
   } finally {
     isAnalyzing = false;
@@ -745,10 +786,12 @@ async function activateQueueItem(index) {
     showQueueItem(item);
     runningBadge.textContent = completedAnalysisLabel(item);
     updateActionState();
+    await runAutoSave();
     return;
   }
 
   await analyzeCurrentCard();
+  await runAutoSave();
 }
 
 async function moveToNextCard() {
@@ -767,12 +810,14 @@ async function moveToNextCard() {
   }
 
   if (nextIndex === -1) {
+    const completedAutomatically = autoSaveEnabled;
+    if (completedAutomatically) setAutoSave(false, "자동 저장 완료: 선택한 명함을 모두 처리했습니다.");
     currentQueueIndex = -1;
     clearCardForm("선택한 명함을 모두 처리했습니다.");
     runningBadge.textContent = "전체 처리 완료";
     renderQueue();
     updateActionState();
-    alert("선택한 명함을 모두 처리했습니다.");
+    if (!completedAutomatically) alert("선택한 명함을 모두 처리했습니다.");
     return;
   }
 
@@ -911,7 +956,7 @@ async function handleDuplicates(duplicates) {
   return submitCard(true);
 }
 
-async function submitCard(allowDuplicate = false) {
+async function submitCard(allowDuplicate = false, automatic = false) {
   const currentItem = uploadQueue[currentQueueIndex];
 
   if (!currentItem || currentItem.status !== "ready" || !currentItem.imagePath) {
@@ -938,6 +983,11 @@ async function submitCard(allowDuplicate = false) {
     const result = await response.json();
 
     if (response.status === 409) {
+      if (automatic) {
+        setAutoSave(false, "중복 가능성이 있어 자동 저장을 멈췄습니다. 현재 명함을 확인한 뒤 직접 저장하거나 건너뛰세요.");
+        runningBadge.textContent = "중복 확인 필요";
+        return false;
+      }
       return handleDuplicates(result.duplicates || []);
     }
 
@@ -948,6 +998,7 @@ async function submitCard(allowDuplicate = false) {
     return true;
   } catch (error) {
     console.error(error);
+    if (automatic) setAutoSave(false, `자동 저장 중지: ${error.message}`);
     alert(error.message);
     return false;
   } finally {
@@ -957,23 +1008,27 @@ async function submitCard(allowDuplicate = false) {
 }
 
 // ===== 저장·다음 명함·취소 버튼 이벤트 =====
-saveButton.addEventListener("click", async () => {
-  if (isSaving) return;
+async function saveCurrentCard(automatic = false) {
+  if (isSaving || isAnalyzing) return false;
   const submittedItem = uploadQueue[currentQueueIndex];
-  if (!submittedItem) return;
+  if (!submittedItem || submittedItem.status !== "ready") return false;
   isSaving = true;
   updateActionState();
   try {
-    const saved = await submitCard(false);
-    if (!saved) return;
+    const saved = await submitCard(false, automatic);
+    if (!saved) return false;
 
     submittedItem.status = "saved";
     renderQueue();
+    return true;
   } finally {
     isSaving = false;
     updateActionState();
   }
-  await moveToNextCard();
+}
+
+saveButton.addEventListener("click", async () => {
+  if (await saveCurrentCard()) await moveToNextCard();
 });
 
 nextButton.addEventListener("click", async () => {
