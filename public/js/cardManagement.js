@@ -400,6 +400,18 @@ function formatMeetingDate(value) {
   return match[4] && match[5] ? `${date} ${match[4]}:${match[5]}` : date;
 }
 
+function createCardRegistrationInfo(contact) {
+  const name = String(contact.created_by_name || "").trim();
+  const rawDate = String(contact.created_at || "").trim();
+  // SQLite CURRENT_TIMESTAMP는 시간대 표기 없는 UTC 날짜를 반환한다.
+  const date = new Date(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(rawDate)
+    ? `${rawDate.replace(" ", "T")}Z` : rawDate);
+  const createdDate = rawDate && Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(date).replace(/-/g, ".")
+    : "";
+  return `<p class="cardRegistrationInfo">${name ? `등록자 ${escapeHtml(name)}` : "등록자 정보 없음"}${createdDate ? ` · 등록일 ${createdDate}` : ""}</p>`;
+}
+
 function createMeetingJournal(contact) {
   const fields = [
     ["만난 날짜", formatMeetingDate(contact.meeting_date)],
@@ -453,12 +465,11 @@ function createCardDetail(contact) {
         >${Number(contact.is_favorite) ? "★" : "☆"}</button>`
     : "";
   const tagDrawer = canEditCard(contact) ? createCardTagDrawer(contact) : "";
-  const detailActions = canEditCard(contact)
-    ? `<div class="cardDetailActions">
-        <button type="button" data-action="edit">수정</button>
-        <button type="button" class="danger" data-action="delete">휴지통으로 이동</button>
-      </div>`
-    : "";
+  const detailActions = `<div class="cardDetailActions">
+        ${createCardRegistrationInfo(contact)}
+        ${canEditCard(contact) ? `<button type="button" data-action="edit">수정</button>
+        <button type="button" class="danger" data-action="delete">휴지통으로 이동</button>` : ""}
+      </div>`;
   const detailStatus = canManagePersonalData(contact) || canEditCard(contact)
     ? '<p class="cardDetailStatus" aria-live="polite"></p>'
     : "";

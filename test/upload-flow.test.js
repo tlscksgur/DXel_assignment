@@ -920,7 +920,7 @@ test("세로 방향으로 저장된 명함 사진은 가로로 회전해 분석 
   assert.equal(uploadedImage.type, "image/jpeg");
 });
 
-test("세로 명함은 가로 배치를 유지하고 로고만 똑바른 이미지에서 자른다", async () => {
+test("명함은 크롭 후 글자 방향을 보정하고 로고는 원래 좌표 기준으로 자른다", async () => {
   const requests = [];
   const logoUploads = [];
   const cardUploads = [];
@@ -954,7 +954,7 @@ test("세로 명함은 가로 배치를 유지하고 로고만 똑바른 이미�
   });
 
   assert.equal(requests.length, 2);
-  assert.deepEqual(browser.canvasState.rotations, [-Math.PI / 2]);
+  assert.deepEqual(browser.canvasState.rotations, [-Math.PI / 2, Math.PI / 2]);
   assert.equal(requests[1].get("temporary"), "true");
   assert.equal(requests[1].get("replacePath"), null);
   assert.notEqual(requests[0].get("image"), requests[1].get("image"));
@@ -962,9 +962,41 @@ test("세로 명함은 가로 배치를 유지하고 로고만 똑바른 이미�
   assert.equal(browser.element(".previewFrame").innerHTML.includes("-upright.jpg"), false);
   assert.equal(cardUploads[0].get("originalPath"), "/uploads/portrait-1.jpg");
   assert.notEqual(browser.canvasState.imageBitmapSources[2], browser.canvasState.imageBitmapSources[0]);
-  assert.equal(browser.canvasState.imageBitmapSources[3], browser.canvasState.imageBitmapSources[0]);
+  assert.equal(browser.canvasState.imageBitmapSources[4], browser.canvasState.imageBitmapSources[0]);
   assert.equal(logoUploads.length, 1);
 });
+
+for (const rotation of [90, 180, 270]) {
+  test(`카메라로 찍은 옆방향 명함은 크롭 없이도 ${rotation}도 보정해 저장한다`, async () => {
+    const uploads = [];
+    const saved = [];
+    const browser = createCardAddBrowser(async (url, options) => {
+      if (url === "/api/cards") {
+        saved.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ success: true }) };
+      }
+      if (url === "/api/cards/cropped-image") {
+        uploads.push(options.body);
+        return { ok: true, json: async () => ({ file: { path: "/uploads/upright-card.jpg" } }) };
+      }
+      assert.equal(url, "/api/cards/extract");
+      return { ok: true, json: async () => ({
+        file: { path: "/uploads/sideways-card.jpg" }, uprightRotation: rotation,
+        cropBounds: null, logoBounds: null, extracted: { name: "김승현", company: "SAIGE" }
+      }) };
+    }, { imageDimensions: { width: 900, height: 1200 } });
+    await browser.handler("#cardCameraInput", "change")({
+      target: { files: [namedImage("camera.jpg")], value: "selected" }
+    });
+    assert.deepEqual(browser.canvasState.rotations, [rotation * Math.PI / 180]);
+    assert.equal(uploads.length, 1);
+    assert.equal(uploads[0].get("originalPath"), "/uploads/sideways-card.jpg");
+    assert.match(uploads[0].get("image").name, /-upright\.jpg$/);
+    assert.match(browser.element(".previewFrame").innerHTML, /blob:/);
+    await browser.handler(".mainAction", "click")();
+    assert.equal(saved[0].image_path, "/uploads/upright-card.jpg");
+  });
+}
 
 test("명함 방향이 이미 맞으면 원본 재분석이나 로고 회전을 하지 않는다", async () => {
   const analysisRequests = [];

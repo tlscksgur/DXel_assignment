@@ -1309,10 +1309,6 @@ body.detailOpen {
 
 .cardDetailOriginalImage img {
   position: static;
-  /* inset: 12px; */
-  /* top: 20px;  */
-  /* width: calc(100% - 24px);
-  height: calc(100% - 24px); */
   width: 360px;
   height: 230px;
   max-width: calc(100% - 24px);
@@ -1320,7 +1316,7 @@ body.detailOpen {
   justify-self: center;
   align-self: center;
   display: block;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 7px;
 }
 
@@ -1740,6 +1736,19 @@ textarea.cardDetailInput {
   font-weight: 700;
 }
 
+.cardRegistrationInfo {
+  flex: 0 1 auto;
+  align-self: flex-end;
+  min-width: 0;
+  margin: 0px 4px 1px;
+  text-align: right;
+  color: inherit;
+  opacity: .65;
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .cardDetailActions button {
   min-width: 92px;
   height: 44px;
@@ -2071,7 +2080,7 @@ textarea.cardDetailInput {
     height: auto;
     aspect-ratio: 36 / 23;
     max-height: calc(100% - 16px);
-    object-fit: cover;
+    object-fit: contain;
   }
 
   .cardDetailCard:has(.cardDetailSidebar) .cardDetailGrid {
@@ -2386,6 +2395,10 @@ textarea.cardDetailInput {
   .cardDetailActions {
     margin-top: 18px;
     transform: none;
+  }
+
+  .cardRegistrationInfo {
+    flex-basis: 100%;
   }
 
   .cardDetailStatus {

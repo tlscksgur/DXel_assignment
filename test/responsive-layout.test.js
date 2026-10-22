@@ -231,7 +231,7 @@ test("상세 모달은 내용 높이를 따르고 긴 메모만 내부 스크롤
   );
   assert.match(
     desktopLayout,
-    /\.cardDetailOriginalImage img\s*\{[^}]*aspect-ratio:\s*36 \/ 23;[^}]*object-fit:\s*cover;/
+    /\.cardDetailOriginalImage img\s*\{[^}]*aspect-ratio:\s*36 \/ 23;[^}]*object-fit:\s*contain;/
   );
 });
 

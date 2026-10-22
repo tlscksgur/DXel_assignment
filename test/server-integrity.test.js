@@ -119,6 +119,51 @@ test("일반 등록과 파일 불러오기는 로그인 계정을 등록자로 �
   });
 });
 
+test("한글·영문 병기 이름은 추출과 저장에서 한글만 유지하고 외국 이름은 보존한다", async () => {
+  await isolatedServer(async ({ runCode, request, get }) => {
+    const cases = [
+      ["김승현 Seunghyeon Kim", "김승현"],
+      ["Seunghyeon Kim (김승현)", "김승현"],
+      ["김 승 현 / SEUNGHYEON KIM", "김 승 현"],
+      ["김승현\nSeunghyeon Kim", "김승현"],
+      ["김승현", "김승현"],
+      ["Markus Bursäter", "Markus Bursäter"],
+      ["李小明", "李小明"]
+    ];
+    for (const [input, expected] of cases) {
+      for (const fn of ["makeCard", "sanitizeExtractedCard"]) {
+        assert.equal(runCode(`${fn}({name: ${JSON.stringify(input)}}).name`), expected, `${fn}: ${input}`);
+      }
+    }
+    const saved = await request("POST", "/api/cards", { name: cases[0][0] }, {}, undefined, { id: 7 });
+    assert.equal(saved.status, 201);
+    assert.equal((await get("SELECT name FROM business_cards WHERE id = ?", [saved.body.id])).name, "김승현");
+  });
+});
+
+test("기존에 병기된 이름도 응답에서는 한글만 표시하고 원본 DB와 ID를 유지한다", async () => {
+  await isolatedServer(async ({ runCode, card, get }) => {
+    const name = "김승현 Seunghyeon Kim";
+    const id = await card(name);
+    const response = runCode(`cardForResponse({ id: ${id}, name: ${JSON.stringify(name)}, display_number: 3 })`);
+    assert.equal(response.name, "김승현");
+    assert.equal(response.id, id);
+    assert.equal(response.display_number, 3);
+    assert.equal((await get("SELECT name FROM business_cards WHERE id = ?", [id])).name, name);
+  });
+});
+
+test("기존 병기 이름과 새 한글 이름도 같은 회사이면 중복으로 감지한다", async () => {
+  await isolatedServer(async ({ request, card, exec }) => {
+    const id = await card("김승현 Seunghyeon Kim");
+    await exec("UPDATE business_cards SET company = ? WHERE id = ?", ["SAIGE", id]);
+    const duplicate = await request("POST", "/api/cards", { name: "김승현", company: "SAIGE" }, {}, undefined, { id: 7 });
+    assert.equal(duplicate.status, 409);
+    assert.equal(duplicate.body.duplicates[0].id, id);
+    assert.equal(duplicate.body.duplicates[0].name, "김승현");
+  });
+});
+
 test("bulk group and trash reject missing ids without changing valid cards", async () => {
   await isolatedServer(async ({ request, card, get }) => {
     const id = await card("A");

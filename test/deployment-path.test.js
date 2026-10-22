@@ -214,6 +214,9 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
     });
     const adminCards = (await (await request(tokens[0], '')).json()).cards;
     const otherCardForAdmin = adminCards.find((card) => card.id === 1);
+    assert.equal(otherCardForAdmin.created_by_name, '권한 테스트');
+    assert.equal((await (await request(tokens[0], '/1')).json()).card.created_by_name, '권한 테스트');
+    assert.equal(Object.hasOwn(otherCardForAdmin, 'password_hash'), false);
     assert.equal(otherCardForAdmin.can_edit, 1);
     assert.equal(otherCardForAdmin.is_mine, 0);
     assert.equal(adminCards.find((card) => card.id === 3).is_mine, 1);

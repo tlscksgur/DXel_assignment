@@ -675,13 +675,17 @@ async function analyzeCurrentCard() {
     }
 
     let imagePath = result.file.path;
-    if (result.cropBounds) {
+    if (result.cropBounds || result.uprightRotation) {
       try {
-        const croppedImage = await cropImageToBounds(
+        let croppedImage = result.cropBounds ? await cropImageToBounds(
           preparedImage.blob,
           result.cropBounds,
           preparedImage.filename
-        );
+        ) : preparedImage;
+        // 좌표는 AI에 보낸 픽셀 기준이므로 먼저 자르고, 저장할 명함만 회전한다.
+        if (result.uprightRotation) {
+          croppedImage = await rotatePreparedImage(croppedImage || preparedImage, result.uprightRotation);
+        }
         if (croppedImage) {
           const croppedFormData = new FormData();
           croppedFormData.append("image", croppedImage.blob, croppedImage.filename);

@@ -73,12 +73,14 @@ const CARD_READ_COLUMNS = [
 function cardReadSql() {
   return `SELECT ${CARD_READ_COLUMNS.map((column) => `bc.${column}`).join(", ")},
       card_numbers.display_number,
+      creator.display_name AS created_by_name,
       CASE WHEN bc.created_by = ? OR ? = 1 THEN 1 ELSE 0 END AS can_edit,
       CASE WHEN bc.created_by = ? THEN 1 ELSE 0 END AS is_mine,
       CASE WHEN ? > 0 THEN 1 ELSE 0 END AS can_manage_personal,
       CASE WHEN cf.card_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
       COALESCE(ucg.group_name, '') AS group_name
     FROM business_cards AS bc
+    LEFT JOIN users AS creator ON creator.id = bc.created_by
     LEFT JOIN (
       SELECT id, ROW_NUMBER() OVER (ORDER BY id ASC) AS display_number
       FROM business_cards WHERE deleted_at IS NULL
@@ -108,6 +110,16 @@ const requireBulkCardOwner = createCardOwnerMiddleware(db, { adminEmail: cardAdm
 // ===== 공통 문자열 및 주소 정규화 =====
 function text(value) {
   return String(value || "").trim();
+}
+
+function normalizePersonName(value) {
+  const name = text(value).normalize("NFC");
+  if (!/[가-힣]/.test(name) || !/[a-z]/i.test(name)) return name;
+  return name.match(/[가-힣]+(?:[ \t·ㆍ-]+[가-힣]+)*/g)?.join(" ") || name;
+}
+
+function cardForResponse(row) {
+  return { ...row, name: normalizePersonName(row.name) };
 }
 
 function singleLineText(value) {
@@ -330,7 +342,7 @@ function makeCard(body = {}) {
   );
 
   return clearDuplicateDepartment({
-    name: text(body.name),
+    name: normalizePersonName(body.name),
     company: text(body.company),
     department: organization.department,
     position: organization.position,
@@ -468,7 +480,7 @@ function sanitizeExtractedCard(value = {}) {
   );
 
   return clearDuplicateDepartment({
-    name: text(value.name),
+    name: normalizePersonName(value.name),
     company: text(value.company),
     department: organization.department,
     position: organization.position,
@@ -587,8 +599,9 @@ function cardsAreDuplicates(card, row) {
     .map(phoneIdentity)
     .filter(Boolean);
   const sameMobile = [...mobileKeys].some((key) => rowMobileKeys.includes(key));
-  const samePerson = card.name && card.company
-    && card.name === row.name
+  const name = normalizePersonName(card.name);
+  const samePerson = name && card.company
+    && name === normalizePersonName(row.name)
     && card.company === row.company;
 
   return sameMobile || samePerson;
@@ -614,7 +627,7 @@ function checkDuplicate(card, excludeId, callback) {
 function duplicatePreview(row) {
   return {
     id: row.id,
-    name: row.name,
+    name: normalizePersonName(row.name),
     company: row.company,
     mobile: row.mobile,
     phone: row.phone,
@@ -1174,7 +1187,7 @@ app.get("/api/cards", (req, res) => {
 
     res.json({
       success: true,
-      cards: rows
+      cards: rows.map(cardForResponse)
     });
   });
 });
@@ -1190,7 +1203,7 @@ app.get("/api/cardSelect", (req, res) => {
 
     res.json({
       success: true,
-      cards: rows
+      cards: rows.map(cardForResponse)
     });
   });
 });
@@ -1335,7 +1348,7 @@ app.get("/api/cards/:id", (req, res) => {
 
     res.json({
       success: true,
-      card: row
+      card: cardForResponse(row)
     });
   });
 });

@@ -175,6 +175,16 @@ test("신규 명함은 로고 좌표를 추출하고 별도 저장해 목록에 
   assert.match(numberedCard, /data-card-id="42"/);
 });
 
+test("상세 명함 사진은 PC·모바일에서 전체 이미지가 잘리지 않게 표시한다", () => {
+  const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
+  const rules = [...css.matchAll(/(?:\.cardDetailCard:has\(\.cardDetailSidebar\)\s+)?\.cardDetailOriginalImage img\s*\{([^}]+)\}/g)];
+  assert.ok(rules.length >= 2);
+  for (const [, rule] of rules) {
+    assert.match(rule, /object-fit:\s*contain;/);
+    assert.doesNotMatch(rule, /object-fit:\s*cover;/);
+  }
+});
+
 test("목록 로고는 카드 오른쪽 아래에 배치하고 흰 배경 박스를 두지 않는다", () => {
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
   const logoRule = css.match(/\.profileCardLogo\s*\{([^}]+)\}/)?.[1] || "";
@@ -1501,12 +1511,25 @@ test("명함 상세 모달은 읽기 상태에서 수정과 삭제 동작을 제
   const detail = context.createCardDetail({
     id: 3,
     name: "홍길동",
-    company: "예시회사"
+    company: "예시회사",
+    created_by_name: "신찬혁",
+    created_at: "2026-10-21 15:30:00"
   });
 
   assert.match(detail, /class="cardDetailActions"/);
   assert.match(detail, /data-action="edit"/);
   assert.match(detail, /data-action="delete"/);
+  assert.match(detail, /등록자 신찬혁 · 등록일 2026\.10\.22/);
+  assert.ok(detail.indexOf("등록자 신찬혁") < detail.indexOf('data-action="edit"'));
+  const readOnly = context.createCardDetail({ id: 4, name: "타인 명함", can_edit: 0, created_by_name: "다른 직원" });
+  assert.match(readOnly, /등록자 다른 직원/);
+  assert.doesNotMatch(readOnly, /data-action="edit"|data-action="delete"/);
+  const unknown = context.createCardDetail({ id: 5, name: "기존 명함", can_edit: 0, created_at: "잘못된 날짜" });
+  assert.match(unknown, /등록자 정보 없음/);
+  assert.doesNotMatch(unknown, /Invalid Date|등록일/);
+  const escaped = context.createCardDetail({ id: 6, name: "확인", created_by_name: '<img src=x onerror="alert(1)">' });
+  assert.match(escaped, /등록자 &lt;img/);
+  assert.doesNotMatch(escaped, /<img src=x/);
   assert.match(source, /function showCardEditor/);
   assert.match(source, /function saveCardEdits/);
   assert.match(source, /function deleteCurrentCard/);
