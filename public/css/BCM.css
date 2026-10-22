@@ -1157,7 +1157,10 @@ body.detailOpen {
 
 .cardDetailContent {
   max-height: calc(100dvh - 32px);
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   border-radius: inherit;
 }
 
@@ -1726,7 +1729,7 @@ textarea.cardDetailInput {
   justify-content: flex-end;
   align-items: center;
   gap: 10px;
-  transform: translateY(30px);
+  transform: none;
 }
 
 .cardDetailStatus {
@@ -2058,12 +2061,8 @@ textarea.cardDetailInput {
 .trashEmpty a { display: inline-block; margin-top: 18px; color: #031632; font-weight: 800; text-decoration: underline; }
 
 @media (min-width: 681px) {
-  .cardDetailContent:has(.cardDetailSidebar) {
-    overflow: hidden;
-  }
-
   .cardDetailCard:has(.cardDetailSidebar) {
-    grid-template-rows: 180px auto auto;
+    grid-template-rows: minmax(180px, auto) auto auto;
   }
 
   .cardDetailCard:has(.cardDetailSidebar) .cardDetailSidebar {

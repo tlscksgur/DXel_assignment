@@ -197,7 +197,7 @@ test("대형 명함관리 화면에서 검색 도구와 명함 카드가 확대�
   );
 });
 
-test("상세 모달은 내용 높이를 따르고 긴 메모만 내부 스크롤한다", () => {
+test("상세 모달은 낮은 화면에서 내부 스크롤을 허용하고 버튼을 잘라내지 않는다", () => {
   const css = read("public/css/BCM.css");
   const desktopLayout = css.slice(
     css.indexOf("@media (min-width: 681px)"),
@@ -206,16 +206,18 @@ test("상세 모달은 내용 높이를 따르고 긴 메모만 내부 스크롤
 
   assert.match(
     desktopLayout,
-    /grid-template-rows:\s*180px\s+auto\s+auto;/
+    /grid-template-rows:\s*minmax\(180px,\s*auto\)\s+auto\s+auto;/
   );
   assert.match(
     desktopLayout,
     /\.cardDetailCard:has\(\.cardDetailSidebar\) \.cardDetailSidebar\s*\{[^}]*grid-template-rows:\s*180px\s+auto;/
   );
-  assert.match(
+  assert.doesNotMatch(
     desktopLayout,
     /\.cardDetailContent:has\(\.cardDetailSidebar\)\s*\{[^}]*overflow:\s*hidden;/
   );
+  assert.match(css, /\.cardDetailContent\s*\{[^}]*max-height:\s*calc\(100dvh - 32px\);[^}]*overflow-y:\s*auto;/);
+  assert.match(css, /\.cardDetailActions\s*\{[^}]*transform:\s*none;/);
   assert.doesNotMatch(desktopLayout, /\.cardDetailGrid\s*\{[^}]*overflow-y:\s*auto;/);
   assert.doesNotMatch(desktopLayout, /\.cardDetailHeader\s*\{[^}]*overflow-y:\s*auto;/);
   assert.doesNotMatch(desktopLayout, /\.meetingJournal\s*\{[^}]*overflow-y:\s*auto;/);
