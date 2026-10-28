@@ -25,7 +25,9 @@ function createApp(fetch = async () => ({ ok: true, json: async () => ({}) })) {
     return elements.get(selector);
   }
   const context = vm.createContext({
-    document: { querySelector: element },
+    document: { querySelector: element, querySelectorAll: (selector) => selector === ".saveVisibilityToggle"
+      ? [element(".saveVisibilityDesktop"), element(".saveVisibilityMobile button")]
+      : selector === ".saveVisibilityHint" ? [element(".saveVisibilityHint")] : [] },
     fetch,
     URL: { createObjectURL: () => "blob:test", revokeObjectURL() {} },
     FormData: class { append() {} },
@@ -42,6 +44,31 @@ function createApp(fetch = async () => ({ ok: true, json: async () => ({}) })) {
   context.testItems = [item("first"), item("second"), item("third")];
   return { element, events, run, item };
 }
+
+test("저장 범위 선택은 PC·모바일이 동기화되고 자동 저장 전체에 적용된다", async () => {
+  const saved = [];
+  let complete;
+  const app = createApp((_url, options) => {
+    saved.push(JSON.parse(options.body));
+    if (saved.length === 1) return new Promise((resolve) => { complete = resolve; });
+    return Promise.resolve({ ok: true, status: 201, json: async () => ({}) });
+  });
+  assert.equal(app.run("saveVisibility"), "shared");
+  app.events.get(".saveVisibilityDesktop").get("click")();
+  assert.equal(app.element(".saveVisibilityMobile button").textContent, "개인 저장");
+  app.run("uploadQueue = testItems");
+  await app.run("activateQueueItem(0)");
+  const saving = app.events.get(".autoSaveToggle").get("click")();
+  assert.equal(app.element(".saveVisibilityDesktop").disabled, true);
+  app.events.get(".saveVisibilityMobile button").get("click")();
+  assert.equal(app.run("saveVisibility"), "private");
+  complete({ ok: true, status: 201, json: async () => ({}) });
+  await saving;
+  assert.deepEqual(saved.map((card) => card.visibility), ["private", "private", "private"]);
+  assert.equal(app.element(".saveVisibilityDesktop").disabled, false);
+  app.events.get(".saveVisibilityMobile button").get("click")();
+  assert.equal(app.element(".saveVisibilityDesktop").textContent, "전체 공유");
+});
 
 test("대기열에서 다른 명함을 봤다가 돌아와도 수정한 입력을 유지한다", async () => {
   const app = createApp();

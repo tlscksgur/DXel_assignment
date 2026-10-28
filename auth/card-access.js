@@ -36,7 +36,9 @@ function isCardAdmin(user, adminEmail) {
 function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false, allowedOrigins = [] }) {
   return async (req, res, next) => {
     // Express는 기본적으로 경로 대소문자를 구분하지 않고 끝 슬래시를 허용한다.
-    const path = req.path.toLowerCase().replace(/\/+$/, "");
+    let path;
+    try { path = decodeURIComponent(req.path).toLowerCase().replace(/\/+$/, ""); }
+    catch { return res.status(400).json({ success: false, message: "요청 경로를 확인해 주세요." }); }
     if (!isCardApi(path)) return next();
     res.setHeader?.("Cache-Control", "no-store");
     if (!req.user?.id) {
@@ -46,6 +48,37 @@ function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
 
+    // 개인 명함은 관리자도 등록자 외에는 접근할 수 없다.
+    const single = path.match(/^\/api\/cards\/(\d+)(?:\/|$)/);
+    const ids = single ? parseCardIds([single[1]]) : parseCardIds(req.body?.cardIds);
+    if (ids.length) {
+      try {
+        const rows = await all(db,
+          `SELECT id FROM business_cards WHERE id IN (${ids.map(() => "?").join(", ")})
+            AND visibility = 'private' AND (created_by IS NULL OR created_by != ?)`,
+          [...ids, req.user.id]);
+        if (rows.length) return res.status(404).json({ success: false, message: "명함을 찾을 수 없습니다." });
+      } catch (error) { return next(error); }
+    }
+    // 다른 사람의 개인 이미지 경로를 새 공유 명함에 붙이는 우회도 막는다.
+    if (req.method !== "GET") {
+      const cards = Array.isArray(req.body?.cards) ? req.body.cards : [req.body];
+      const paths = [...new Set(cards.flatMap((card) => [card?.image_path, card?.imagePath, card?.logo_path, card?.logoPath])
+        .filter((value) => typeof value === "string" && value).map((value) => {
+          try { return decodeURIComponent(new URL(value.trim(), "http://local.invalid").pathname); }
+          catch { return value; }
+        }))];
+      try {
+        for (const imagePath of paths) {
+          const refs = await all(db,
+            "SELECT visibility, created_by FROM business_cards WHERE image_path = ? OR logo_path = ?",
+            [imagePath, imagePath]);
+          if (refs.length && !refs.some((card) => card.visibility === "shared" || card.created_by === req.user.id)) {
+            return res.status(404).json({ success: false, message: "이미지를 찾을 수 없습니다." });
+          }
+        }
+      } catch (error) { return next(error); }
+    }
     return next();
   };
 }
@@ -64,9 +97,12 @@ function createCardOwnerMiddleware(db, { adminEmail = "", bulk = false } = {}) {
     try {
       const placeholders = ids.map(() => "?").join(", ");
       const rows = await all(db,
-        `SELECT id, created_by FROM business_cards WHERE id IN (${placeholders})`,
+        `SELECT id, created_by, visibility FROM business_cards WHERE id IN (${placeholders})`,
         ids
       );
+      if (rows.some((row) => row.visibility === "private" && row.created_by !== req.user.id)) {
+        return res.status(404).json({ success: false, message: "명함을 찾을 수 없습니다." });
+      }
       if (!isCardAdmin(req.user, adminEmail) && rows.some((row) => row.created_by !== req.user.id)) {
         return res.status(403).json({ success: false, message: "등록자만 명함을 변경할 수 있습니다." });
       }

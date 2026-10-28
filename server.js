@@ -66,7 +66,7 @@ function rememberCropSource(filename, userId) {
 
 const CARD_READ_COLUMNS = [
   "id", "name", "company", "department", "position", "mobile", "phone",
-  "email", "address", "website", "image_path", "logo_path", "meeting_date",
+  "email", "address", "website", "image_path", "logo_path", "visibility", "meeting_date",
   "meeting_place", "meeting_purpose", "meeting_note", "tags", "created_at", "deleted_at"
 ];
 
@@ -79,11 +79,11 @@ function cardReadSql() {
       CASE WHEN ? > 0 THEN 1 ELSE 0 END AS can_manage_personal,
       CASE WHEN cf.card_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
       COALESCE(ucg.group_name, '') AS group_name
-    FROM business_cards AS bc
+    FROM (SELECT * FROM business_cards WHERE visibility = 'shared' OR created_by = ?) AS bc
     LEFT JOIN users AS creator ON creator.id = bc.created_by
     LEFT JOIN (
       SELECT id, ROW_NUMBER() OVER (ORDER BY id ASC) AS display_number
-      FROM business_cards WHERE deleted_at IS NULL
+      FROM business_cards WHERE deleted_at IS NULL AND (visibility = 'shared' OR created_by = ?)
     ) AS card_numbers ON card_numbers.id = bc.id
     LEFT JOIN card_favorites AS cf ON cf.card_id = bc.id AND cf.user_id = ?
     LEFT JOIN user_card_groups AS ucg ON ucg.card_id = bc.id AND ucg.user_id = ?`;
@@ -91,7 +91,7 @@ function cardReadSql() {
 
 function cardReadParams(req) {
   const userId = Number(req.user?.id) || 0;
-  return [userId, isCardAdmin(req.user, cardAdminEmail) ? 1 : 0, userId, userId, userId, userId];
+  return [userId, isCardAdmin(req.user, cardAdminEmail) ? 1 : 0, userId, userId, userId, userId, userId, userId];
 }
 
 app.use(express.json());
@@ -398,7 +398,7 @@ function selectCardsForExport(req, res, callback) {
     return;
   }
 
-  const whereParts = ["deleted_at IS NULL"];
+  const whereParts = ["deleted_at IS NULL", "(visibility = 'shared' OR created_by = ?)"];
   if (hasSelection) {
     whereParts.push(`id IN (${cardIds.map(() => "?").join(", ")})`);
   }
@@ -409,7 +409,7 @@ function selectCardsForExport(req, res, callback) {
     ORDER BY created_at DESC
   `;
 
-  db.all(sql, cardIds, callback);
+  db.all(sql, [req.user.id, ...cardIds], callback);
 }
 
 // ===== CSV 및 vCard 변환 =====
@@ -607,15 +607,15 @@ function cardsAreDuplicates(card, row) {
   return sameMobile || samePerson;
 }
 
-function checkDuplicate(card, excludeId, callback) {
+function checkDuplicate(card, excludeId, userId, callback) {
   const sql = `
     SELECT *
     FROM business_cards
-    WHERE id != ? AND deleted_at IS NULL
+    WHERE id != ? AND deleted_at IS NULL AND (visibility = 'shared' OR created_by = ?)
     ORDER BY created_at DESC
   `;
 
-  db.all(sql, [excludeId || 0], (error, rows = []) => {
+  db.all(sql, [excludeId || 0, userId], (error, rows = []) => {
     if (error) return callback(error);
 
     const duplicates = rows.filter((row) => cardsAreDuplicates(card, row));
@@ -868,6 +868,10 @@ app.post("/api/cards/uploads/cleanup", async (req, res) => {
 
 // ===== 명함 저장 API =====
 function saveCard(req, res) {
+  const visibility = req.body.visibility === undefined ? "shared" : req.body.visibility;
+  if (!["shared", "private"].includes(visibility)) {
+    return res.status(400).json({ success: false, message: "저장 범위를 확인해 주세요." });
+  }
   if (req.body.tags !== undefined && !Array.isArray(req.body.tags)) {
     return res.status(400).json({ success: false, message: "태그 정보를 확인해 주세요." });
   }
@@ -886,7 +890,7 @@ function saveCard(req, res) {
     });
   }
 
-  checkDuplicate(card, 0, (error, duplicates) => {
+  checkDuplicate(card, 0, req.user.id, (error, duplicates) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -906,9 +910,9 @@ function saveCard(req, res) {
       INSERT INTO business_cards (
         name, company, department, position, mobile, phone,
         email, address, website, image_path, logo_path,
-        meeting_date, meeting_place, meeting_purpose, meeting_note, tags, created_by
+        meeting_date, meeting_place, meeting_purpose, meeting_note, tags, created_by, visibility
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     db.run(sql, [
@@ -928,7 +932,8 @@ function saveCard(req, res) {
       card.meeting_purpose,
       card.meeting_note,
       JSON.stringify(tags),
-      req.user.id
+      req.user.id,
+      visibility
     ], function (error) {
       if (error) {
         return res.status(500).json({
@@ -985,7 +990,7 @@ app.post("/api/cards/import/preview", (req, res) => {
     return res.status(400).json({ success: false, message: parsed.error });
   }
 
-  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL ORDER BY created_at DESC", (error, existingCards) => {
+  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL AND (visibility = 'shared' OR created_by = ?) ORDER BY created_at DESC", [req.user.id], (error, existingCards) => {
     if (error) {
       return res.status(500).json({ success: false, message: "중복 확인에 실패했습니다." });
     }
@@ -1018,7 +1023,7 @@ app.post("/api/cards/import", (req, res) => {
     return res.status(400).json({ success: false, message: "그룹 이름은 40자 이내로 입력해 주세요." });
   }
 
-  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL ORDER BY created_at DESC", (selectError, existingCards) => {
+  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL AND (visibility = 'shared' OR created_by = ?) ORDER BY created_at DESC", [req.user.id], (selectError, existingCards) => {
     if (selectError) {
       return res.status(500).json({ success: false, message: "중복 확인에 실패했습니다." });
     }
@@ -1141,7 +1146,7 @@ app.get("/api/cards/duplicates", (req, res) => {
   const card = makeCard(req.query);
   const excludeId = Number(req.query.excludeId || 0);
 
-  checkDuplicate(card, excludeId, (error, duplicates) => {
+  checkDuplicate(card, excludeId, req.user.id, (error, duplicates) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -1213,7 +1218,8 @@ app.get("/api/cards/groups", (req, res) => {
   db.all(
     `SELECT DISTINCT groups.group_name FROM user_card_groups AS groups
       JOIN business_cards AS cards ON cards.id = groups.card_id AND cards.deleted_at IS NULL
-      WHERE groups.user_id = ? AND TRIM(COALESCE(groups.group_name, '')) <> ''
+      WHERE groups.user_id = ? AND (cards.visibility = 'shared' OR cards.created_by = groups.user_id)
+        AND TRIM(COALESCE(groups.group_name, '')) <> ''
       ORDER BY groups.group_name COLLATE NOCASE`,
     [req.user.id],
     (error, rows) => {
@@ -1364,7 +1370,7 @@ app.put("/api/cards/:id", requireCardOwner, (req, res) => {
     });
   }
 
-  checkDuplicate(card, Number(req.params.id), (error, duplicates) => {
+  checkDuplicate(card, Number(req.params.id), req.user.id, (error, duplicates) => {
     if (error) {
       return res.status(500).json({
         success: false,
@@ -1518,6 +1524,12 @@ app.post("/api/cards/merge-group", requireBulkCardOwner, (req, res) => {
       throw error;
     }
 
+    if (new Set(cards.map((card) => card.visibility)).size > 1) {
+      const error = new Error("전체 공유 명함과 개인 명함은 함께 병합할 수 없습니다.");
+      error.status = 400;
+      throw error;
+    }
+
     const representative = cards[0];
     const duplicateIds = cards.slice(1).map((card) => card.id);
     const mergeFields = [
@@ -1559,7 +1571,7 @@ app.post("/api/cards/merge-group", requireBulkCardOwner, (req, res) => {
     console.error("명함 병합 트랜잭션 실패:", error.message);
     res.status(error.status || 500).json({
       success: false,
-      message: error.status === 404 ? error.message : "명함 병합에 실패했습니다."
+      message: error.status === 404 || error.status === 400 ? error.message : "명함 병합에 실패했습니다."
     });
   });
 });
@@ -1772,13 +1784,25 @@ app.use((req, res, next) => {
   return next();
 });
 
-app.use("/uploads", (req, res, next) => {
+app.use("/uploads", async (req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (!req.user?.id) {
     return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
   }
-  next();
+  try {
+    const imagePath = `/uploads${decodeURIComponent(req.path)}`;
+    const references = await all(db,
+      "SELECT visibility, created_by FROM business_cards WHERE image_path = ? OR logo_path = ?",
+      [imagePath, imagePath]);
+    const filename = decodeURIComponent(req.path).slice(1);
+    const ownsPending = pendingUploads.get(filename) === req.user.id;
+    const canRead = references.some((card) => card.visibility === "shared" || card.created_by === req.user.id);
+    if (!canRead && !ownsPending) {
+      return res.status(404).json({ success: false, message: "이미지를 찾을 수 없습니다." });
+    }
+    return next();
+  } catch (error) { return next(error); }
 }, express.static(UPLOAD_DIR, { cacheControl: false }));
 app.use(express.static("public"));
 

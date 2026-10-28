@@ -76,6 +76,14 @@ function close(server) {
   return new Promise((resolve) => server.close(resolve));
 }
 
+function stopTestServer(child) {
+  if (child.exitCode !== null) return Promise.resolve();
+  return new Promise((resolve) => {
+    child.once("exit", resolve);
+    child.kill("SIGTERM");
+  });
+}
+
 function waitForServer(child) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("서버 시작 시간 초과")), 5000);
@@ -546,7 +554,7 @@ test("신규 명함 로고를 저장하고 수정 후에도 유지한다", async
     const readAgain = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`);
     assert.equal((await readAgain.json()).card.logo_path, logoPath);
   } finally {
-    app.kill("SIGTERM");
+    await stopTestServer(app);
     if (logoFile && fs.existsSync(logoFile)) fs.unlinkSync(logoFile);
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -669,6 +677,8 @@ function createCardAddBrowser(
         textContent: "",
         innerHTML: "",
         disabled: false,
+        attributes: {},
+        setAttribute(name, value) { this.attributes[name] = value; },
         hidden: selector === ".uploadSourceSheet",
         clickCount: 0,
         click() {
@@ -709,6 +719,9 @@ function createCardAddBrowser(
     confirm: () => true,
     document: {
       querySelector: element,
+      querySelectorAll: (selector) => selector === ".saveVisibilityToggle"
+        ? [element(".saveVisibilityDesktop"), element(".saveVisibilityMobile button")]
+        : selector === ".saveVisibilityHint" ? [element(".saveVisibilityHint")] : [],
       createElement(tagName) {
         assert.equal(tagName, "canvas");
 
@@ -1353,7 +1366,7 @@ test("신규 명함의 태그를 SQLite에 저장하고 다시 조회한다", as
     const read = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`);
     assert.deepEqual(JSON.parse((await read.json()).card.tags), ["고객", "협력사"]);
   } finally {
-    app.kill("SIGTERM");
+    await stopTestServer(app);
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });

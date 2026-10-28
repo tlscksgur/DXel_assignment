@@ -344,7 +344,7 @@ test("즐겨찾기는 PC 더블클릭과 상세 모달 별 버튼으로 토글�
 });
 
 test("일반 목록에서 즐겨찾기를 바꿔도 전체 목록을 다시 렌더링하지 않는다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8").replace(/\r\n/g, "\n");
   const toggleFavorite = source.match(/async function toggleFavorite[\s\S]*?\n}\n\nasync function saveCardEdits/)?.[0] || "";
 
   assert.match(source, /function syncFavoriteCard\(/);
@@ -353,7 +353,7 @@ test("일반 목록에서 즐겨찾기를 바꿔도 전체 목록을 다시 렌�
 });
 
 test("명함 목록을 새로 불러오면 모든 보기의 삭제된 선택 상태를 정리한다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8").replace(/\r\n/g, "\n");
   const loadCards = source.match(/async function loadCards\(\)[\s\S]*?\n}\n\n\/\/ ===== 검색/)?.[0] || "";
 
   assert.match(source, /function pruneSelectedCardIds\(visibleIds\)/);
@@ -362,7 +362,7 @@ test("명함 목록을 새로 불러오면 모든 보기의 삭제된 선택 상
 });
 
 test("목록 요청 실패 시 그룹·태그 보기 클래스를 제거해 빈 안내를 정상 크기로 표시한다", () => {
-  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8").replace(/\r\n/g, "\n");
   const loadCards = source.match(/async function loadCards\(\)[\s\S]*?\n}\n\n\/\/ ===== 검색/)?.[0] || "";
 
   assert.match(loadCards, /board\.classList\.remove\("duplicateMode", "groupMode", "tagMode"\)/);

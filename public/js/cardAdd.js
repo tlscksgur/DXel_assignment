@@ -14,6 +14,28 @@ const previewFrame = document.querySelector(".previewFrame");
 const queueBox = document.querySelector(".queueBox");
 const autoSaveToggle = document.querySelector(".autoSaveToggle");
 const autoSaveHint = document.querySelector(".autoSaveHint");
+const saveVisibilityToggles = document.querySelectorAll(".saveVisibilityToggle");
+let saveVisibility = "shared";
+
+function syncSaveVisibility() {
+  const isPrivate = saveVisibility === "private";
+  const label = isPrivate ? "개인 저장" : "전체 공유";
+  const hint = isPrivate ? "나만 볼 수 있습니다." : "로그인한 모든 사용자가 볼 수 있습니다.";
+  saveVisibilityToggles.forEach((button) => {
+    button.textContent = label;
+    button.setAttribute("aria-pressed", String(isPrivate));
+    button.setAttribute("aria-label", `저장 범위: ${label}. 누르면 ${isPrivate ? "전체 공유" : "개인 저장"}로 변경`);
+    button.title = `${label}: ${hint}`;
+    button.disabled = isSaving || autoSaveEnabled;
+  });
+  document.querySelectorAll(".saveVisibilityHint").forEach((element) => { element.textContent = hint; });
+}
+
+saveVisibilityToggles.forEach((button) => button.addEventListener("click", () => {
+  if (isSaving || autoSaveEnabled) return;
+  saveVisibility = saveVisibility === "shared" ? "private" : "shared";
+  syncSaveVisibility();
+}));
 const emailInput = document.querySelector("#email");
 const cardTags = document.querySelector(".addCardTags");
 const CARD_TAG_OPTIONS = ["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"];
@@ -55,6 +77,7 @@ let autoSaveRunning = false;
 
 function setAutoSave(enabled, message) {
   autoSaveEnabled = enabled;
+  syncSaveVisibility();
   autoSaveToggle.setAttribute("aria-pressed", String(enabled));
   autoSaveToggle.textContent = enabled ? "자동 저장 중 · 끄기" : "추출 후 자동 저장 켜기";
   autoSaveHint.textContent = message || (enabled
@@ -251,6 +274,7 @@ cardTags.addEventListener("click", (event) => {
 renderCardTags();
 
 function updateActionState() {
+  syncSaveVisibility();
   const currentItem = uploadQueue[currentQueueIndex];
   saveButton.disabled = !currentItem || currentItem.status !== "ready" || isAnalyzing || isSaving;
   nextButton.disabled = !currentItem || remainingQueueCount() <= 1 || isAnalyzing || isSaving;
@@ -939,7 +963,8 @@ function getCardFormData() {
     meeting_note: document.querySelector("#meeting_note").value.trim(),
     image_path: currentItem?.imagePath || "",
     logo_path: currentItem?.logoPath || "",
-    tags: [...(currentItem?.tags || [])]
+    tags: [...(currentItem?.tags || [])],
+    visibility: saveVisibility
   };
 }
 

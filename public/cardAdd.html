@@ -63,6 +63,7 @@
 
           <div class="autoSaveControls">
             <button class="autoSaveToggle" type="button" aria-pressed="false" aria-describedby="autoSaveHint">추출 후 자동 저장 켜기</button>
+            <button class="saveVisibilityToggle saveVisibilityDesktop" type="button" aria-pressed="false" aria-label="저장 범위: 전체 공유. 누르면 개인 저장으로 변경" title="전체 공유: 로그인한 모든 사용자가 볼 수 있습니다.">전체 공유</button>
             <p id="autoSaveHint" class="autoSaveHint" role="status">추출한 내용을 확인 없이 저장하고 다음 명함을 처리합니다. 이 페이지를 열어 두세요.</p>
           </div>
           <div class="queueBox">
@@ -75,6 +76,11 @@
         </aside>
 
         <!-- ===== 저장·다음 명함·취소 버튼 ===== -->
+        <div class="saveVisibilityMobile">
+          <span>저장 범위</span>
+          <button class="saveVisibilityToggle" type="button" aria-pressed="false" aria-label="저장 범위: 전체 공유. 누르면 개인 저장으로 변경">전체 공유</button>
+          <small class="saveVisibilityHint">로그인한 모든 사용자가 볼 수 있습니다.</small>
+        </div>
         <section class="actionDock" aria-label="명함 등록 작업">
           <div class="actionButtons">
             <button class="ghostAction" type="button">취소</button>

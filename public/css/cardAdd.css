@@ -325,7 +325,26 @@
 
 .autoSaveControls{
   margin-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 10px;
 }
+
+.saveVisibilityToggle {
+  min-width: 0;
+  padding: 12px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.saveVisibilityToggle[aria-pressed="true"] { background: var(--primary); color: #fff; }
+.saveVisibilityToggle:focus-visible { outline: 3px solid #8ba4c7; outline-offset: 3px; }
+.saveVisibilityToggle:disabled { opacity: .6; cursor: not-allowed; }
+.saveVisibilityMobile { display: none; }
 
 .autoSaveToggle{
   width: 100%;
@@ -345,6 +364,7 @@
 }
 
 .autoSaveHint{
+  grid-column: 1 / -1;
   margin: 8px 0 0;
   font-size: 13px;
   line-height: 1.5;
@@ -706,6 +726,7 @@
       "upload"
       "extract"
       "meeting"
+      "visibility"
       "actions";
     gap: 18px;
   }
@@ -713,6 +734,22 @@
   .reviewColumn {
     display: contents;
   }
+
+  .autoSaveControls { grid-template-columns: minmax(0, 1fr); }
+  .saveVisibilityDesktop { display: none; }
+  .saveVisibilityMobile {
+    grid-area: visibility;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px 14px;
+    align-items: center;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: #fff;
+  }
+  .saveVisibilityMobile > span { font-size: 14px; font-weight: 700; color: var(--primary); }
+  .saveVisibilityHint { grid-column: 1 / -1; color: var(--secondary); font-size: 13px; }
 
   .extractPanel {
     height: auto;

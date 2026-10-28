@@ -99,7 +99,7 @@ test("명함 등록의 좌우 콘텐츠 열은 독립 높이를 쓰고 모바일
   assert.doesNotMatch(extractRule, /height:\s*100%/);
   assert.match(css, /\.previewFrame\s*\{[^}]*flex:\s*0 0 auto;[^}]*aspect-ratio:\s*1\.45 \/ 1;/);
   assert.match(css, /@media\s*\(max-width:\s*900px\)[\s\S]*\.reviewColumn\s*\{[^}]*display:\s*contents;/);
-  assert.match(css, /@media\s*\(max-width:\s*900px\)[\s\S]*grid-template-areas:\s*"upload"\s*"extract"\s*"meeting"\s*"actions";/);
+  assert.match(css, /@media\s*\(max-width:\s*900px\)[\s\S]*grid-template-areas:\s*"upload"\s*"extract"\s*"meeting"\s*"visibility"\s*"actions";/);
 
   for (const source of sources) {
     const uploadStart = source.indexOf('<div class="reviewColumn uploadColumn">');

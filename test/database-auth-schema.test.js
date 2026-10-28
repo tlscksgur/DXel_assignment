@@ -67,12 +67,13 @@ test("인증 스키마 초기화는 기존 명함을 보존하고 반복 실행�
     await initializeSchema(db);
     await initializeSchema(db);
 
-    const card = await get(db, "SELECT name FROM business_cards WHERE id = 1");
+    const card = await get(db, "SELECT name, visibility FROM business_cards WHERE id = 1");
     const columns = await all(db, "PRAGMA table_info(business_cards)");
     const tables = await all(db, "SELECT name FROM sqlite_master WHERE type = 'table'");
     const tableNames = new Set(tables.map((table) => table.name));
 
     assert.equal(card.name, "테스트 명함");
+    assert.equal(card.visibility, "shared");
     assert.ok(columns.some((column) => column.name === "created_by"));
     for (const tableName of [
       "users",

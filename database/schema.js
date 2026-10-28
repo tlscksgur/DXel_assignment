@@ -19,7 +19,8 @@ const CARD_COLUMNS = [
   ["tags", "TEXT NOT NULL DEFAULT '[]'"],
   ["is_favorite", "INTEGER NOT NULL DEFAULT 0"],
   ["deleted_at", "TEXT"],
-  ["created_by", "INTEGER"]
+  ["created_by", "INTEGER"],
+  ["visibility", "TEXT NOT NULL DEFAULT 'shared' CHECK (visibility IN ('shared', 'private'))"]
 ];
 
 function exec(db, sql) {
