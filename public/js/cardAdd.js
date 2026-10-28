@@ -22,10 +22,13 @@ function syncSaveVisibility() {
   const label = isPrivate ? "개인 저장" : "전체 공유";
   const hint = isPrivate ? "나만 볼 수 있습니다." : "로그인한 모든 사용자가 볼 수 있습니다.";
   saveVisibilityToggles.forEach((button) => {
-    button.textContent = label;
-    button.setAttribute("aria-pressed", String(isPrivate));
-    button.setAttribute("aria-label", `저장 범위: ${label}. 누르면 ${isPrivate ? "전체 공유" : "개인 저장"}로 변경`);
-    button.title = `${label}: ${hint}`;
+    const choice = button.dataset?.visibility;
+    const buttonLabel = choice ? (choice === "private" ? "개인 저장" : "전체 공유") : label;
+    button.textContent = buttonLabel;
+    button.setAttribute("aria-pressed", String(choice ? choice === saveVisibility : isPrivate));
+    button.setAttribute("aria-label", choice ? `저장 범위: ${buttonLabel}`
+      : `저장 범위: ${label}. 누르면 ${isPrivate ? "전체 공유" : "개인 저장"}로 변경`);
+    button.title = choice ? (choice === "private" ? "나만 볼 수 있습니다." : "로그인한 모든 사용자가 볼 수 있습니다.") : `${label}: ${hint}`;
     button.disabled = isSaving || autoSaveEnabled;
   });
   document.querySelectorAll(".saveVisibilityHint").forEach((element) => { element.textContent = hint; });
@@ -33,7 +36,7 @@ function syncSaveVisibility() {
 
 saveVisibilityToggles.forEach((button) => button.addEventListener("click", () => {
   if (isSaving || autoSaveEnabled) return;
-  saveVisibility = saveVisibility === "shared" ? "private" : "shared";
+  saveVisibility = button.dataset?.visibility || (saveVisibility === "shared" ? "private" : "shared");
   syncSaveVisibility();
 }));
 const emailInput = document.querySelector("#email");
@@ -357,16 +360,24 @@ async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
   }
 }
 
-async function rotatePreparedImage(preparedImage, degrees) {
+function rotatedImageSize(width, height, degrees) {
+  const radians = degrees * Math.PI / 180;
+  return {
+    width: Math.max(1, Math.ceil(Math.abs(width * Math.cos(radians)) + Math.abs(height * Math.sin(radians)) - 1e-8)),
+    height: Math.max(1, Math.ceil(Math.abs(width * Math.sin(radians)) + Math.abs(height * Math.cos(radians)) - 1e-8))
+  };
+}
+
+async function rotatePreparedImage(preparedImage, degrees, asPng = false) {
   const image = await createImageBitmap(preparedImage.blob, {
     imageOrientation: "from-image"
   });
 
   try {
-    const quarterTurn = degrees === 90 || degrees === 270;
+    const size = rotatedImageSize(image.width, image.height, degrees);
     const canvas = document.createElement("canvas");
-    canvas.width = quarterTurn ? image.height : image.width;
-    canvas.height = quarterTurn ? image.width : image.height;
+    canvas.width = size.width;
+    canvas.height = size.height;
 
     const context = canvas.getContext("2d");
     context.translate(canvas.width / 2, canvas.height / 2);
@@ -377,12 +388,14 @@ async function rotatePreparedImage(preparedImage, degrees) {
       canvas.toBlob((result) => {
         if (result) resolve(result);
         else reject(new Error("이미지 방향을 바로잡지 못했습니다."));
-      }, "image/jpeg", 0.92);
+      }, asPng ? "image/png" : "image/jpeg", 0.92);
     });
 
     return {
       blob,
-      filename: preparedImage.filename.replace(/\.[^.]+$/, "-upright.jpg")
+      filename: preparedImage.filename.replace(/\.[^.]+$/, asPng ? "-upright.png" : "-upright.jpg"),
+      width: size.width,
+      height: size.height
     };
   } finally {
     image.close();
@@ -635,6 +648,27 @@ async function cropLogoToBounds(blob, bounds, filename) {
   }
 }
 
+async function orientLogoFromText(logoImage) {
+  try {
+    const formData = new FormData();
+    formData.append("image", logoImage.blob, logoImage.filename);
+    const response = await fetch("./api/cards/logo-orientation", {
+      method: "POST", body: formData,
+      signal: globalThis.AbortSignal?.timeout?.(25000)
+    });
+    if (!response.ok) throw new Error("로고 문자 방향 확인 실패");
+    const result = await response.json();
+    if (result.hasText !== true || result.applied !== true
+      || typeof result.rotation !== "number" || !Number.isFinite(result.rotation)
+      || Math.abs(result.rotation) < 1 || Math.abs(result.rotation) > 180) return logoImage;
+    // 임의 각도 회전 후에도 로고 끝이 잘리지 않도록 영역을 확장하고 빈 모서리는 투명하게 둔다.
+    return await rotatePreparedImage(logoImage, result.rotation, true);
+  } catch (error) {
+    console.warn("로고 문자 방향을 확인하지 못해 기존 방향을 유지합니다:", error.message);
+    return logoImage;
+  }
+}
+
 // ===== Local AI 분석 및 큐 이동 =====
 async function analyzeCurrentCard() {
   const item = uploadQueue[currentQueueIndex];
@@ -740,11 +774,10 @@ async function analyzeCurrentCard() {
           logoImageSource.filename
         );
         if (logoImage) {
-          if (preparedImage.rotatedPortrait && logoImage.height > logoImage.width) {
-            logoImage = await rotatePreparedImage(logoImage, 270);
-          }
+          logoImage = await orientLogoFromText(logoImage);
           const logoFormData = new FormData();
-          logoFormData.append("image", logoImage.blob, logoImageSource.filename.replace(/\.[^.]+$/, "-logo.jpg"));
+          const logoExtension = logoImage.blob.type === "image/png" ? "png" : "jpg";
+          logoFormData.append("image", logoImage.blob, logoImageSource.filename.replace(/\.[^.]+$/, `-logo.${logoExtension}`));
           const logoResponse = await fetch("./api/cards/logo-image", {
             method: "POST",
             body: logoFormData

@@ -163,11 +163,12 @@ const criticalFieldResponseFormat = {
 };
 
 // ===== AI 서버 공통 요청 =====
-async function requestChatCompletion(body) {
+async function requestChatCompletion(body, maximumTimeoutMs = Infinity) {
   const configuredTimeout = Number(process.env.AI_REQUEST_TIMEOUT_MS);
-  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+  const requestTimeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
     ? configuredTimeout
     : 300000;
+  const timeoutMs = Math.min(requestTimeoutMs, maximumTimeoutMs);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new Error("AI 요청 시간이 초과되었습니다.")), timeoutMs);
   try {
@@ -188,6 +189,41 @@ async function requestChatCompletion(body) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+// ===== 추출한 로고의 문자 방향 확인 =====
+async function analyzeLogoOrientation(imageDataUrl) {
+  return requestChatCompletion({
+    model: process.env.AI_SERVER_MODEL,
+    temperature: 0,
+    reasoning_effort: "none",
+    max_tokens: 256,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "logo_text_orientation", strict: true,
+        schema: {
+          type: "object", additionalProperties: false,
+          properties: {
+            has_text: { type: "boolean" },
+            clockwise_rotation: { type: "number", minimum: -180, maximum: 180 },
+            confidence: { type: "number", minimum: 0, maximum: 1 }
+          },
+          required: ["has_text", "clockwise_rotation", "confidence"]
+        }
+      }
+    },
+    messages: [
+      { role: "system", content: `Inspect ONLY the text in this cropped company logo.
+Return the clockwise rotation in degrees that must be APPLIED to the input image to make the text upright and its reading baseline horizontal. Use the baseline of the full word or text line, not individual letter strokes. For example, text tilted 45 degrees clockwise needs clockwise_rotation=-45; text tilted 45 degrees counterclockwise needs +45; upside-down text needs 180.
+Do not infer orientation from a symbol, brand identity, expected logo appearance, decorative diagonal strokes, or the slant of italic letters. Italic DASSAULT SYSTEMES on a horizontal baseline needs 0, even when its letters lean. Do not reshape, unskew, or redesign the logo.
+Set has_text=false and clockwise_rotation=0 when there is no clearly readable text, including symbol-only logos. When letters are too stylized, clipped, curved, or different text lines disagree, return clockwise_rotation=0 with low confidence. Correct small camera tilt only when the text-line baseline is clear. Confidence must reflect visual evidence, not brand recognition. When uncertain, prefer no rotation.` },
+      { role: "user", content: [
+        { type: "text", text: "로고의 읽을 수 있는 글자 줄과 위아래 방향을 기준으로, 똑바로 보이게 만드는 회전 각도를 JSON으로 반환하세요." },
+        { type: "image_url", image_url: { url: imageDataUrl } }
+      ] }
+    ]
+  }, 20000);
 }
 
 // ===== 명함 전체 필드 추출 =====
@@ -333,6 +369,7 @@ function parseModelJson(content) {
 module.exports = {
   extractBusinessCard,
   verifyCriticalFields,
+  analyzeLogoOrientation,
   imageToDataUrl,
   parseModelJson
 };

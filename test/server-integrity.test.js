@@ -41,7 +41,8 @@ async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
   const express = Object.assign(() => app, { json: () => () => {}, static: () => () => {} });
   const upload = { single: () => () => {} };
   const localAi = {
-    extractBusinessCard() {}, verifyCriticalFields() {}, imageToDataUrl() {}, parseModelJson() {}
+    extractBusinessCard() {}, verifyCriticalFields() {}, imageToDataUrl() {}, parseModelJson: JSON.parse,
+    analyzeLogoOrientation: async () => localAi.orientationResponse
   };
   const source = fs.readFileSync(path.join(root, "server.js"), "utf8");
   const context = {
@@ -55,6 +56,7 @@ async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
       if (name === "./auth/mailer") return { createSmtpMailer: () => null };
       if (name === "./upload") return { UPLOAD_DIR: uploads, upload };
       if (name === "./localAi") return localAi;
+      if (name === "./logoOrientation") return require("../logoOrientation");
       if (name === "./deployment") return require("../deployment");
       return require(name);
     },
@@ -84,7 +86,7 @@ async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
   const runCode = (code) => vm.runInContext(code, context);
   try {
     await run({
-      dir, uploads, request, card, get, exec, runCode,
+      dir, uploads, request, card, get, exec, runCode, localAi,
       getListenCalls: () => listenCalls,
       finishDatabaseReady: () => finishDatabaseReady?.()
     });
@@ -95,6 +97,32 @@ async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
+
+test("명함 크롭 안전 여백은 0.8%이며 이미지 경계를 넘지 않는다", async () => {
+  await isolatedServer(async ({ runCode }) => {
+    const crop = runCode("normalizeCropBounds({x:100,y:100,width:800,height:800})");
+    assert.equal(crop.x, 0.092);
+    assert.equal(crop.y, 0.092);
+    assert.equal(crop.width, 0.816);
+    const edge = runCode("normalizeCropBounds({x:0,y:0,width:1000,height:1000})");
+    assert.equal(edge.x, 0);
+    assert.equal(edge.width, 1);
+  });
+});
+
+test("로고 방향 확인 API는 문자 각도를 반환하고 임시 파일을 정리한다", async () => {
+  await isolatedServer(async ({ request, uploads, localAi }) => {
+    localAi.orientationResponse = { choices: [{ message: { content: JSON.stringify({ has_text: true, clockwise_rotation: -45, confidence: 0.95 }) } }] };
+    const filePath = path.join(uploads, "orientation.png");
+    fs.writeFileSync(filePath, "test");
+    const result = await request("POST", "/api/cards/logo-orientation", {}, {}, { path: filePath });
+    assert.equal(result.status, 200);
+    assert.equal(result.body.rotation, -45);
+    // res.json보다 finally의 비동기 삭제가 늦게 끝날 수 있다.
+    for (let n = 0; n < 20 && fs.existsSync(filePath); n++) await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(fs.existsSync(filePath), false);
+  });
+});
 
 test("HTTP 서버는 DB 스키마 초기화가 끝난 뒤에만 요청을 받는다", async () => {
   await isolatedServer(async ({ getListenCalls, finishDatabaseReady }) => {

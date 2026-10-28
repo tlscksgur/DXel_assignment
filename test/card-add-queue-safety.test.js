@@ -14,8 +14,11 @@ function createApp(fetch = async () => ({ ok: true, json: async () => ({}) })) {
       const listeners = new Map();
       elements.set(selector, {
         value: "", innerHTML: "", disabled: false, textContent: "", hidden: false,
+        dataset: selector === ".saveVisibilityMobile shared" ? { visibility: "shared" }
+          : selector === ".saveVisibilityMobile private" ? { visibility: "private" } : {},
+        attributes: {},
         style: { setProperty() {} },
-        setAttribute() {},
+        setAttribute(name, value) { this.attributes[name] = value; },
         classList: { toggle() {} },
         addEventListener(name, callback) { listeners.set(name, callback); },
         listeners
@@ -26,7 +29,7 @@ function createApp(fetch = async () => ({ ok: true, json: async () => ({}) })) {
   }
   const context = vm.createContext({
     document: { querySelector: element, querySelectorAll: (selector) => selector === ".saveVisibilityToggle"
-      ? [element(".saveVisibilityDesktop"), element(".saveVisibilityMobile button")]
+      ? [element(".saveVisibilityDesktop"), element(".saveVisibilityMobile shared"), element(".saveVisibilityMobile private")]
       : selector === ".saveVisibilityHint" ? [element(".saveVisibilityHint")] : [] },
     fetch,
     URL: { createObjectURL: () => "blob:test", revokeObjectURL() {} },
@@ -55,19 +58,25 @@ test("저장 범위 선택은 PC·모바일이 동기화되고 자동 저장 전
   });
   assert.equal(app.run("saveVisibility"), "shared");
   app.events.get(".saveVisibilityDesktop").get("click")();
-  assert.equal(app.element(".saveVisibilityMobile button").textContent, "개인 저장");
+  assert.equal(app.element(".saveVisibilityMobile shared").textContent, "전체 공유");
+  assert.equal(app.element(".saveVisibilityMobile private").textContent, "개인 저장");
+  assert.equal(app.element(".saveVisibilityMobile private").attributes["aria-pressed"], "true");
+  app.events.get(".saveVisibilityMobile private").get("click")();
+  assert.equal(app.run("saveVisibility"), "private");
   app.run("uploadQueue = testItems");
   await app.run("activateQueueItem(0)");
   const saving = app.events.get(".autoSaveToggle").get("click")();
   assert.equal(app.element(".saveVisibilityDesktop").disabled, true);
-  app.events.get(".saveVisibilityMobile button").get("click")();
+  app.events.get(".saveVisibilityMobile shared").get("click")();
   assert.equal(app.run("saveVisibility"), "private");
   complete({ ok: true, status: 201, json: async () => ({}) });
   await saving;
   assert.deepEqual(saved.map((card) => card.visibility), ["private", "private", "private"]);
   assert.equal(app.element(".saveVisibilityDesktop").disabled, false);
-  app.events.get(".saveVisibilityMobile button").get("click")();
+  app.events.get(".saveVisibilityMobile shared").get("click")();
   assert.equal(app.element(".saveVisibilityDesktop").textContent, "전체 공유");
+  assert.equal(app.element(".saveVisibilityMobile shared").attributes["aria-pressed"], "true");
+  assert.equal(app.element(".saveVisibilityMobile private").attributes["aria-pressed"], "false");
 });
 
 test("대기열에서 다른 명함을 봤다가 돌아와도 수정한 입력을 유지한다", async () => {

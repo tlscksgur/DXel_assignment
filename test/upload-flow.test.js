@@ -647,6 +647,33 @@ test("회사명이나 직책과 같은 부서명은 빈 값으로 정리한다",
   }
 });
 
+test("로고 글자 기준 45도 회전은 로고 끝을 보존하도록 캔버스를 넓히고 PNG로 만든다", async () => {
+  const browser = createCardAddBrowser(async () => { throw new Error("예상하지 않은 요청"); }, {
+    imageDimensions: { width: 300, height: 100 },
+    logoOrientation: { hasText: true, applied: true, rotation: -45 }
+  });
+  const logo = { blob: new Blob(["logo"], { type: "image/jpeg" }), filename: "logo.jpg" };
+  const result = await browser.orientLogoFromText(logo);
+  assert.equal(result.width, 283);
+  assert.equal(result.height, 283);
+  assert.equal(result.blob.type, "image/png");
+  assert.match(result.filename, /\.png$/);
+  assert.deepEqual(browser.canvasState.rotations, [-Math.PI / 4]);
+});
+
+test("문자 없는 로고와 불확실한 로고 방향은 기존 이미지를 유지한다", async () => {
+  for (const orientation of [
+    { hasText: false, applied: false, rotation: 0 },
+    { hasText: true, applied: false, rotation: 0 },
+    { hasText: true, applied: true, rotation: 999 }
+  ]) {
+    const browser = createCardAddBrowser(async () => {}, { logoOrientation: orientation });
+    const logo = { blob: new Blob(["logo"]), filename: "logo.jpg" };
+    assert.equal(await browser.orientLogoFromText(logo), logo);
+    assert.deepEqual(browser.canvasState.rotations, []);
+  }
+});
+
 function namedImage(name) {
   const image = new Blob([Buffer.from(name)], { type: "image/png" });
   Object.defineProperty(image, "name", { value: name });
@@ -655,7 +682,7 @@ function namedImage(name) {
 
 function createCardAddBrowser(
   fetchImplementation,
-  { mobile = true, imageDimensions = null } = {}
+  { mobile = true, imageDimensions = null, logoOrientation = { hasText: false, applied: false, rotation: 0 } } = {}
 ) {
   const elements = new Map();
   const handlers = new Map();
@@ -743,15 +770,17 @@ function createCardAddBrowser(
             rotate(radians) { canvasState.rotations.push(radians); },
             drawImage() {}
           }),
-          toBlob: (callback) => {
+          toBlob: (callback, mimeType = "image/jpeg") => {
             callback(new Blob([Buffer.alloc(500 * 1024)], {
-              type: "image/jpeg"
+              type: mimeType
             }));
           }
         };
       }
     },
-    fetch: (url, options) => fetchImplementation(url.replace(/^\.\//, "/"), options),
+    fetch: (url, options) => url.endsWith("/api/cards/logo-orientation")
+      ? Promise.resolve({ ok: true, json: async () => logoOrientation })
+      : fetchImplementation(url.replace(/^\.\//, "/"), options),
     innerHeight: 720,
     visualViewport: {
       height: 640,
@@ -780,6 +809,8 @@ function createCardAddBrowser(
     canvasState,
     balanceLogoCropBounds: context.balanceLogoCropBounds,
     findLogoForegroundBounds: context.findLogoForegroundBounds,
+    orientLogoFromText: context.orientLogoFromText,
+    rotatedImageSize: context.rotatedImageSize,
     element,
     resizeViewport(height) {
       context.visualViewport.height = height;

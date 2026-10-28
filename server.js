@@ -10,9 +10,11 @@ const { createSessionMiddleware, registerAuthRoutes } = require("./auth/routes")
 const { createCardAccessMiddleware, createCardOwnerMiddleware, parseCardIds, isCardAdmin } = require("./auth/card-access");
 const { createSmtpMailer } = require("./auth/mailer");
 const { UPLOAD_DIR, upload } = require("./upload");
+const { normalizeLogoOrientation } = require("./logoOrientation");
 const {
   extractBusinessCard,
   verifyCriticalFields,
+  analyzeLogoOrientation,
   imageToDataUrl,
   parseModelJson
 } = require("./localAi");
@@ -506,7 +508,7 @@ function normalizeCropBounds(value) {
   // Vision models can place a tight box just inside a card edge. Add a small
   // safety margin so the last printed characters and rounded corners survive
   // the crop while still keeping the surrounding background minimal.
-  const edgePadding = 12;
+  const edgePadding = 8;
   const safeX = Math.max(0, Math.min(999, x - edgePadding));
   const safeY = Math.max(0, Math.min(999, y - edgePadding));
   const safeRight = Math.min(1000, x + width + edgePadding);
@@ -809,6 +811,23 @@ app.post("/api/cards/cropped-image", upload.single("image"), async (req, res) =>
       size: req.file.size
     }
   });
+});
+
+app.post("/api/cards/logo-orientation", upload.single("image"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: "로고 이미지가 없습니다." });
+  try {
+    const response = await analyzeLogoOrientation(imageToDataUrl(req.file));
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) throw new Error("로고 문자 방향 응답이 없습니다.");
+    const orientation = normalizeLogoOrientation(parseModelJson(content));
+    return res.json({ success: true, ...orientation });
+  } catch (error) {
+    console.warn("로고 문자 방향 확인 실패:", error.message);
+    return res.status(502).json({ success: false, message: "로고 문자 방향을 확인하지 못했습니다." });
+  } finally {
+    try { await fs.promises.unlink(req.file.path); }
+    catch (error) { if (error.code !== "ENOENT") console.warn("방향 확인용 로고 정리 실패:", error.code); }
+  }
 });
 
 app.post("/api/cards/logo-image", upload.single("image"), (req, res) => {
