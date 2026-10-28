@@ -132,7 +132,7 @@ test("명함관리 도구와 중복 그룹이 모바일 너비에 맞는다", ()
 
   assert.match(
     css,
-    /@media\s*\(max-width:\s*680px\)\s*\{[\s\S]*\.bcmBoard\s*\{[\s\S]*grid-template-columns:\s*305px;/
+    /@media\s*\(max-width:\s*680px\)\s*\{[\s\S]*\.bcmBoard\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*305px\);/
   );
   assert.match(
     css,

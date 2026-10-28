@@ -21,6 +21,7 @@ const selectionBarCountValue = document.querySelector(".selectionBarCountValue")
 const deleteSelectedButton = document.querySelector('[data-selection-action="delete"]');
 const groupRemoveSelectedButton = document.querySelector('[data-selection-action="remove-from-group"]');
 const resultSummary = document.querySelector(".resultSummary");
+const visibilityFilterSelect = document.querySelector(".visibilityFilterSelect");
 const detailModal = document.querySelector(".cardDetailModal");
 const detailContent = document.querySelector(".cardDetailContent");
 const detailClose = document.querySelector(".cardDetailClose");
@@ -33,6 +34,11 @@ const groupAssignExistingCount = document.querySelector(".groupAssignExistingCou
 const groupQuickList = document.querySelector(".groupQuickList");
 
 let visibleCards = [];
+let visibilityFilter = "all";
+
+function filterCardsByVisibility(cards, scope = visibilityFilter) {
+  return scope === "all" ? cards : cards.filter((card) => (card.visibility || "shared") === scope);
+}
 let viewMode = "all";
 let sortKey = "recent";
 let sortDirection = "desc";
@@ -902,7 +908,9 @@ function closeImageLightbox() {
 // ===== 전체 명함 및 중복 그룹 화면 렌더링 =====
 function renderEmptyCards(message) {
   const isSearching = Boolean(String(searchInput.value || "").trim());
-  const emptyMessage = isSearching ? "검색 결과가 없습니다." : message;
+  const scopeEmptyMessage = visibilityFilter === "private" ? "개인 저장한 명함이 없습니다." : message;
+  const emptyMessage = isSearching ? "검색 결과가 없습니다."
+    : message === "등록된 명함이 없습니다." ? scopeEmptyMessage : message;
   board.classList.remove("duplicateMode", "groupMode", "tagMode");
   board.innerHTML = `<p class="emptyCards">${escapeHtml(emptyMessage)}</p>`;
 }
@@ -1444,7 +1452,9 @@ function exportSelectedCards(format) {
 // ===== 명함 목록 검색 및 불러오기 =====
 function renderCurrentView() {
   syncSelectionUi();
-  const ownedCards = myCardsOnly ? filterCardsByCurrentUser(visibleCards) : visibleCards;
+  const scopedCards = filterCardsByVisibility(visibleCards);
+  const scopePrefix = visibilityFilter === "private" ? "개인 · " : "";
+  const ownedCards = myCardsOnly ? filterCardsByCurrentUser(scopedCards) : scopedCards;
   const cardsForView = favoritesOnly
     ? ownedCards.filter((card) => Boolean(Number(card.is_favorite)))
     : ownedCards;
@@ -1473,7 +1483,7 @@ function renderCurrentView() {
   if (viewMode === "duplicates") {
     renderDuplicateGroups(duplicateGroups);
     const duplicateCount = duplicateGroups.reduce((total, group) => total + group.length, 0);
-    resultSummary.textContent = `중복 ${duplicateGroups.length}그룹 · ${duplicateCount}장`;
+    resultSummary.textContent = `${scopePrefix}중복 ${duplicateGroups.length}그룹 · ${duplicateCount}장`;
     return;
   }
 
@@ -1482,7 +1492,7 @@ function renderCurrentView() {
     const groupedCardCount = Array.from(groups.values())
       .reduce((total, cards) => total + cards.length, 0);
     renderGroupedCards(sortedCards);
-    resultSummary.textContent = `그룹 ${groups.size}개 · ${groupedCardCount}장`;
+    resultSummary.textContent = `${scopePrefix}그룹 ${groups.size}개 · ${groupedCardCount}장`;
     return;
   }
 
@@ -1491,7 +1501,7 @@ function renderCurrentView() {
     if (tagFilter) {
       const taggedCards = allGroups.get(tagFilter) || [];
       renderAllCards(taggedCards);
-      resultSummary.textContent = `${tagFilter} ${taggedCards.length}장`;
+      resultSummary.textContent = `${scopePrefix}${tagFilter} ${taggedCards.length}장`;
       return;
     }
 
@@ -1500,16 +1510,16 @@ function renderCurrentView() {
       Array.from(groups.values()).flat().map((card) => Number(card.id))
     );
     renderTagGroups(sortedCards);
-    resultSummary.textContent = `태그 ${groups.size}개 · ${taggedCardIds.size}장`;
+    resultSummary.textContent = `${scopePrefix}태그 ${groups.size}개 · ${taggedCardIds.size}장`;
     return;
   }
 
   renderAllCards(sortedCards);
   resultSummary.textContent = favoritesOnly
-    ? `즐겨찾기 ${sortedCards.length}장`
+    ? `${scopePrefix}즐겨찾기 ${sortedCards.length}장`
     : myCardsOnly
-      ? `내가 등록한 명함 ${sortedCards.length}장`
-      : `전체 ${visibleCards.length}장`;
+      ? `${scopePrefix}내가 등록한 명함 ${sortedCards.length}장`
+      : `${visibilityFilter === "private" ? "개인 명함" : "전체"} ${sortedCards.length}장`;
 }
 
 function setViewMode(nextViewMode) {
@@ -1566,6 +1576,17 @@ async function loadCards() {
 }
 
 // ===== 검색·보기 전환·명함 선택 이벤트 =====
+visibilityFilterSelect?.addEventListener("change", () => {
+  const scope = visibilityFilterSelect.value;
+  if (!["all", "private"].includes(scope) || scope === visibilityFilter) return;
+  visibilityFilter = scope;
+  // 이전 범위에서 고른 명함이 숨은 상태로 일괄 작업에 포함되지 않게 한다.
+  selectedCardIdsByView.forEach((ids) => ids.clear());
+  selectionModeByView.forEach((_value, mode) => selectionModeByView.set(mode, false));
+  selectionMode = false;
+  renderCurrentView();
+});
+
 searchForm.addEventListener("submit", (event) => {
   event.preventDefault();
   loadCards();

@@ -496,6 +496,19 @@ footer {
     margin-left: auto;
   }
 
+  .container > header {
+    min-height: 64px;
+    padding: 12px 24px;
+    flex-wrap: nowrap;
+    gap: 10px;
+  }
+
+  .container > header .logo { display: none; }
+  .container > header .headerBox1 { flex: 0 1 auto; width: auto; gap: 0; justify-content: flex-start; }
+  .container > header .headerBox1 ul { gap: 16px; }
+  .container > header .headerBox1 ul li:nth-child(2) { letter-spacing: 0; }
+  .container > header .headerBox2 { flex: 0 0 auto; width: auto; }
+
   .cardAdd {
     height: 38px;
     padding: 0 14px;
@@ -616,18 +629,58 @@ footer {
   .serviceStatus {
     gap: 6px;
   }
+
+  .container > footer {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 8px;
+    padding: 12px 16px;
+    align-items: center;
+  }
+  .container > footer .footerLeft {
+    grid-column: 1 / span 2;
+    grid-row: 1;
+    font-size: 10.5px;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+  .container > footer .footerRight { display: contents; }
+  .container > footer .footerDivider { display: none; }
+  .container > footer .footerRight span,
+  .container > footer .trashFooterLink {
+    font-size: 10px;
+    letter-spacing: .5px;
+    white-space: nowrap;
+  }
+  .container > footer .footerRight .serviceStatus {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+    gap: 4px;
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+  .container > footer .serviceStatus i { width: 5px; height: 5px; }
+  .container > footer .trashFooterLink { grid-column: 1; grid-row: 2; justify-self: start; gap: 5px; }
+  .container > footer .csvExport { grid-column: 2; grid-row: 2; justify-self: center; }
+  .container > footer .vcardExport { grid-column: 3; grid-row: 2; justify-self: end; }
 }
 
 @media (max-width: 380px) {
   .headerBox1 {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    justify-content: flex-start;
   }
 
   .headerBox2,
   .cardAdd {
-    width: 100%;
+    width: auto;
   }
+}
+
+@media (max-width: 360px) {
+  .container > footer .footerLeft { font-size: 10px; }
+  .container > footer .footerRight .serviceStatus { font-size: 10px; }
 }
 
 @media (min-width: 1200px) and (max-width: 1599px) {

@@ -348,11 +348,11 @@
 
 @media (max-width: 680px) {
   .authHeaderActions { padding: 4px; }
-  .authHeaderActions .cardAdd { height: 36px; padding: 0 12px; }
-  .accountMenuTrigger { min-height: 36px; gap: 7px; padding: 4px 6px 4px 9px; }
+  .authHeaderActions .cardAdd { height: 32px; padding: 0 10px; letter-spacing: 0; }
+  .accountMenuTrigger { min-height: 32px; margin-left: 4px; gap: 5px; padding: 3px 4px 3px 8px; }
   .accountMenuImport { display: flex; }
-  .accountAvatar { width: 26px; height: 26px; }
-  .accountTriggerName { max-width: 92px; font-size: 12px; }
+  .accountAvatar { width: 24px; height: 24px; }
+  .accountTriggerName { max-width: 48px; font-size: 12px; }
   .authLoginLink { min-height: 36px; padding: 0 12px; font-size: 12px; }
   .authPage main { padding-top: 44px; }
 }

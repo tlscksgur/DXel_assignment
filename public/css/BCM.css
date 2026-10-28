@@ -116,6 +116,7 @@ body.bcm-page .bcmBoard {
   margin-left: auto;
   padding-top: 15px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   border-top: 1px solid rgba(3, 22, 50, .08);
@@ -260,8 +261,25 @@ body.bcm-page .bcmBoard {
   /* line-height: 1; */
 }
 
-.selectionToggle {
+.visibilityFilterSelect {
+  flex: 0 0 auto;
+  height: 32px;
   margin-left: auto;
+  padding: 0 28px 0 11px;
+  border: 1px solid rgba(3, 22, 50, .16);
+  border-radius: 8px;
+  background: #fff;
+  color: #031632;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.visibilityFilterSelect:focus-visible { outline: 2px solid #2d6cdf; outline-offset: 2px; }
+
+.selectionToggle {
+  margin-left: 0;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -2138,17 +2156,45 @@ textarea.cardDetailInput {
   }
 
   .cardListControls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 12px 8px;
     align-items: stretch;
     flex-wrap: wrap;
   }
 
+  .resultSummary { grid-column: 1; grid-row: 1; min-width: 0; padding: 4px 8px; line-height: 1.35; word-break: keep-all; }
+  .visibilityFilterSelect { grid-column: 2; grid-row: 1; align-self: center; width: 110px; margin-left: 0; padding-left: 8px; }
+  .selectionToggle { grid-column: 3; grid-row: 1; align-self: center; justify-self: end; padding: 0 9px; white-space: nowrap; }
+  .selectionToggle .selectionInlineCount { display: none; }
+
   .viewModeControls {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: minmax(0, .7fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.55fr);
+    gap: 2px;
+    padding: 2px;
     order: 3;
     width: 100%;
   }
 
   .viewModeControls button {
     flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding-inline: 4px;
+    white-space: nowrap;
+    word-break: keep-all;
+    font-size: 10.5px;
+  }
+
+  .viewModeControls .duplicateCountBadge {
+    min-width: 16px;
+    height: 16px;
+    margin-left: 3px;
+    padding: 0 3px;
+    font-size: 9px;
   }
 
   .groupedCards,
@@ -2159,6 +2205,9 @@ textarea.cardDetailInput {
   }
 
   .sortControls {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    flex-wrap: wrap;
     order: 4;
     width: 100%;
     padding-left: 0;
@@ -2167,7 +2216,12 @@ textarea.cardDetailInput {
 
   .cardSortSelect {
     flex: 1;
+    min-width: 100px;
   }
+
+  .profileCard { width: 100%; }
+  .profileCard .role { font-size: 10px; letter-spacing: .02em; word-break: keep-all; overflow-wrap: anywhere; }
+  .profileCard .meta { font-size: 11px; }
 
   .selectionActionBar {
     width: calc(100% - 24px);
@@ -2246,7 +2300,7 @@ textarea.cardDetailInput {
   }
 
   .bcmBoard {
-    grid-template-columns: 305px;
+    grid-template-columns: minmax(0, 305px);
     gap: 22px;
   }
 

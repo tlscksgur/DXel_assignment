@@ -743,15 +743,31 @@
     grid-area: visibility;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 8px 14px;
+    gap: 6px 10px;
     align-items: center;
-    padding: 14px;
+    padding: 10px 12px;
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 10px;
     background: #fff;
   }
-  .saveVisibilityMobile > span { font-size: 14px; font-weight: 700; color: var(--primary); }
-  .saveVisibilityHint { grid-column: 1 / -1; color: var(--secondary); font-size: 13px; }
+  .saveVisibilityMobile > span { font-size: 12px; font-weight: 700; color: var(--primary); }
+  .saveVisibilityMobile .saveVisibilityOptions {
+    justify-self: end;
+    grid-template-columns: repeat(2, auto);
+    gap: 2px;
+    padding: 3px;
+    border-radius: 8px;
+    background: #f0ede8;
+  }
+  .saveVisibilityMobile .saveVisibilityToggle {
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1;
+  }
+  .saveVisibilityHint { grid-column: 1 / -1; color: var(--secondary); font-size: 11px; line-height: 1.4; }
 
   .extractPanel {
     height: auto;
