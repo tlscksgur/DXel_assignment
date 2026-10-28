@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const sqlite3 = require("sqlite3");
 const { test } = require("node:test");
 const { initializeSchema } = require("../database/schema");
-const { createCardAccessMiddleware, createCardOwnerMiddleware, parseCardIds } = require("../auth/card-access");
+const { createCardAccessMiddleware, createCardOwnerMiddleware, parseCardIds, isCardAdmin } = require("../auth/card-access");
 
 function run(db, sql, params = []) {
   return new Promise((resolve, reject) => db.run(sql, params, function (error) {
@@ -107,6 +107,36 @@ test("지정 이메일 관리자는 전체 명함 변경이 가능하지만 출�
       user: { email: user.email }
     })).status, 401);
   }, { adminEmail: " chshin@dxel.co.kr " });
+});
+
+test("관리자 이메일은 쉼표·공백·대소문자를 처리하고 이메일 전체가 일치해야 한다", () => {
+  const config = " first@example.com, SECOND@example.com, ,first@example.com, ";
+  for (const email of ["first@example.com", " second@EXAMPLE.com "]) {
+    assert.equal(isCardAdmin({ id: 1, email }, config), true);
+  }
+  for (const email of ["", "other@example.com", "first@example.co", "xfirst@example.com"]) {
+    assert.equal(isCardAdmin({ id: 1, email }, config), false);
+  }
+  assert.equal(isCardAdmin({ email: "first@example.com" }, config), false);
+  assert.equal(isCardAdmin({ id: 1, email: "first@example.com" }, ", ,"), false);
+  assert.equal(isCardAdmin({ id: 1, email: "first@example.com" }, null), false);
+  assert.equal(isCardAdmin({ id: 1, email: "FIRST@example.com" }, "first@example.com"), true);
+});
+
+test("두 번째 관리자도 공유 명함 변경이 가능하고 타인의 개인 명함은 접근할 수 없다", async () => {
+  await withAccess(async ({ db, middleware }) => {
+    const shared = await run(db, "INSERT INTO business_cards (name) VALUES ('공유')");
+    const hidden = await run(db, "INSERT INTO business_cards (name, visibility) VALUES ('개인', 'private')");
+    const user = { id: 9, email: "second@example.com" };
+    assert.equal((await request(middleware, "DELETE", `/api/cards/${shared.lastID}`, { user })).continued, true);
+    assert.equal((await request(middleware, "POST", "/api/cards/bulk-delete", {
+      user, body: { cardIds: [shared.lastID] }
+    })).continued, true);
+    assert.equal((await request(middleware, "DELETE", `/api/cards/${hidden.lastID}`, { user })).status, 404);
+    assert.equal((await request(middleware, "DELETE", `/api/cards/${shared.lastID}`, {
+      user, origin: "https://evil.test"
+    })).status, 403);
+  }, { adminEmail: "first@example.com, SECOND@example.com" });
 });
 
 test("관리자 이메일 설정이 없으면 관리자 권한은 기본적으로 없다", async () => {

@@ -28,9 +28,10 @@ function parseCardIds(value) {
 }
 
 function isCardAdmin(user, adminEmail) {
-  const configuredEmail = typeof adminEmail === "string" ? adminEmail.trim().toLowerCase() : "";
-  return Boolean(user?.id && configuredEmail && typeof user.email === "string"
-    && user.email.trim().toLowerCase() === configuredEmail);
+  const configuredEmails = typeof adminEmail === "string"
+    ? adminEmail.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean) : [];
+  return Boolean(user?.id && typeof user.email === "string" && user.email.trim()
+    && configuredEmails.includes(user.email.trim().toLowerCase()));
 }
 
 function createCardAccessMiddleware(db, { appBaseUrl, allowRequestOrigin = false, allowedOrigins = [] }) {
