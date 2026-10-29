@@ -2151,6 +2151,11 @@ textarea.cardDetailInput {
     font-size: 16px;
   }
 
+  .cardSearchField input::placeholder {
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+
   .cardSearchField button {
     padding: 0 15px;
   }

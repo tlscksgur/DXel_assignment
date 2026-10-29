@@ -1,0 +1,121 @@
+/* 홈 푸터 경계선 위의 작은 무채색 정원 */
+.home-page main { padding-bottom: 28px; }
+.footerGarden {
+  --garden-ink: #77756f;
+  --garden-body: #f4f1eb;
+  --garden-petal: #e8e5de;
+  --garden-leaf: #bcb9b1;
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  width: 100%;
+  height: 64px;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  color: var(--garden-ink);
+}
+.footerGarden svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gardenPlant, .gardenPinwheel { position: absolute; bottom: -1px; }
+.footerGarden .gardenPinwheel--one { left: 22%; width: 30px; height: 47px; }
+.footerGarden .gardenPinwheel--two { right: 14%; width: 25px; height: 40px; }
+.gardenPinwheelBlades {
+  transform-origin: 22px 22px;
+  animation: garden-pinwheel 18s linear infinite;
+}
+.gardenPinwheel--two .gardenPinwheelBlades { animation-duration: 24s; animation-direction: reverse; }
+
+.gardenWalker {
+  --walk-time: 42s;
+  --walk-delay: -9s;
+  --walk-from: 4vw;
+  --walk-to: calc(100vw - 48px);
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 28px;
+  height: 28px;
+  transform: translateX(var(--walk-from));
+  animation: garden-stroll var(--walk-time) linear var(--walk-delay) infinite;
+}
+.gardenWalker--cat {
+  --walk-time: 57s;
+  --walk-delay: -36s;
+  --walk-from: 39vw;
+  --walk-to: calc(100vw - 36px);
+  width: 25px;
+  height: 31px;
+}
+.gardenWalker--mushroom {
+  --walk-time: 49s;
+  --walk-delay: -26s;
+  --walk-from: 16vw;
+  --walk-to: 71vw;
+  width: 25px;
+  height: 28px;
+}
+.gardenFacing {
+  width: 100%;
+  height: 100%;
+  animation: garden-facing var(--walk-time) steps(1, end) var(--walk-delay) infinite;
+}
+.gardenCharacter { animation: garden-bob .8s ease-in-out infinite alternate; }
+.gardenWalker--cat .gardenCharacter { animation-duration: 1.1s; }
+.gardenWalker--mushroom .gardenCharacter { animation-duration: 1s; }
+.gardenFoot { transform-box: fill-box; transform-origin: center top; animation: garden-step .55s ease-in-out infinite alternate; }
+.gardenFoot--right { animation-delay: -.55s; }
+.gardenEye { transform-box: fill-box; transform-origin: center; animation: garden-blink 8s linear infinite; }
+.gardenWalker--cat .gardenEye { animation-delay: -3s; }
+.gardenWalker--mushroom .gardenEye { animation-delay: -5s; }
+.gardenPebble { position: absolute; bottom: 0; width: 7px; height: 3px; border: 1px solid #c8c4bc; border-radius: 7px 7px 0 0; }
+.gardenPebble--one { left: 47%; }
+.gardenPebble--two { left: 58%; width: 4px; height: 2px; }
+
+@keyframes garden-stroll {
+  0%, 8%, 100% { transform: translateX(var(--walk-from)); }
+  46%, 55% { transform: translateX(var(--walk-to)); }
+  94% { transform: translateX(var(--walk-from)); }
+}
+@keyframes garden-facing {
+  0%, 100% { transform: scaleX(1); }
+  51% { transform: scaleX(-1); }
+}
+@keyframes garden-bob { from { transform: translateY(0); } to { transform: translateY(-1.3px); } }
+@keyframes garden-step { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
+@keyframes garden-blink { 0%, 93%, 97%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.12); } }
+@keyframes garden-pinwheel { to { transform: rotate(360deg); } }
+
+@media (max-width: 680px) {
+  .home-page .container > footer { position: relative; }
+  .footerGarden { height: 56px; }
+  .gardenWalker--bear { width: 25px; height: 25px; }
+  .gardenWalker--cat { width: 23px; height: 29px; }
+  .gardenWalker--mushroom { width: 23px; height: 26px; }
+}
+@media (max-height: 650px) {
+  .footerGarden { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .footerGarden *, .footerGarden *::before, .footerGarden *::after { animation: none !important; }
+}
+
+.footerGarden .gardenPlant--clover { left: 8%; width: 21px; height: 22px; }
+.footerGarden .gardenPlant--tiny-mushrooms { left: 32%; width: 27px; height: 23px; }
+.footerGarden .gardenBench { position: absolute; left: 49%; bottom: -1px; width: 35px; height: 23px; }
+.footerGarden .gardenPlant--tree { left: 73%; width: 25px; height: 45px; }
+.footerGarden .gardenPlant--flowers { right: 4%; width: 27px; height: 24px; }
+.footerGarden .gardenPinwheel--one { left: 18%; width: 26px; height: 42px; }
+.gardenWalker--bear { --walk-time: 46s; --walk-from: 5vw; --walk-to: 62vw; }
+.footerGarden .gardenButterfly { position: absolute; left: 42%; top: 9px; width: 12px; height: 10px; animation: garden-flutter 17s ease-in-out infinite; }
+.gardenButterflyWings { transform-box: fill-box; transform-origin: center; animation: garden-wings .9s ease-in-out infinite alternate; }
+@keyframes garden-flutter { 0%, 100% { transform: translate(0, 3px); } 35% { transform: translate(7vw, -4px); } 70% { transform: translate(13vw, 8px); } }
+@keyframes garden-wings { to { transform: scaleX(.5); } }

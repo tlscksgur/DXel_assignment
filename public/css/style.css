@@ -457,6 +457,23 @@ footer {
   }
 }
 
+@media (min-width: 681px) and (max-width: 1199px) {
+  .container > footer { padding-inline: 20px; gap: 14px; }
+  .container > footer .footerLeft { flex: 0 0 auto; font-size: 11px; letter-spacing: .4px; white-space: nowrap; }
+  .container > footer .footerRight { flex: 0 0 auto; flex-wrap: nowrap; gap: 12px; }
+  .container > footer .footerRight span,
+  .container > footer .trashFooterLink {
+    font-size: 11px;
+    letter-spacing: .4px;
+    white-space: nowrap;
+  }
+  .container > footer .serviceStatus,
+  .container > footer .trashFooterLink { gap: 6px; }
+  .container > footer .serviceStatus i { width: 6px; height: 6px; }
+  .container > footer .trashFooterLink svg { width: 14px; height: 14px; }
+  .container > footer .footerDivider { margin-inline: 0; height: 14px; }
+}
+
 @media (max-width: 680px) {
   .container {
     display: flex;
@@ -496,18 +513,18 @@ footer {
     margin-left: auto;
   }
 
-  .container > header {
+  :is(.container, .profile-page) > header {
     min-height: 64px;
     padding: 12px 24px;
     flex-wrap: nowrap;
     gap: 10px;
   }
 
-  .container > header .logo { display: none; }
-  .container > header .headerBox1 { flex: 0 1 auto; width: auto; gap: 0; justify-content: flex-start; }
-  .container > header .headerBox1 ul { gap: 16px; }
-  .container > header .headerBox1 ul li:nth-child(2) { letter-spacing: 0; }
-  .container > header .headerBox2 { flex: 0 0 auto; width: auto; }
+  :is(.container, .profile-page) > header .logo { display: none; }
+  :is(.container, .profile-page) > header .headerBox1 { flex: 0 1 auto; width: auto; gap: 0; justify-content: flex-start; }
+  :is(.container, .profile-page) > header .headerBox1 ul { gap: 16px; }
+  :is(.container, .profile-page) > header .headerBox1 ul li:nth-child(2) { letter-spacing: 0; }
+  :is(.container, .profile-page) > header .headerBox2 { flex: 0 0 auto; width: auto; }
 
   .cardAdd {
     height: 38px;

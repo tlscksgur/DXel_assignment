@@ -708,6 +708,21 @@
   box-shadow: 0 6px 16px rgba(3,22,50,.12);
 }
 
+@media (min-width: 901px) and (max-width: 1199px) {
+  .autoSaveControls { gap: 0 8px; }
+  .autoSaveToggle,
+  .saveVisibilityDesktop {
+    height: 34px;
+    min-width: 0;
+    padding: 0 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .autoSaveHint { font-size: 11px; }
+}
+
 @media (max-width: 900px) {
   .card-add-page main {
     padding: 44px 24px 80px;

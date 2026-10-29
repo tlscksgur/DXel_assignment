@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="./css/style.css">
   <link rel="stylesheet" href="./css/auth.css">
+  <link rel="stylesheet" href="./css/homeGarden.css">
   <title>DXel</title>
 </head>
-<body>
+<body class="home-page">
   <div class="container">
     <!-- ===== 공통 헤더 및 페이지 이동 ===== -->
     <header>
@@ -40,6 +41,74 @@
 
     <!-- ===== 서비스 연결 상태 및 내보내기 ===== -->
     <footer>
+      <div class="footerGarden" aria-hidden="true">
+        <svg class="gardenPlant gardenPlant--daisy" viewBox="0 0 32 44">
+          <path d="M16 42V20M16 33Q5 24 6 34Q12 38 16 36M16 29Q27 21 26 30Q22 34 16 33"/>
+          <g fill="var(--garden-petal)"><ellipse cx="16" cy="11" rx="4" ry="7"/><ellipse cx="16" cy="25" rx="4" ry="7"/><ellipse cx="9" cy="18" rx="7" ry="4"/><ellipse cx="23" cy="18" rx="7" ry="4"/></g>
+          <circle cx="16" cy="18" r="4" fill="var(--garden-ink)" stroke="none"/>
+        </svg>
+        <svg class="gardenPlant gardenPlant--sprout" viewBox="0 0 30 30">
+          <path d="M15 29V16M15 20C2 21 3 8 4 8C14 7 16 17 15 20ZM15 18C15 7 26 7 27 8C27 17 20 21 15 18Z" fill="var(--garden-leaf)"/>
+        </svg>
+        <svg class="gardenPlant gardenPlant--little-flower" viewBox="0 0 32 44">
+          <path d="M16 42Q12 32 16 22M15 34Q25 26 26 32Q23 38 15 37"/>
+          <path d="M16 10C9 1 3 13 10 17C0 22 13 30 16 22C20 31 32 22 23 17C31 11 22 2 16 10Z" fill="var(--garden-petal)"/>
+          <circle cx="16" cy="17" r="3" fill="var(--garden-ink)" stroke="none"/>
+        </svg>
+        <svg class="gardenPlant gardenPlant--grass" viewBox="0 0 36 23"><path d="M6 22Q8 14 4 9M15 22Q17 10 12 3M22 22Q20 13 26 7M30 22Q29 17 33 14"/></svg>
+        <svg class="gardenPlant gardenPlant--last-sprout" viewBox="0 0 30 30"><path d="M15 29V16M15 20C2 21 3 8 4 8C14 7 16 17 15 20ZM15 18C15 7 26 7 27 8C27 17 20 21 15 18Z" fill="var(--garden-leaf)"/></svg>
+
+        <svg class="gardenPinwheel gardenPinwheel--one" viewBox="0 0 44 68">
+          <path d="M22 65V23"/>
+          <g class="gardenPinwheelBlades">
+            <path d="M22 22L8 4L22 5Z" fill="var(--garden-leaf)"/><path d="M22 22L40 8L39 22Z" fill="var(--garden-petal)"/>
+            <path d="M22 22L36 40L22 39Z" fill="var(--garden-leaf)"/><path d="M22 22L4 36L5 22Z" fill="var(--garden-petal)"/>
+          </g>
+          <circle cx="22" cy="22" r="2.5" fill="var(--garden-ink)" stroke="none"/>
+        </svg>
+        <svg class="gardenPinwheel gardenPinwheel--two" viewBox="0 0 44 68">
+          <path d="M22 65V23"/>
+          <g class="gardenPinwheelBlades">
+            <path d="M22 22L8 4L22 5Z" fill="var(--garden-petal)"/><path d="M22 22L40 8L39 22Z" fill="var(--garden-leaf)"/>
+            <path d="M22 22L36 40L22 39Z" fill="var(--garden-petal)"/><path d="M22 22L4 36L5 22Z" fill="var(--garden-leaf)"/>
+          </g>
+          <circle cx="22" cy="22" r="2.5" fill="var(--garden-ink)" stroke="none"/>
+        </svg>
+
+        <div class="gardenWalker gardenWalker--bird"><div class="gardenFacing">
+          <svg class="gardenCharacter" viewBox="0 0 36 36">
+            <path class="gardenFoot gardenFoot--left" d="M12 28V33H9"/><path class="gardenFoot gardenFoot--right" d="M23 28V33H26"/>
+            <path d="M5 20C3 9 9 4 18 5C28 4 32 12 30 22C29 29 23 30 17 29C10 30 5 27 5 20Z" fill="var(--garden-body)"/>
+            <path d="M9 18Q12 15 15 19Q14 25 10 24"/>
+            <path d="M30 15L35 18L30 20" fill="var(--garden-leaf)"/>
+            <circle class="gardenEye" cx="23" cy="14" r="1.4" fill="var(--garden-ink)" stroke="none"/>
+            <path d="M15 5Q15 1 18 2"/>
+          </svg>
+        </div></div>
+        <div class="gardenWalker gardenWalker--bunny"><div class="gardenFacing">
+          <svg class="gardenCharacter" viewBox="0 0 36 44">
+            <ellipse cx="12" cy="11" rx="4" ry="10" fill="var(--garden-body)"/><ellipse cx="23" cy="11" rx="4" ry="10" fill="var(--garden-body)"/>
+            <path d="M12 5V12M23 5V12" stroke="var(--garden-leaf)"/>
+            <path class="gardenFoot gardenFoot--left" d="M11 36L9 41H14"/><path class="gardenFoot gardenFoot--right" d="M25 36L27 41H22"/>
+            <path d="M4 25C3 14 10 13 18 13C26 13 33 17 32 27C33 36 27 38 18 38C8 38 3 34 4 25Z" fill="var(--garden-body)"/>
+            <g class="gardenEye" fill="var(--garden-ink)" stroke="none"><circle cx="12" cy="24" r="1.3"/><circle cx="24" cy="24" r="1.3"/></g>
+            <path d="M16 28L18 29L20 28M18 29V31"/>
+            <path d="M6 28H9M27 28H30" stroke="var(--garden-leaf)"/>
+          </svg>
+        </div></div>
+        <div class="gardenWalker gardenWalker--robot"><div class="gardenFacing">
+          <svg class="gardenCharacter" viewBox="0 0 36 40">
+            <path d="M18 8V4"/><circle cx="18" cy="3" r="2" fill="var(--garden-leaf)"/>
+            <path class="gardenFoot gardenFoot--left" d="M12 31V37H8"/><path class="gardenFoot gardenFoot--right" d="M24 31V37H28"/>
+            <path d="M7 20L3 24M29 20L33 24"/>
+            <rect x="6" y="9" width="24" height="23" rx="8" fill="var(--garden-body)"/>
+            <g class="gardenEye" fill="var(--garden-ink)" stroke="none"><circle cx="12" cy="18" r="1.5"/><circle cx="24" cy="18" r="1.5"/></g>
+            <path d="M14 24Q18 27 22 24"/>
+            <rect x="15" y="29" width="6" height="3" rx="1" fill="var(--garden-leaf)" stroke="none"/>
+          </svg>
+        </div></div>
+        <span class="gardenPebble gardenPebble--one"></span><span class="gardenPebble gardenPebble--two"></span>
+      </div>
       <div class="footerLeft">
         (c) 2026 DXEL BUSINESS CARD MANAGER
       </div>
