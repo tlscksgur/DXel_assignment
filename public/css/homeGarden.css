@@ -52,13 +52,13 @@
   transform: translateX(var(--walk-from));
   animation: garden-stroll var(--walk-time) linear var(--walk-delay) infinite;
 }
-.gardenWalker--bunny {
+.gardenWalker--stone {
   --walk-time: 57s;
   --walk-delay: -36s;
   --walk-from: 39vw;
   --walk-to: calc(100vw - 36px);
-  width: 25px;
-  height: 31px;
+  width: 29px;
+  height: 29px;
 }
 .gardenWalker--robot {
   --walk-time: 49s;
@@ -74,12 +74,12 @@
   animation: garden-facing var(--walk-time) steps(1, end) var(--walk-delay) infinite;
 }
 .gardenCharacter { animation: garden-bob .8s ease-in-out infinite alternate; }
-.gardenWalker--bunny .gardenCharacter { animation-duration: 1.1s; }
+.gardenWalker--stone .gardenCharacter { animation-duration: 1.1s; }
 .gardenWalker--robot .gardenCharacter { animation-duration: 1s; }
 .gardenFoot { transform-box: fill-box; transform-origin: center top; animation: garden-step .55s ease-in-out infinite alternate; }
 .gardenFoot--right { animation-delay: -.55s; }
 .gardenEye { transform-box: fill-box; transform-origin: center; animation: garden-blink 8s linear infinite; }
-.gardenWalker--bunny .gardenEye { animation-delay: -3s; }
+.gardenWalker--stone .gardenEye { animation-delay: -3s; }
 .gardenWalker--robot .gardenEye { animation-delay: -5s; }
 .gardenPebble { position: absolute; bottom: 0; width: 7px; height: 3px; border: 1px solid #c8c4bc; border-radius: 7px 7px 0 0; }
 .gardenPebble--one { left: 47%; }
@@ -103,7 +103,7 @@
   .home-page .container > footer { position: relative; }
   .footerGarden { height: 56px; }
   .gardenWalker--bird { width: 25px; height: 25px; }
-  .gardenWalker--bunny { width: 23px; height: 29px; }
+  .gardenWalker--stone { width: 27px; height: 27px; }
   .gardenWalker--robot { width: 23px; height: 26px; }
   .footerGarden .gardenPlant--sprout { display: none; }
 }
