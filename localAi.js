@@ -228,11 +228,20 @@ Set has_text=false and clockwise_rotation=0 when there is no clearly readable te
 
 // ===== 명함 전체 필드 추출 =====
 async function extractBusinessCard(imageDataUrl) {
+  const response = await requestBusinessCardExtraction(imageDataUrl, "low");
+  if (response.choices?.[0]?.finish_reason !== "length") return response;
+
+  // 추론에 토큰을 다 쓰면 JSON이 잘린 채 끝나므로 추론 없이 한 번 더 요청한다.
+  console.warn("명함 추출 응답이 토큰 한도에서 잘려 추론 없이 다시 요청합니다.");
+  return requestBusinessCardExtraction(imageDataUrl, "none");
+}
+
+async function requestBusinessCardExtraction(imageDataUrl, reasoningEffort) {
   return requestChatCompletion({
     model: process.env.AI_SERVER_MODEL,
     temperature: 0,
-    reasoning_effort: "low",
-    max_tokens: 2000,
+    reasoning_effort: reasoningEffort,
+    max_tokens: 6000,
     response_format: businessCardResponseFormat,
     messages: [
       {

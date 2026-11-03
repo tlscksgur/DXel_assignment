@@ -18,17 +18,13 @@ const saveVisibilityToggles = document.querySelectorAll(".saveVisibilityToggle")
 let saveVisibility = "shared";
 
 function syncSaveVisibility() {
-  const isPrivate = saveVisibility === "private";
-  const label = isPrivate ? "개인 저장" : "전체 공유";
-  const hint = isPrivate ? "나만 볼 수 있습니다." : "로그인한 모든 사용자가 볼 수 있습니다.";
+  const isShared = saveVisibility === "shared";
+  const hint = isShared ? "내 명함에 저장되고, 회사 전체에도 공유됩니다." : "내 명함에만 저장되며, 나만 볼 수 있습니다.";
   saveVisibilityToggles.forEach((button) => {
-    const choice = button.dataset?.visibility;
-    const buttonLabel = choice ? (choice === "private" ? "개인 저장" : "전체 공유") : label;
-    button.textContent = buttonLabel;
-    button.setAttribute("aria-pressed", String(choice ? choice === saveVisibility : isPrivate));
-    button.setAttribute("aria-label", choice ? `저장 범위: ${buttonLabel}`
-      : `저장 범위: ${label}. 누르면 ${isPrivate ? "전체 공유" : "개인 저장"}로 변경`);
-    button.title = choice ? (choice === "private" ? "나만 볼 수 있습니다." : "로그인한 모든 사용자가 볼 수 있습니다.") : `${label}: ${hint}`;
+    button.innerHTML = `${button.dataset?.compact ? "" : '<span>회사 전체 공유</span>'}<span class="saveVisibilityState" aria-hidden="true">${isShared ? "ON" : "OFF"}</span>`;
+    button.setAttribute("aria-checked", String(isShared));
+    button.setAttribute("aria-label", "회사 전체 공유");
+    button.title = hint;
     button.disabled = isSaving || autoSaveEnabled;
   });
   document.querySelectorAll(".saveVisibilityHint").forEach((element) => { element.textContent = hint; });
@@ -36,7 +32,7 @@ function syncSaveVisibility() {
 
 saveVisibilityToggles.forEach((button) => button.addEventListener("click", () => {
   if (isSaving || autoSaveEnabled) return;
-  saveVisibility = button.dataset?.visibility || (saveVisibility === "shared" ? "private" : "shared");
+  saveVisibility = saveVisibility === "shared" ? "private" : "shared";
   syncSaveVisibility();
 }));
 const emailInput = document.querySelector("#email");
@@ -61,6 +57,7 @@ const fieldIds = [
 
 const MAX_ANALYSIS_IMAGE_EDGE = 1600;
 const IMAGE_RESIZE_THRESHOLD = 1024 * 1024;
+const MAX_UPRIGHT_ATTEMPTS = 2;
 
 const queueStatusLabels = {
   waiting: "분석 대기",
@@ -139,7 +136,7 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-function createQueueItem(file, shouldRotatePortrait = true) {
+function createQueueItem(file) {
   return {
     id: createQueueId(),
     file,
@@ -152,7 +149,6 @@ function createQueueItem(file, shouldRotatePortrait = true) {
     draft: null,
     tags: [],
     analysisDurationMs: null,
-    shouldRotatePortrait,
     error: ""
   };
 }
@@ -285,12 +281,11 @@ function updateActionState() {
 }
 
 // ===== 분석 전 이미지 방향 및 크기 최적화 =====
-async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
+async function prepareImageForAnalysis(file) {
   if (typeof createImageBitmap !== "function") {
     return {
       blob: file,
-      filename: file.name,
-      rotatedPortrait: false
+      filename: file.name
     };
   }
 
@@ -299,18 +294,18 @@ async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
   });
 
   try {
-    const shouldRotate = shouldRotatePortrait && image.height > image.width;
-    const orientedWidth = shouldRotate ? image.height : image.width;
-    const orientedHeight = shouldRotate ? image.width : image.height;
-    const longestEdge = Math.max(orientedWidth, orientedHeight);
+    const longestEdge = Math.max(image.width, image.height);
     const shouldResize = file.size > IMAGE_RESIZE_THRESHOLD &&
       longestEdge > MAX_ANALYSIS_IMAGE_EDGE;
 
-    if (!shouldRotate && !shouldResize) {
+    // AI 서버는 WebP를 읽지 못한다. JPEG도 다시 저장해 EXIF 방향을 픽셀에 반영해야
+    // AI 좌표와 캔버스 크롭이 같은 이미지를 가리킨다.
+    if (!shouldResize && file.type === "image/png") {
       return {
         blob: file,
         filename: file.name,
-        rotatedPortrait: false
+        width: image.width,
+        height: image.height
       };
     }
 
@@ -318,25 +313,13 @@ async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
       ? MAX_ANALYSIS_IMAGE_EDGE / longestEdge
       : 1;
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(orientedWidth * scale);
-    canvas.height = Math.round(orientedHeight * scale);
+    canvas.width = Math.round(image.width * scale);
+    canvas.height = Math.round(image.height * scale);
 
     const context = canvas.getContext("2d");
-    if (shouldRotate) {
-      const drawWidth = Math.round(image.width * scale);
-      const drawHeight = Math.round(image.height * scale);
-      context.translate(canvas.width / 2, canvas.height / 2);
-      context.rotate(-Math.PI / 2);
-      context.drawImage(
-        image,
-        -drawWidth / 2,
-        -drawHeight / 2,
-        drawWidth,
-        drawHeight
-      );
-    } else {
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    }
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob((result) => {
@@ -353,7 +336,8 @@ async function prepareImageForAnalysis(file, shouldRotatePortrait = true) {
     return {
       blob,
       filename: `${nameWithoutExtension}.jpg`,
-      rotatedPortrait: shouldRotate
+      width: canvas.width,
+      height: canvas.height
     };
   } finally {
     image.close();
@@ -660,7 +644,8 @@ async function orientLogoFromText(logoImage) {
     const result = await response.json();
     if (result.hasText !== true || result.applied !== true
       || typeof result.rotation !== "number" || !Number.isFinite(result.rotation)
-      || Math.abs(result.rotation) < 1 || Math.abs(result.rotation) > 180) return logoImage;
+      // 명함이 똑바로 선 뒤에 잘라낸 로고이므로 90도를 넘게 돌리라는 답은 오판으로 본다.
+      || Math.abs(result.rotation) < 1 || Math.abs(result.rotation) > 90) return logoImage;
     // 임의 각도 회전 후에도 로고 끝이 잘리지 않도록 영역을 확장하고 빈 모서리는 투명하게 둔다.
     return await rotatePreparedImage(logoImage, result.rotation, true);
   } catch (error) {
@@ -700,10 +685,7 @@ async function analyzeCurrentCard() {
 
   try {
     runningBadge.textContent = "이미지 최적화 중";
-    const preparedImage = await prepareImageForAnalysis(
-      item.file,
-      item.shouldRotatePortrait
-    );
+    const preparedImage = await prepareImageForAnalysis(item.file);
 
     if (preparedImage.blob !== item.file) {
       URL.revokeObjectURL(item.previewUrl);
@@ -713,37 +695,52 @@ async function analyzeCurrentCard() {
 
     runningBadge.textContent = "이미지 분석 중";
     const result = await requestCardAnalysis(preparedImage);
-    let logoImageSource = preparedImage;
+    let imageSource = preparedImage;
+    let extracted = result.extracted;
+    let cardBounds = result.cropBounds;
     let logoBounds = result.logoBounds;
-    const companyName = (result.extracted?.company || "").replace(/\s+/g, "");
-    const isE8ight = /이에이트|e8ight/i.test(companyName)
-      || /@[^\s]*e8ight\.co\.kr/i.test(result.extracted?.email || "");
 
-    if (preparedImage.rotatedPortrait && (result.uprightRotation || isE8ight)) {
+    // 글자가 누운 이미지에서 받은 좌표는 실제 위치와 크게 어긋나므로 쓰지 않는다.
+    // 모델이 90도와 270도를 헷갈리면 세운 이미지에서 180도를 다시 답하므로, 똑바로
+    // 섰다고 답할 때까지 원본 기준으로 돌려 재분석한다. 끝내 확인하지 못하면 크롭·로고는 건너뛴다.
+    let pendingRotation = result.uprightRotation;
+    let totalRotation = 0;
+    for (let attempt = 0; pendingRotation && attempt < MAX_UPRIGHT_ATTEMPTS; attempt += 1) {
+      totalRotation = (totalRotation + pendingRotation) % 360;
+      imageSource = totalRotation
+        ? await rotatePreparedImage(preparedImage, totalRotation)
+        : preparedImage;
+      cardBounds = null;
       logoBounds = null;
+      pendingRotation = 0;
       try {
-        logoImageSource = await prepareImageForAnalysis(item.file, false);
-        const logoAnalysis = await requestCardAnalysis(logoImageSource, true);
-        logoBounds = isE8ight
-          ? e8ightLogoBounds(logoAnalysis.cropBounds)
-          : logoAnalysis.logoBounds;
-      } catch (logoError) {
-        console.warn("로고 방향 확인에 실패해 명함 정보만 사용합니다:", logoError);
+        const uprightResult = await requestCardAnalysis(imageSource, true);
+        extracted = uprightResult.extracted;
+        pendingRotation = uprightResult.uprightRotation;
+        if (!pendingRotation) {
+          cardBounds = uprightResult.cropBounds;
+          logoBounds = uprightResult.logoBounds;
+        }
+      } catch (uprightError) {
+        console.warn("방향을 바로잡은 이미지를 분석하지 못해 크롭과 로고 추출을 건너뜁니다:", uprightError);
       }
     }
 
+    const companyName = (extracted?.company || "").replace(/\s+/g, "");
+    const isE8ight = /이에이트|e8ight/i.test(companyName)
+      || /@[^\s]*e8ight\.co\.kr/i.test(extracted?.email || "");
+    if (isE8ight && imageSource.height > imageSource.width) {
+      logoBounds = e8ightLogoBounds(cardBounds);
+    }
+
     let imagePath = result.file.path;
-    if (result.cropBounds || result.uprightRotation) {
+    if (cardBounds || imageSource !== preparedImage) {
       try {
-        let croppedImage = result.cropBounds ? await cropImageToBounds(
-          preparedImage.blob,
-          result.cropBounds,
-          preparedImage.filename
-        ) : preparedImage;
-        // 좌표는 AI에 보낸 픽셀 기준이므로 먼저 자르고, 저장할 명함만 회전한다.
-        if (result.uprightRotation) {
-          croppedImage = await rotatePreparedImage(croppedImage || preparedImage, result.uprightRotation);
-        }
+        const croppedImage = cardBounds ? await cropImageToBounds(
+          imageSource.blob,
+          cardBounds,
+          imageSource.filename
+        ) : imageSource;
         if (croppedImage) {
           const croppedFormData = new FormData();
           croppedFormData.append("image", croppedImage.blob, croppedImage.filename);
@@ -769,15 +766,15 @@ async function analyzeCurrentCard() {
     if (logoBounds) {
       try {
         let logoImage = await cropLogoToBounds(
-          logoImageSource.blob,
+          imageSource.blob,
           logoBounds,
-          logoImageSource.filename
+          imageSource.filename
         );
         if (logoImage) {
           logoImage = await orientLogoFromText(logoImage);
           const logoFormData = new FormData();
           const logoExtension = logoImage.blob.type === "image/png" ? "png" : "jpg";
-          logoFormData.append("image", logoImage.blob, logoImageSource.filename.replace(/\.[^.]+$/, `-logo.${logoExtension}`));
+          logoFormData.append("image", logoImage.blob, imageSource.filename.replace(/\.[^.]+$/, `-logo.${logoExtension}`));
           const logoResponse = await fetch("./api/cards/logo-image", {
             method: "POST",
             body: logoFormData
@@ -796,7 +793,7 @@ async function analyzeCurrentCard() {
     item.status = "ready";
     item.imagePath = imagePath;
     item.logoPath = logoPath;
-    item.extracted = result.extracted;
+    item.extracted = extracted;
     item.analysisDurationMs = Date.now() - analysisStartedAt;
 
     showQueueItem(item);
@@ -915,16 +912,14 @@ function openFilePicker(input) {
   input.click();
 }
 
-async function handleSelectedFiles(event, shouldRotatePortrait = true) {
+async function handleSelectedFiles(event) {
   const files = [...event.target.files];
 
   if (files.length === 0) {
     return;
   }
 
-  uploadQueue.push(...files.map((file) => {
-    return createQueueItem(file, shouldRotatePortrait);
-  }));
+  uploadQueue.push(...files.map(createQueueItem));
   event.target.value = "";
   renderQueue();
   updateActionState();
@@ -968,12 +963,8 @@ globalThis.visualViewport?.addEventListener?.("resize", syncUploadSourceViewport
 globalThis.visualViewport?.addEventListener?.("scroll", syncUploadSourceViewportHeight);
 globalThis.addEventListener?.("resize", syncUploadSourceViewportHeight);
 globalThis.addEventListener?.("scroll", syncUploadSourceViewportHeight, { passive: true });
-cameraInput.addEventListener("change", (event) => {
-  return handleSelectedFiles(event, false);
-});
-galleryInput.addEventListener("change", (event) => {
-  return handleSelectedFiles(event, true);
-});
+cameraInput.addEventListener("change", handleSelectedFiles);
+galleryInput.addEventListener("change", handleSelectedFiles);
 emailInput.addEventListener("input", syncEmailFieldHeight);
 
 // ===== 수정한 명함 정보 수집 및 SQLite 저장 =====

@@ -7,7 +7,8 @@ const { test } = require("node:test");
 const root = path.join(__dirname, "..");
 const importSource = fs.readFileSync(path.join(root, "public/js/cardImport.js"), "utf8");
 const serverSource = fs.readFileSync(path.join(root, "server.js"), "utf8");
-const context = vm.createContext({});
+const iconv = require("iconv-lite");
+const context = vm.createContext({ TextDecoder });
 // 서버나 DB를 열지 않고 실제 가져오기 파서와 내보내기 함수를 실행한다.
 vm.runInContext(importSource.slice(importSource.indexOf("function unfoldVcard("), importSource.indexOf("function selectedCards(")), context);
 vm.runInContext(serverSource.slice(serverSource.indexOf("function vcardValue("), serverSource.indexOf("// ===== Local AI")), context);
@@ -109,5 +110,18 @@ test("접힌 값은 먼저 펼쳐서 END:VCARD 문자열을 보존한다", () =>
 test("vCard 시작·종료 행이 없는 입력과 잘린 연락처는 거부한다", () => {
   for (const text of ["", "FN:이름", "FN:이름\nEND:VCARD", "BEGIN:VCARD\nFN:이름", "BEGIN:VCARD\nFN:이름\nEND:VCARD\nBEGIN:VCARD\nFN:잘린 명함"]) {
     assert.throws(() => parse(text), /vCard/);
+  }
+});
+
+test("불러오기는 UTF-8과 CP949 파일을 모두 읽고 내보낸 vCard를 복원한다", async () => {
+  const start = importSource.indexOf("async function readImportText(");
+  vm.runInContext(importSource.slice(start, importSource.indexOf("async function showFile(")), context);
+  const row = { name: "홍길동", company: "테스트 주식회사", department: "기술팀", position: "대리", address: "서울시 강남구", email: "a@example.com", mobile: "010-1234-5678", phone: "", website: "" };
+  const vcard = context.createVcard(row);
+
+  for (const encoded of [Buffer.from(vcard, "utf8"), iconv.encode(vcard, "cp949"), Buffer.from("﻿" + vcard, "utf8")]) {
+    const text = await context.readImportText({ arrayBuffer: async () => encoded });
+    assert.equal(parse(text)[0].name, "홍길동");
+    assert.equal(parse(text)[0].company, "테스트 주식회사");
   }
 });

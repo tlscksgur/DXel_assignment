@@ -131,3 +131,33 @@ test("실제 HTTP 응답이 헤더 후 본문을 멈추어도 요청을 중단�
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("명함 추출 응답이 토큰 한도에서 잘리면 추론 없이 한 번 다시 요청한다", async (t) => {
+  const bodies = [];
+  const answers = [
+    { choices: [{ finish_reason: "length", message: { content: '{"name":"잘' } }] },
+    { choices: [{ finish_reason: "stop", message: { content: '{"name":"이우영"}' } }] }
+  ];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return { ok: true, json: async () => answers[bodies.length - 1] };
+  });
+  t.mock.method(console, "warn", () => {});
+
+  const response = await extractBusinessCard("data:image/jpeg;base64,AA==");
+
+  assert.equal(response.choices[0].message.content, '{"name":"이우영"}');
+  assert.deepEqual(bodies.map((body) => body.reasoning_effort), ["low", "none"]);
+});
+
+test("명함 추출 응답이 정상 종료되면 다시 요청하지 않는다", async (t) => {
+  let requests = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    requests += 1;
+    return { ok: true, json: async () => ({ choices: [{ finish_reason: "stop", message: { content: "{}" } }] }) };
+  });
+
+  await extractBusinessCard("data:image/jpeg;base64,AA==");
+
+  assert.equal(requests, 1);
+});
