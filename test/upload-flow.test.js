@@ -377,7 +377,7 @@ ${JSON.stringify({
     assert.doesNotMatch(systemPrompt, /"fax":/);
     assert.doesNotMatch(systemPrompt, /"other_text":/);
     assert.equal(receivedLmRequest.reasoning_effort, "low");
-    assert.equal(receivedLmRequest.max_tokens, 2000);
+    assert.equal(receivedLmRequest.max_tokens, 6000);
     assert.equal(receivedLmRequest.response_format.type, "json_schema");
     assert.equal(receivedLmRequest.response_format.json_schema.strict, true);
     assert.deepEqual(
@@ -665,7 +665,8 @@ test("문자 없는 로고와 불확실한 로고 방향은 기존 이미지를 
   for (const orientation of [
     { hasText: false, applied: false, rotation: 0 },
     { hasText: true, applied: false, rotation: 0 },
-    { hasText: true, applied: true, rotation: 999 }
+    { hasText: true, applied: true, rotation: 999 },
+    { hasText: true, applied: true, rotation: 180 }
   ]) {
     const browser = createCardAddBrowser(async () => {}, { logoOrientation: orientation });
     const logo = { blob: new Blob(["logo"]), filename: "logo.jpg" };
@@ -768,6 +769,7 @@ function createCardAddBrowser(
           getContext: () => ({
             translate() {},
             rotate(radians) { canvasState.rotations.push(radians); },
+            fillRect() {},
             drawImage() {}
           }),
           toBlob: (callback, mimeType = "image/jpeg") => {
@@ -923,48 +925,66 @@ test("고해상도 휴대폰 사진은 긴 변 1600px로 줄여 분석 요청한
   assert.equal(uploadedImage.type, "image/jpeg");
 });
 
-test("세로 방향으로 저장된 명함 사진은 가로로 회전해 분석 요청한다", async () => {
+test("세로 사진은 돌리지 않고 그대로 분석 요청한다", async () => {
   let uploadedImage;
   const browser = createCardAddBrowser(async (url, options) => {
     assert.equal(url, "/api/cards/extract");
-    if (!uploadedImage) uploadedImage = options.body.get("image");
-
+    uploadedImage = options.body.get("image");
     return {
       ok: true,
       json: async () => ({
-        file: { path: "/uploads/rotated-card.jpg" },
-        extracted: {
-          name: "김학연",
-          company: "대한전선 주식회사",
-          department: "생산기술공정팀",
-          position: "대리",
-          mobile: "010-5029-9628",
-          phone: "041-360-9653",
-          email: "hykim@taihan.com",
-          address: "31791, 충청남도 당진시 고대면 대호만로 870 당진케이블공장",
-          website: ""
-        }
+        file: { path: "/uploads/portrait-card.jpg" },
+        uprightRotation: 0,
+        extracted: { name: "김학연", company: "대한전선 주식회사" }
       })
     };
   }, {
     imageDimensions: { width: 900, height: 1200 }
   });
-  const portraitImage = namedImage("portrait-card.jpg");
+  const portraitImage = namedImage("portrait-card.png");
 
   await browser.handler("#cardGalleryInput", "change")({
-    target: {
-      files: [portraitImage],
-      value: "selected"
-    }
+    target: { files: [portraitImage], value: "selected" }
   });
 
-  assert.equal(browser.canvasState.width, 1200);
-  assert.equal(browser.canvasState.height, 900);
-  assert.deepEqual(browser.canvasState.rotations, [-Math.PI / 2]);
-  assert.equal(uploadedImage.type, "image/jpeg");
+  assert.deepEqual(browser.canvasState.rotations, []);
+  assert.equal(uploadedImage.name, "portrait-card.png");
+  assert.equal(uploadedImage.type, "image/png");
 });
 
-test("명함은 크롭 후 글자 방향을 보정하고 로고는 원래 좌표 기준으로 자른다", async () => {
+for (const type of ["image/webp", "image/jpeg"]) {
+  test(`${type} 사진은 AI 서버가 읽고 좌표가 맞도록 JPEG로 다시 저장해 분석 요청한다`, async () => {
+    let uploadedImage;
+    const browser = createCardAddBrowser(async (url, options) => {
+      assert.equal(url, "/api/cards/extract");
+      uploadedImage = options.body.get("image");
+      return {
+        ok: true,
+        json: async () => ({
+          file: { path: "/uploads/card.jpg" },
+          uprightRotation: 0,
+          extracted: { name: "이우영", company: "피티씨코리아 주식회사" }
+        })
+      };
+    }, {
+      imageDimensions: { width: 1000, height: 600 }
+    });
+    const image = new Blob([Buffer.from("card")], { type });
+    Object.defineProperty(image, "name", { value: "card.source" });
+
+    await browser.handler("#cardGalleryInput", "change")({
+      target: { files: [image], value: "selected" }
+    });
+
+    assert.equal(uploadedImage.type, "image/jpeg");
+    assert.equal(uploadedImage.name, "card.jpg");
+    assert.equal(browser.canvasState.width, 1000);
+    assert.equal(browser.canvasState.height, 600);
+    assert.deepEqual(browser.canvasState.rotations, []);
+  });
+}
+
+test("글자가 누운 사진은 세운 이미지를 다시 분석해 그 좌표로 명함과 로고를 자른다", async () => {
   const requests = [];
   const logoUploads = [];
   const cardUploads = [];
@@ -979,13 +999,177 @@ test("명함은 크롭 후 글자 방향을 보정하고 로고는 원래 좌표
     }
     assert.equal(url, "/api/cards/extract");
     requests.push(options.body);
+    const isFirst = requests.length === 1;
     return {
       ok: true,
       json: async () => ({
-        file: { path: `/uploads/portrait-${requests.length}.jpg` },
-        uprightRotation: requests.length === 1 ? 90 : 0,
-        cropBounds: { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
+        file: { path: `/uploads/card-${requests.length}.jpg` },
+        uprightRotation: isFirst ? 90 : 0,
+        cropBounds: isFirst ? null : { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
+        logoBounds: isFirst ? null : { x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
+        extracted: { name: isFirst ? "오독" : "이우영", company: "피티씨코리아 주식회사" }
+      })
+    };
+  }, {
+    imageDimensions: { width: 900, height: 1200 }
+  });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: { files: [namedImage("sideways.png")], value: "selected" }
+  });
+
+  const uprightImage = requests[1].get("image");
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].get("image").name, "sideways.png");
+  assert.equal(requests[1].get("temporary"), "true");
+  assert.deepEqual(browser.canvasState.rotations, [Math.PI / 2]);
+  assert.match(uprightImage.name, /-upright\.jpg$/);
+  // 명함과 로고 모두 원본이 아니라 세운 이미지에서 잘라야 한다.
+  const rotatedBlob = browser.canvasState.imageBitmapSources[2];
+  assert.equal(rotatedBlob.size, uprightImage.size);
+  assert.equal(rotatedBlob.type, "image/jpeg");
+  assert.equal(browser.canvasState.imageBitmapSources[3], rotatedBlob);
+  assert.equal(cardUploads[0].get("originalPath"), "/uploads/card-1.jpg");
+  assert.equal(logoUploads.length, 1);
+  assert.equal(browser.element("#name").value, "이우영");
+});
+
+test("세운 이미지가 거꾸로라고 답하면 원본 기준으로 다시 돌려 재분석한다", async () => {
+  const requests = [];
+  const logoUploads = [];
+  const answers = [90, 180, 0];
+  const browser = createCardAddBrowser(async (url, options) => {
+    if (url === "/api/cards/cropped-image") {
+      return { ok: true, json: async () => ({ file: { path: "/uploads/card.jpg" } }) };
+    }
+    if (url === "/api/cards/logo-image") {
+      logoUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/logo.jpg" } }) };
+    }
+    requests.push(options.body);
+    const uprightRotation = answers[requests.length - 1];
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: "/uploads/card.jpg" },
+        uprightRotation,
+        cropBounds: uprightRotation ? { x: 0.2, y: 0.1, width: 0.3, height: 0.4 } : { x: 0.05, y: 0.05, width: 0.9, height: 0.9 },
         logoBounds: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
+        extracted: { name: "박종수", company: "LG CNS" }
+      })
+    };
+  }, {
+    imageDimensions: { width: 900, height: 1200 }
+  });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: { files: [namedImage("upside-down.png")], value: "selected" }
+  });
+
+  assert.equal(requests.length, 3);
+  assert.deepEqual(browser.canvasState.rotations, [Math.PI / 2, 270 * Math.PI / 180]);
+  // 두 번 돌릴 때도 회전한 이미지를 다시 돌리지 않고 원본에서 돌려 화질 손실을 막는다.
+  assert.equal(browser.canvasState.imageBitmapSources[1], browser.canvasState.imageBitmapSources[2]);
+  assert.equal(logoUploads.length, 1);
+});
+
+test("끝내 똑바로 섰다고 답하지 않으면 크롭과 로고를 건너뛰고 재분석을 멈춘다", async () => {
+  const cardUploads = [];
+  const logoUploads = [];
+  let analysisCount = 0;
+  const browser = createCardAddBrowser(async (url, options) => {
+    if (url === "/api/cards/cropped-image") {
+      cardUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/card.jpg" } }) };
+    }
+    if (url === "/api/cards/logo-image") {
+      logoUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/logo.jpg" } }) };
+    }
+    analysisCount += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: "/uploads/card.jpg" },
+        uprightRotation: 90,
+        cropBounds: { x: 0.2, y: 0.1, width: 0.3, height: 0.4 },
+        logoBounds: { x: 0.25, y: 0.3, width: 0.1, height: 0.1 },
+        extracted: { name: "박종수", company: "LG CNS" }
+      })
+    };
+  }, {
+    imageDimensions: { width: 900, height: 1200 }
+  });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: { files: [namedImage("confusing.png")], value: "selected" }
+  });
+
+  assert.equal(analysisCount, 3);
+  assert.equal(cardUploads.length, 1);
+  assert.match(cardUploads[0].get("image").name, /-upright\.jpg$/);
+  assert.equal(logoUploads.length, 0);
+});
+
+test("세운 이미지 재분석이 실패하면 누운 좌표를 쓰지 않고 방향만 바로잡는다", async () => {
+  const logoUploads = [];
+  const cardUploads = [];
+  let analysisCount = 0;
+  const browser = createCardAddBrowser(async (url, options) => {
+    if (url === "/api/cards/cropped-image") {
+      cardUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/upright.jpg" } }) };
+    }
+    if (url === "/api/cards/logo-image") {
+      logoUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/logo.jpg" } }) };
+    }
+    analysisCount += 1;
+    if (analysisCount === 2) {
+      return { ok: false, json: async () => ({ message: "분석 실패" }) };
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: "/uploads/sideways.jpg" },
+        uprightRotation: 90,
+        cropBounds: { x: 0.2, y: 0.1, width: 0.3, height: 0.4 },
+        logoBounds: { x: 0.25, y: 0.3, width: 0.1, height: 0.1 },
+        extracted: { name: "이우영", company: "피티씨코리아 주식회사" }
+      })
+    };
+  }, {
+    imageDimensions: { width: 900, height: 1200 }
+  });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: { files: [namedImage("sideways.png")], value: "selected" }
+  });
+
+  assert.equal(analysisCount, 2);
+  assert.equal(cardUploads.length, 1);
+  assert.match(cardUploads[0].get("image").name, /-upright\.jpg$/);
+  assert.equal(logoUploads.length, 0);
+  assert.equal(browser.element("#name").value, "이우영");
+});
+
+test("세로 이에이트 명함은 명함 영역의 정해진 위치에서 로고를 자른다", async () => {
+  const logoUploads = [];
+  const browser = createCardAddBrowser(async (url, options) => {
+    if (url === "/api/cards/cropped-image") {
+      return { ok: true, json: async () => ({ file: { path: "/uploads/card.jpg" } }) };
+    }
+    if (url === "/api/cards/logo-image") {
+      logoUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/logo.jpg" } }) };
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: "/uploads/e8.jpg" },
+        uprightRotation: 0,
+        cropBounds: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 },
+        logoBounds: null,
         extracted: { name: "김동호", company: "이에이트 주식회사" }
       })
     };
@@ -994,19 +1178,9 @@ test("명함은 크롭 후 글자 방향을 보정하고 로고는 원래 좌표
   });
 
   await browser.handler("#cardGalleryInput", "change")({
-    target: { files: [namedImage("upright-portrait.jpg")], value: "selected" }
+    target: { files: [namedImage("e8.png")], value: "selected" }
   });
 
-  assert.equal(requests.length, 2);
-  assert.deepEqual(browser.canvasState.rotations, [-Math.PI / 2, Math.PI / 2]);
-  assert.equal(requests[1].get("temporary"), "true");
-  assert.equal(requests[1].get("replacePath"), null);
-  assert.notEqual(requests[0].get("image"), requests[1].get("image"));
-  assert.equal(await requests[1].get("image").text(), "upright-portrait.jpg");
-  assert.equal(browser.element(".previewFrame").innerHTML.includes("-upright.jpg"), false);
-  assert.equal(cardUploads[0].get("originalPath"), "/uploads/portrait-1.jpg");
-  assert.notEqual(browser.canvasState.imageBitmapSources[2], browser.canvasState.imageBitmapSources[0]);
-  assert.equal(browser.canvasState.imageBitmapSources[4], browser.canvasState.imageBitmapSources[0]);
   assert.equal(logoUploads.length, 1);
 });
 
@@ -1014,6 +1188,7 @@ for (const rotation of [90, 180, 270]) {
   test(`카메라로 찍은 옆방향 명함은 크롭 없이도 ${rotation}도 보정해 저장한다`, async () => {
     const uploads = [];
     const saved = [];
+    let analysisCount = 0;
     const browser = createCardAddBrowser(async (url, options) => {
       if (url === "/api/cards") {
         saved.push(JSON.parse(options.body));
@@ -1024,8 +1199,9 @@ for (const rotation of [90, 180, 270]) {
         return { ok: true, json: async () => ({ file: { path: "/uploads/upright-card.jpg" } }) };
       }
       assert.equal(url, "/api/cards/extract");
+      analysisCount += 1;
       return { ok: true, json: async () => ({
-        file: { path: "/uploads/sideways-card.jpg" }, uprightRotation: rotation,
+        file: { path: "/uploads/sideways-card.jpg" }, uprightRotation: analysisCount === 1 ? rotation : 0,
         cropBounds: null, logoBounds: null, extracted: { name: "김승현", company: "SAIGE" }
       }) };
     }, { imageDimensions: { width: 900, height: 1200 } });
@@ -1072,7 +1248,7 @@ test("명함 방향이 이미 맞으면 원본 재분석이나 로고 회전을 
 
   assert.equal(analysisRequests.length, 1);
   assert.equal(logoUploads.length, 1);
-  assert.deepEqual(browser.canvasState.rotations, [-Math.PI / 2]);
+  assert.deepEqual(browser.canvasState.rotations, []);
   assert.equal(browser.canvasState.imageBitmapSources[2], browser.canvasState.imageBitmapSources[1]);
 });
 

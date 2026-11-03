@@ -171,10 +171,21 @@ function renderPreview() {
   updateSelection();
 }
 
+// Excel이나 Windows 프로그램이 저장한 파일은 CP949일 수 있어 UTF-8로 읽히지 않으면 CP949로 읽는다.
+async function readImportText(file) {
+  const bytes = await file.arrayBuffer();
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (error) {
+    return new TextDecoder("euc-kr").decode(bytes);
+  }
+}
+
 async function showFile(file) {
   const extension = file.name.split(".").pop().toLowerCase();
   if (!file || !["csv", "vcf"].includes(extension)) throw new Error("CSV 또는 vCard(.vcf) 파일만 선택할 수 있습니다.");
-  const rawCards = extension === "csv" ? parseCsv(await file.text()) : parseVcard(await file.text());
+  const text = await readImportText(file);
+  const rawCards = extension === "csv" ? parseCsv(text) : parseVcard(text);
   const response = await fetch("./api/cards/import/preview", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ cards: rawCards }) });
   const result = await readImportResponse(response); if (!response.ok) throw new Error(result.message || "파일을 분석하지 못했습니다.");
   previewCards = result.cards.map((card) => ({ ...card, groupName: currentDefaultGroupName(), selected: card.valid }));
