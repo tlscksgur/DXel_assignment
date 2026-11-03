@@ -190,7 +190,7 @@ main {
 }
 
 .cardTrack.slide {
-  animation: cardFlow 45s linear infinite;
+  animation: cardFlow var(--card-flow-duration, 45s) linear infinite;
 }
 
 /* .cardTrack.slide:hover{animation-play-state: paused;} */

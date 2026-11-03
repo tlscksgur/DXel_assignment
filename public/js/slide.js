@@ -1,6 +1,7 @@
 const cardTrack = document.querySelector("#cardTrack");
 const searchInput = document.querySelector(".searchBox input");
 const searchBtn = document.querySelector(".searchBox button");
+const MAX_SLIDE_SPEED_PX_PER_SECOND = 150;
 
 // ===== 최근 명함 목록 렌더링 =====
 function renderCards(data){
@@ -61,6 +62,10 @@ function checkSlide(data){
   if(trackWidth > areaWidth){
     cardTrack.innerHTML += data.map(createCard).join("");
 
+    // 명함이 많아지면 재생 시간을 늘려 최대 이동 속도를 제한한다.
+    const distance = cardTrack.scrollWidth / 2;
+    const duration = Math.max(45, distance / MAX_SLIDE_SPEED_PX_PER_SECOND);
+    cardTrack.style.setProperty("--card-flow-duration", `${duration}s`);
     cardTrack.classList.add("slide");
   }
 }
