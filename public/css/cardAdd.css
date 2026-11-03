@@ -331,6 +331,10 @@
 }
 
 .saveVisibilityToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-width: 0;
   padding: 12px 10px;
   border: 1px solid var(--primary);
@@ -339,14 +343,39 @@
   color: var(--primary);
   font: inherit;
   font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
   cursor: pointer;
 }
-.saveVisibilityToggle[aria-pressed="true"] { background: var(--primary); color: #fff; }
+.saveVisibilityState {
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 22px;
+  padding: 0 5px 0 17px;
+  box-sizing: border-box;
+  border-radius: 20px;
+  background: #e3e0da;
+  color: var(--primary);
+  font-size: 9px;
+  line-height: 22px;
+  text-align: right;
+}
+.saveVisibilityState::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+}
+.saveVisibilityToggle[aria-checked="true"] .saveVisibilityState { background: var(--primary); color: #fff; padding: 0 18px 0 5px; text-align: left; }
+.saveVisibilityToggle[aria-checked="true"] .saveVisibilityState::before { left: 26px; }
 .saveVisibilityToggle:focus-visible { outline: 3px solid #8ba4c7; outline-offset: 3px; }
 .saveVisibilityToggle:disabled { opacity: .6; cursor: not-allowed; }
 .saveVisibilityMobile { display: none; }
-.saveVisibilityOptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.saveVisibilityOptions .saveVisibilityToggle { padding: 12px 8px; white-space: nowrap; }
 
 .autoSaveToggle{
   width: 100%;
@@ -721,6 +750,7 @@
     white-space: nowrap;
   }
   .autoSaveHint { font-size: 11px; }
+  .saveVisibilityDesktop { font-size: 16px; padding: 0 4px; gap: 4px; }
 }
 
 @media (max-width: 900px) {
@@ -765,18 +795,11 @@
     border-radius: 10px;
     background: #fff;
   }
-  .saveVisibilityMobile > span { font-size: 12px; font-weight: 700; color: var(--primary); }
-  .saveVisibilityMobile .saveVisibilityOptions {
-    justify-self: end;
-    grid-template-columns: repeat(2, auto);
-    gap: 2px;
-    padding: 3px;
-    border-radius: 8px;
-    background: #f0ede8;
-  }
+  .saveVisibilityMobile > span { font-size: 16px; font-weight: 700; color: var(--primary); }
   .saveVisibilityMobile .saveVisibilityToggle {
+    justify-self: end;
     height: 32px;
-    padding: 0 12px;
+    padding: 0 4px;
     border: 0;
     border-radius: 6px;
     font-size: 12px;

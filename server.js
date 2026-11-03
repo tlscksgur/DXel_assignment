@@ -494,6 +494,31 @@ function sanitizeExtractedCard(value = {}) {
   });
 }
 
+// 모델이 명함 끝을 좁게 잡아도 로고는 명함 안에 있으므로, 겹치는 로고까지 명함 영역을 넓힌다.
+// 명함과 겹치지 않는 로고는 오인식일 수 있어 영역에 반영하지 않는다.
+function cardBoundsIncludingLogo(cardBounds, logoBounds) {
+  const card = [cardBounds?.x, cardBounds?.y, cardBounds?.width, cardBounds?.height].map(Number);
+  const logo = [logoBounds?.x, logoBounds?.y, logoBounds?.width, logoBounds?.height].map(Number);
+  if (![...card, ...logo].every(Number.isFinite) || card[2] <= 0 || card[3] <= 0 || logo[2] <= 0 || logo[3] <= 0) {
+    return cardBounds;
+  }
+
+  const [cardX, cardY, cardWidth, cardHeight] = card;
+  const [logoX, logoY, logoWidth, logoHeight] = logo;
+  const overlaps = logoX < cardX + cardWidth && logoX + logoWidth > cardX
+    && logoY < cardY + cardHeight && logoY + logoHeight > cardY;
+  if (!overlaps) return cardBounds;
+
+  const left = Math.min(cardX, logoX);
+  const top = Math.min(cardY, logoY);
+  return {
+    x: left,
+    y: top,
+    width: Math.max(cardX + cardWidth, logoX + logoWidth) - left,
+    height: Math.max(cardY + cardHeight, logoY + logoHeight) - top
+  };
+}
+
 function normalizeCropBounds(value) {
   const x = Number(value?.x);
   const y = Number(value?.y);
@@ -736,6 +761,8 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
       rememberCropSource(req.file.filename, req.user.id);
     }
 
+    const cardBounds = cardBoundsIncludingLogo(parsed.crop_bounds, parsed.logo_bounds);
+
     res.json({
       success: true,
       message: "명함 분석 완료",
@@ -745,8 +772,8 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
         path: `/uploads/${req.file.filename}`,
         size: req.file.size
       },
-      cropBounds: normalizeCropBounds(parsed.crop_bounds),
-      logoBounds: normalizeLogoBounds(parsed.logo_bounds, parsed.crop_bounds),
+      cropBounds: normalizeCropBounds(cardBounds),
+      logoBounds: normalizeLogoBounds(parsed.logo_bounds, cardBounds),
       uprightRotation: normalizeUprightRotation(parsed.upright_rotation),
       extracted
     });

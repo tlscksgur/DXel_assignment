@@ -37,7 +37,7 @@ let visibleCards = [];
 let visibilityFilter = "all";
 
 function filterCardsByVisibility(cards, scope = visibilityFilter) {
-  return scope === "all" ? cards : cards.filter((card) => (card.visibility || "shared") === scope);
+  return scope === "mine" ? filterCardsByCurrentUser(cards) : cards;
 }
 let viewMode = "all";
 let sortKey = "recent";
@@ -908,7 +908,7 @@ function closeImageLightbox() {
 // ===== 전체 명함 및 중복 그룹 화면 렌더링 =====
 function renderEmptyCards(message) {
   const isSearching = Boolean(String(searchInput.value || "").trim());
-  const scopeEmptyMessage = visibilityFilter === "private" ? "개인 저장한 명함이 없습니다." : message;
+  const scopeEmptyMessage = visibilityFilter === "mine" ? "내가 등록한 명함이 없습니다." : message;
   const emptyMessage = isSearching ? "검색 결과가 없습니다."
     : message === "등록된 명함이 없습니다." ? scopeEmptyMessage : message;
   board.classList.remove("duplicateMode", "groupMode", "tagMode");
@@ -1453,7 +1453,7 @@ function exportSelectedCards(format) {
 function renderCurrentView() {
   syncSelectionUi();
   const scopedCards = filterCardsByVisibility(visibleCards);
-  const scopePrefix = visibilityFilter === "private" ? "개인 · " : "";
+  const scopePrefix = visibilityFilter === "mine" ? "개인 · " : "";
   const ownedCards = myCardsOnly ? filterCardsByCurrentUser(scopedCards) : scopedCards;
   const cardsForView = favoritesOnly
     ? ownedCards.filter((card) => Boolean(Number(card.is_favorite)))
@@ -1519,7 +1519,7 @@ function renderCurrentView() {
     ? `${scopePrefix}즐겨찾기 ${sortedCards.length}장`
     : myCardsOnly
       ? `${scopePrefix}내가 등록한 명함 ${sortedCards.length}장`
-      : `${visibilityFilter === "private" ? "개인 명함" : "전체"} ${sortedCards.length}장`;
+      : `${visibilityFilter === "mine" ? "개인 명함" : "전체"} ${sortedCards.length}장`;
 }
 
 function setViewMode(nextViewMode) {
@@ -1578,7 +1578,7 @@ async function loadCards() {
 // ===== 검색·보기 전환·명함 선택 이벤트 =====
 visibilityFilterSelect?.addEventListener("change", () => {
   const scope = visibilityFilterSelect.value;
-  if (!["all", "private"].includes(scope) || scope === visibilityFilter) return;
+  if (!["all", "mine"].includes(scope) || scope === visibilityFilter) return;
   visibilityFilter = scope;
   // 이전 범위에서 고른 명함이 숨은 상태로 일괄 작업에 포함되지 않게 한다.
   selectedCardIdsByView.forEach((ids) => ids.clear());

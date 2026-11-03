@@ -134,7 +134,8 @@ test("명함 분석은 AI 크롭 좌표를 받아 Canvas 크롭본으로 원본�
   assert.match(aiSource, /x:\s*\{ type: "number" \}/);
   assert.match(aiSource, /normalized 0-1000 coordinates/i);
   assert.match(serverSource, /function normalizeCropBounds\(value\)/);
-  assert.match(serverSource, /cropBounds:\s*normalizeCropBounds\(parsed\.crop_bounds\)/);
+  assert.match(serverSource, /cardBoundsIncludingLogo\(parsed\.crop_bounds, parsed\.logo_bounds\)/);
+  assert.match(serverSource, /cropBounds:\s*normalizeCropBounds\(cardBounds\)/);
   assert.match(serverSource, /app\.post\("\/api\/cards\/cropped-image", upload\.single\("image"\)/);
   assert.match(addSource, /async function cropImageToBounds\(blob, bounds, filename\)/);
   assert.match(addSource, /fetch\("\.\/api\/cards\/cropped-image"/);
@@ -243,6 +244,25 @@ test("명함 경계에 걸친 로고도 로고 좌표 전체와 여유를 보존
     width: 0.074,
     height: 0.114
   });
+});
+
+test("명함 좌표가 로고보다 좁으면 겹치는 로고까지 넓히고 겹치지 않는 로고는 무시한다", () => {
+  const server = fs.readFileSync(path.join(projectRoot, "server.js"), "utf8");
+  const start = server.indexOf("function cardBoundsIncludingLogo(");
+  const end = server.indexOf("\nfunction normalizeCropBounds", start);
+  assert.ok(start >= 0 && end > start);
+  const cardBoundsIncludingLogo = vm.runInNewContext(
+    `${server.slice(start, end)}\ncardBoundsIncludingLogo`
+  );
+  const card = { x: 75, y: 190, width: 735, height: 620 };
+
+  assert.deepEqual(
+    { ...cardBoundsIncludingLogo(card, { x: 500, y: 405, width: 360, height: 85 }) },
+    { x: 75, y: 190, width: 785, height: 620 }
+  );
+  assert.equal(cardBoundsIncludingLogo(card, { x: 900, y: 10, width: 50, height: 50 }), card);
+  assert.equal(cardBoundsIncludingLogo(card, { x: 0, y: 0, width: 0, height: 0 }), card);
+  assert.equal(cardBoundsIncludingLogo(card, undefined), card);
 });
 
 test("상세 명함은 연락처 필드와 전체 정보를 빠르게 복사할 수 있다", () => {
