@@ -66,8 +66,26 @@ function createOpaqueToken() {
   return crypto.randomBytes(32).toString("base64url");
 }
 
+function isOpaqueToken(token) {
+  return typeof token === "string" && /^[A-Za-z0-9_-]{43}$/.test(token);
+}
+
 function hashToken(token) {
   return crypto.createHash("sha256").update(String(token)).digest("hex");
+}
+
+function normalizeEmail(value) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function validEmail(email) {
+  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validPassword(value) {
+  if (typeof value !== "string") return false;
+  const length = Array.from(value).length;
+  return length >= 5 && length <= 128 && Buffer.byteLength(value, "utf8") <= 512;
 }
 
 function sessionCookie(token, { secure = false, maxAge = DEFAULT_SESSION_AGE_SECONDS, path = "/" } = {}) {
@@ -105,7 +123,11 @@ module.exports = {
   createOpaqueToken,
   hashPassword,
   hashToken,
+  isOpaqueToken,
+  normalizeEmail,
   parseCookies,
   sessionCookie,
+  validEmail,
+  validPassword,
   verifyPassword
 };

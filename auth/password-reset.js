@@ -1,24 +1,21 @@
 const {
   createOpaqueToken,
   hashPassword,
-  hashToken
+  hashToken,
+  isOpaqueToken,
+  normalizeEmail,
+  validEmail,
+  validPassword
 } = require("./security");
 const { get, run, withTransaction } = require("../database/operations");
 const { publicPageUrl } = require("../deployment");
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function validPassword(password) {
-  if (typeof password !== "string") return false;
-  const length = Array.from(password).length;
-  return length >= 5 && length <= 128 && Buffer.byteLength(password, "utf8") <= 512;
-}
 
 function createPasswordResetService({ db, sendMail, appBaseUrl, now = () => new Date() }) {
   async function requestReset(value) {
-    const email = typeof value === "string" ? value.trim().toLowerCase() : "";
-    if (!EMAIL_PATTERN.test(email) || email.length > 254) return true;
+    const email = normalizeEmail(value);
+    if (!validEmail(email)) return true;
 
     const user = await get(db,
       "SELECT id, email FROM users WHERE email = ? AND email_verified_at IS NOT NULL",
@@ -75,10 +72,9 @@ function createPasswordResetService({ db, sendMail, appBaseUrl, now = () => new 
   }
 
   async function completeReset(tokenValue, newPassword) {
-    const token = typeof tokenValue === "string" ? tokenValue : "";
-    if (!/^[A-Za-z0-9_-]{43}$/.test(token) || !validPassword(newPassword)) return false;
+    if (!isOpaqueToken(tokenValue) || !validPassword(newPassword)) return false;
 
-    const tokenHash = hashToken(token);
+    const tokenHash = hashToken(tokenValue);
     const timestamp = now().toISOString();
     const stored = await get(db,
       "SELECT user_id, expires_at FROM password_reset_tokens WHERE token_hash = ?",

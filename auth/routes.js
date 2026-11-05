@@ -2,8 +2,12 @@ const {
   createOpaqueToken,
   hashPassword,
   hashToken,
+  isOpaqueToken,
+  normalizeEmail,
   parseCookies,
   sessionCookie,
+  validEmail,
+  validPassword,
   verifyPassword
 } = require("./security");
 const { get, run, withTransaction } = require("../database/operations");
@@ -13,16 +17,11 @@ const { publicPageUrl, applicationBasePath } = require("../deployment");
 const EMAIL_VERIFICATION_TTL_MS = 30 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SESSION_TTL_SECONDS = SESSION_TTL_MS / 1000;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DUMMY_PASSWORD_HASH = `scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA$${"A".repeat(86)}`;
 const LOGIN_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const loginFailureBuckets = new Map();
 const verificationResendBuckets = new Map();
 const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
-
-function normalizeEmail(value) {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
 
 function loginLimitKeys(req, email) {
   const address = String(req.ip || req.socket?.remoteAddress || "unknown").slice(0, 128);
@@ -80,12 +79,6 @@ function validDisplayName(value) {
   return length > 0 && length <= 60 ? displayName : "";
 }
 
-function validPassword(value) {
-  if (typeof value !== "string") return false;
-  const length = Array.from(value).length;
-  return length >= 5 && length <= 128 && Buffer.byteLength(value, "utf8") <= 512;
-}
-
 function requestHasSameOrigin(req, appBaseUrl, allowedOrigins = []) {
   const origin = req.headers?.origin;
   if (!origin || !appBaseUrl) return false;
@@ -106,6 +99,22 @@ function createVerificationMessage(email, verificationUrl) {
   };
 }
 
+function logMailFailure(label, error) {
+  const mailError = error && typeof error === "object" ? error : {};
+  console.error(label, {
+    code: mailError.code || "UNKNOWN",
+    responseCode: mailError.responseCode || null,
+    command: mailError.command || null,
+    hostname: mailError.hostname || null
+  });
+}
+
+function invalidTokenError(message) {
+  const error = new Error(message);
+  error.code = "INVALID_TOKEN";
+  return error;
+}
+
 function verificationResendMessage() {
   return {
     success: true,
@@ -116,7 +125,7 @@ function verificationResendMessage() {
 function createSessionMiddleware(db, { now = () => new Date() } = {}) {
   return async (req, res, next) => {
     const token = parseCookies(req.headers?.cookie).bcm_session;
-    if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return next();
+    if (!isOpaqueToken(token)) return next();
 
     const tokenHash = hashToken(token);
     try {
@@ -154,19 +163,25 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       sessionCookie("", { secure: secureCookie, maxAge: 0, path: "/" })
     ];
   };
-
-  app.post("/api/auth/signup", async (req, res) => {
+  const sameOriginRoute = (method, path, handler) => app[method](path, (req, res) => {
     if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
       return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
     }
+    return handler(req, res);
+  });
+  const verificationLink = (token) => {
+    const verificationUrl = publicPageUrl(appBaseUrl, "verify-email.html");
+    verificationUrl.searchParams.set("token", token);
+    return verificationUrl.toString();
+  };
 
+  sameOriginRoute("post", "/api/auth/signup", async (req, res) => {
     const displayName = validDisplayName(req.body?.displayName);
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
     if (
       !displayName
-      || email.length > 254
-      || !EMAIL_PATTERN.test(email)
+      || !validEmail(email)
       || !validPassword(password)
     ) {
       return res.status(400).json({ success: false, message: "이름, 이메일, 비밀번호를 확인해 주세요." });
@@ -219,18 +234,11 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       return res.status(500).json({ success: false, message: "계정을 만들지 못했습니다." });
     }
 
-    const verificationUrl = publicPageUrl(appBaseUrl, "verify-email.html");
-    verificationUrl.searchParams.set("token", token);
+    const verificationUrl = verificationLink(token);
     try {
-      await sendMail(createVerificationMessage(email, verificationUrl.toString()));
+      await sendMail(createVerificationMessage(email, verificationUrl));
     } catch (error) {
-      const mailError = error && typeof error === "object" ? error : {};
-      console.error("인증 이메일 발송 실패:", {
-        code: mailError.code || "UNKNOWN",
-        responseCode: mailError.responseCode || null,
-        command: mailError.command || null,
-        hostname: mailError.hostname || null
-      });
+      logMailFailure("인증 이메일 발송 실패:", error);
       await run(db, `DELETE FROM users WHERE id = ? AND email_verified_at IS NULL
         AND EXISTS (SELECT 1 FROM email_verification_tokens WHERE user_id = users.id AND token_hash = ?)`, [userId, tokenHash]);
       return res.status(503).json({ success: false, message: "인증 이메일을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요." });
@@ -243,13 +251,9 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     });
   });
 
-  app.post("/api/auth/verify", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
-      return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
-    }
-
-    const token = typeof req.body?.token === "string" ? req.body.token : "";
-    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+  sameOriginRoute("post", "/api/auth/verify", async (req, res) => {
+    const token = req.body?.token;
+    if (!isOpaqueToken(token)) {
       return res.status(400).json({ success: false, message: "인증 링크가 올바르지 않거나 만료되었습니다." });
     }
 
@@ -262,30 +266,20 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
           [tokenHash]
         );
         if (!stored || new Date(stored.expires_at).getTime() <= now().getTime()) {
-          const error = new Error("invalid or expired verification token");
-          error.code = "INVALID_TOKEN";
-          throw error;
+          throw invalidTokenError("invalid or expired verification token");
         }
 
         const deleted = await run(transactionDb,
           "DELETE FROM email_verification_tokens WHERE token_hash = ?",
           [tokenHash]
         );
-        if (deleted.changes !== 1) {
-          const error = new Error("verification token already consumed");
-          error.code = "INVALID_TOKEN";
-          throw error;
-        }
+        if (deleted.changes !== 1) throw invalidTokenError("verification token already consumed");
 
         const updated = await run(transactionDb,
           "UPDATE users SET email_verified_at = ?, updated_at = ? WHERE id = ? AND email_verified_at IS NULL",
           [verifiedAt, verifiedAt, stored.user_id]
         );
-        if (updated.changes !== 1) {
-          const error = new Error("account is already verified");
-          error.code = "INVALID_TOKEN";
-          throw error;
-        }
+        if (updated.changes !== 1) throw invalidTokenError("account is already verified");
         await run(transactionDb, "DELETE FROM email_verification_tokens WHERE user_id = ?", [stored.user_id]);
         await run(transactionDb, "DELETE FROM sessions WHERE user_id = ?", [stored.user_id]);
       });
@@ -301,10 +295,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     return res.json({ success: true, message: "이메일 인증이 완료되었습니다. 로그인해 주세요." });
   });
 
-  app.post("/api/auth/verification/resend", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
-      return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
-    }
+  sameOriginRoute("post", "/api/auth/verification/resend", async (req, res) => {
     if (typeof sendMail !== "function" || !appBaseUrl) {
       return res.status(503).json({ success: false, message: "이메일 서비스를 사용할 수 없습니다." });
     }
@@ -315,7 +306,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     try {
       let user = null;
       if (providedToken) {
-        if (/^[A-Za-z0-9_-]{43}$/.test(providedToken)) {
+        if (isOpaqueToken(providedToken)) {
           user = await get(db,
             `SELECT users.id, users.email
                FROM email_verification_tokens
@@ -325,7 +316,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
             [hashToken(providedToken)]
           );
         }
-      } else if (EMAIL_PATTERN.test(email) && email.length <= 254) {
+      } else if (validEmail(email)) {
         user = await get(db,
           "SELECT id, email FROM users WHERE email = ? AND email_verified_at IS NULL",
           [email]
@@ -365,21 +356,14 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       });
       if (!tokenCreated) return res.status(202).json(verificationResendMessage());
 
-      const verificationUrl = publicPageUrl(appBaseUrl, "verify-email.html");
-      verificationUrl.searchParams.set("token", token);
+      const verificationUrl = verificationLink(token);
       verificationResendBuckets.set(cooldownKey, timestamp + VERIFICATION_RESEND_COOLDOWN_MS);
       try {
-        await sendMail(createVerificationMessage(email, verificationUrl.toString()));
+        await sendMail(createVerificationMessage(email, verificationUrl));
       } catch (error) {
         await run(db, "DELETE FROM email_verification_tokens WHERE token_hash = ?", [tokenHash]);
         verificationResendBuckets.delete(cooldownKey);
-        const mailError = error && typeof error === "object" ? error : {};
-        console.error("인증 이메일 재발송 실패:", {
-          code: mailError.code || "UNKNOWN",
-          responseCode: mailError.responseCode || null,
-          command: mailError.command || null,
-          hostname: mailError.hostname || null
-        });
+        logMailFailure("인증 이메일 재발송 실패:", error);
         return res.status(503).json({
           success: false,
           message: "인증 이메일을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요."
@@ -397,11 +381,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
-      return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
-    }
-
+  sameOriginRoute("post", "/api/auth/login", async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
     const retryAfter = getLoginRetryAfter(req, email);
@@ -411,7 +391,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     }
     let user;
     try {
-      user = EMAIL_PATTERN.test(email) && email.length <= 254
+      user = validEmail(email)
         ? await get(db,
           "SELECT id, display_name, email, password_hash, email_verified_at FROM users WHERE email = ?",
           [email]
@@ -450,14 +430,10 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     }
   });
 
-  app.post("/api/auth/logout", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
-      return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
-    }
-
+  sameOriginRoute("post", "/api/auth/logout", async (req, res) => {
     const token = parseCookies(req.headers?.cookie).bcm_session;
     try {
-      if (token && /^[A-Za-z0-9_-]{43}$/.test(token)) {
+      if (isOpaqueToken(token)) {
         await run(db, "DELETE FROM sessions WHERE token_hash = ?", [hashToken(token)]);
       }
       res.setHeader("Set-Cookie", sessionCookies("", 0));
@@ -472,10 +448,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     return res.json({ success: true, user: req.user || null });
   });
 
-  app.patch("/api/auth/profile", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
-      return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
-    }
+  sameOriginRoute("patch", "/api/auth/profile", async (req, res) => {
     if (!req.user?.id) {
       return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
     }
@@ -504,10 +477,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     }
   });
 
-  app.patch("/api/auth/password", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
-      return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
-    }
+  sameOriginRoute("patch", "/api/auth/password", async (req, res) => {
     if (!req.user?.id) {
       return res.status(401).json({ success: false, message: "로그인이 필요합니다." });
     }
@@ -550,10 +520,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     }
   });
 
-  app.post("/api/auth/password-reset/request", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
-      return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
-    }
+  sameOriginRoute("post", "/api/auth/password-reset/request", async (req, res) => {
     if (typeof sendMail !== "function" || !appBaseUrl) {
       return res.status(503).json({ success: false, message: "비밀번호 재설정 메일 서비스를 사용할 수 없습니다." });
     }
@@ -573,11 +540,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     });
   });
 
-  app.post("/api/auth/password-reset/complete", async (req, res) => {
-    if (!requestHasSameOrigin(req, appBaseUrl, allowedOrigins)) {
-      return res.status(403).json({ success: false, message: "요청 출처를 확인할 수 없습니다." });
-    }
-
+  sameOriginRoute("post", "/api/auth/password-reset/complete", async (req, res) => {
     try {
       const completed = await passwordReset.completeReset(req.body?.token, req.body?.newPassword);
       if (!completed) {

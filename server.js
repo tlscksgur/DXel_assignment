@@ -738,7 +738,7 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
   }
 
   try {
-    const imageDataUrl = imageToDataUrl(req.file);
+    const imageDataUrl = await imageToDataUrl(req.file);
     const modelResponse = await extractBusinessCard(imageDataUrl);
     const content = modelResponse.choices?.[0]?.message?.content;
 
@@ -878,7 +878,7 @@ app.post("/api/cards/cropped-image", upload.single("image"), async (req, res) =>
 app.post("/api/cards/logo-orientation", upload.single("image"), async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: "로고 이미지가 없습니다." });
   try {
-    const response = await analyzeLogoOrientation(imageToDataUrl(req.file));
+    const response = await analyzeLogoOrientation(await imageToDataUrl(req.file));
     const content = response.choices?.[0]?.message?.content;
     if (!content) throw new Error("로고 문자 방향 응답이 없습니다.");
     const orientation = normalizeLogoOrientation(parseModelJson(content));

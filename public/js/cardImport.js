@@ -182,7 +182,7 @@ async function readImportText(file) {
 }
 
 async function showFile(file) {
-  const extension = file.name.split(".").pop().toLowerCase();
+  const extension = file?.name.split(".").pop().toLowerCase();
   if (!file || !["csv", "vcf"].includes(extension)) throw new Error("CSV 또는 vCard(.vcf) 파일만 선택할 수 있습니다.");
   const text = await readImportText(file);
   const rawCards = extension === "csv" ? parseCsv(text) : parseVcard(text);
@@ -194,7 +194,17 @@ async function showFile(file) {
 }
 
 function resetImport() {
-  importFile.value = ""; previewCards = []; importFileInfo.hidden = true; previewTable.hidden = true; previewFooter.hidden = true; previewEmpty.hidden = false; importSummary.hidden = true; mappingStatus.textContent = "파일을 선택해 주세요"; mappingStatus.classList.remove("ready"); importSubmit.disabled = true; importSubmit.textContent = "선택한 명함 불러오기";
+  importFile.value = "";
+  previewCards = [];
+  importFileInfo.hidden = true;
+  previewTable.hidden = true;
+  previewFooter.hidden = true;
+  previewEmpty.hidden = false;
+  importSummary.hidden = true;
+  mappingStatus.textContent = "파일을 선택해 주세요";
+  mappingStatus.classList.remove("ready");
+  importSubmit.disabled = true;
+  importSubmit.textContent = "선택한 명함 불러오기";
 }
 
 function toggleNewGroupInput() {
@@ -259,11 +269,20 @@ importGroupName.addEventListener("input", applyDefaultGroupToPreview);
 importSubmit.addEventListener("click", async () => {
   const cards = selectedCards(); if (!cards.length) return;
   const isNewGroup = importGroup.value === "__new__";
-  const groupName = isNewGroup ? importGroupName.value.trim() : importGroup.value;
+  const groupName = currentDefaultGroupName();
   if (isNewGroup && !groupName) { alert("새 그룹 이름을 입력해 주세요."); importGroupName.focus(); return; }
   if (groupName.length > 40) { alert("그룹 이름은 40자 이내로 입력해 주세요."); return; }
   importSubmit.disabled = true; importSubmit.textContent = "저장 중…";
-  try { const response = await fetch("./api/cards/import", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ cards, duplicateAction, groupName }) }); const result = await readImportResponse(response); if (!response.ok) throw new Error(result.message || "명함을 저장하지 못했습니다."); alert(`${result.savedCount}장을 저장했습니다.${result.skipped.length ? ` ${result.skipped.length}장은 건너뛰었습니다.` : ""}`); window.location.href = "./BCM.html"; } catch (error) { alert(error.message); updateSelection(); }
+  try {
+    const response = await fetch("./api/cards/import", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ cards, duplicateAction, groupName }) });
+    const result = await readImportResponse(response);
+    if (!response.ok) throw new Error(result.message || "명함을 저장하지 못했습니다.");
+    alert(`${result.savedCount}장을 저장했습니다.${result.skipped.length ? ` ${result.skipped.length}장은 건너뛰었습니다.` : ""}`);
+    window.location.href = "./BCM.html";
+  } catch (error) {
+    alert(error.message);
+    updateSelection();
+  }
 });
 
 loadImportGroups();

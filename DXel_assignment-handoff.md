@@ -7,7 +7,16 @@
 - 마지막 업데이트: 2026-11-05 (한국 시간)
 - 마지막 작업 AI: Claude Code
 
-### 리팩터링·최적화 기록 (2026-11-05, 커밋 전)
+### 2차 리팩터링 기록 (2026-11-05, 커밋 전)
+- auth/routes.js: 요청 출처 검사를 sameOriginRoute로 통합, 메일 실패 로그·인증 링크·토큰 오류 공통화. 토큰·이메일·비밀번호 검사는 auth/security.js로 옮겨 password-reset.js와 공유한다.
+- localAi.js: 응답 스키마와 메시지 형식의 반복 제거, imageToDataUrl 비동기화(server.js 호출부 await). 프롬프트 문구는 변경하지 않았다.
+- public/js: authUI.js 메뉴 닫기·아바타 공통화, cardImport.js 긴 줄 분리·파일 없음 오류 메시지 수정, footerStatus.js 숨겨진 탭 상태 확인 중단.
+- 검증(리팩터링 전 a378a1c 기준, 1·2차 합산): npm test 398개 통과, 격리 서버 API 요청 191건 차이 0, DB 7개 테이블 차이 0, 가짜 AI 서버로 받은 요청 5건 바이트 동일, headless Chrome 39개 화면 상태 DOM 동일(오류 스택 줄 번호 1건만 다름). 비교 스크립트는 세션 임시 폴더에만 있고 저장소에는 없다.
+- 미검증: 실제 AI 서버·실제 사진 추출과 크롭, 실제 메일 발송과 메일 링크 인증·재설정, 운영 DB. cardAdd.html은 페이지 로드만 비교했다.
+- 변경 안 함: cardAdd.js, CSS, slide.js(테스트가 동작을 고정), authPages.js, cardTrash.js.
+- 다음 작업: 사용자 확인 후 2차 커밋(Claude 표시 없이) → 서버 git pull·재시작 → 실제 명함 1장 등록과 인증 메일 1건 확인.
+
+### 1차 리팩터링·최적화 기록 (2026-11-05, 사용자 커밋 a9fd373, push 완료)
 - server.js: 중복 판정을 전체 비교에서 키 조회(createDuplicateFinder)로 변경하고 필요한 컬럼만 조회한다. 업로드 경로 검사, 이미지 참조 수, 태그 검증, 저장·수정의 중복 응답, 병합 필드·SQL, 목록 응답, makeCard/sanitizeExtractedCard의 중복을 공통 함수로 합쳤다.
 - database/schema.js: business_cards의 image_path, logo_path 인덱스를 추가했다. 서버 시작 시 자동 생성된다.
 - public/js/cardManagement.js: API 요청을 requestJson으로 통합하고 목록 일괄 삽입, 그룹 렌더링당 폭 계산 1회, Intl.Collator 정렬로 변경했다.

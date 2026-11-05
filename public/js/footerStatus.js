@@ -36,7 +36,10 @@ async function updateFooterStatus() {
 }
 
 updateFooterStatus();
-setInterval(updateFooterStatus, 10000);
+// 보이지 않는 탭은 AI 서버 상태를 계속 확인하지 않는다.
+setInterval(() => {
+  if (!document.hidden) updateFooterStatus();
+}, 10000);
 
 // ===== CSV 주소록 다운로드 =====
 const csvExportBtn = document.querySelector(".csvExport")

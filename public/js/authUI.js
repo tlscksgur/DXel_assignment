@@ -29,6 +29,7 @@
   }
 
   function createAccountMenu(user) {
+    const avatarLetter = Array.from(user.displayName || "계정")[0] || "계";
     const wrapper = document.createElement("div");
     wrapper.className = "accountMenu";
 
@@ -38,7 +39,7 @@
     trigger.setAttribute("aria-haspopup", "menu");
     trigger.setAttribute("aria-expanded", "false");
     trigger.innerHTML = '<span class="accountAvatar" aria-hidden="true">계</span><span class="accountTriggerName"></span>';
-    trigger.querySelector(".accountAvatar").textContent = Array.from(user.displayName || "계정")[0] || "계";
+    trigger.querySelector(".accountAvatar").textContent = avatarLetter;
     trigger.querySelector(".accountTriggerName").textContent = user.displayName || "내 계정";
 
     const menu = document.createElement("div");
@@ -51,7 +52,7 @@
     const identityAvatar = document.createElement("span");
     identityAvatar.className = "accountAvatar";
     identityAvatar.setAttribute("aria-hidden", "true");
-    identityAvatar.textContent = Array.from(user.displayName || "계정")[0] || "계";
+    identityAvatar.textContent = avatarLetter;
     const identityDetails = document.createElement("span");
     identityDetails.className = "accountMenuIdentityDetails";
     const name = document.createElement("strong");
@@ -92,21 +93,19 @@
     );
     wrapper.append(trigger, menu);
 
+    const closeMenu = () => {
+      menu.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+    };
     trigger.addEventListener("click", () => {
       menu.hidden = !menu.hidden;
       trigger.setAttribute("aria-expanded", String(!menu.hidden));
     });
     document.addEventListener("click", (event) => {
-      if (!wrapper.contains(event.target)) {
-        menu.hidden = true;
-        trigger.setAttribute("aria-expanded", "false");
-      }
+      if (!wrapper.contains(event.target)) closeMenu();
     });
     trigger.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        menu.hidden = true;
-        trigger.setAttribute("aria-expanded", "false");
-      }
+      if (event.key === "Escape") closeMenu();
     });
     return wrapper;
   }

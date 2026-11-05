@@ -72,6 +72,18 @@ Use exactly this JSON structure and no additional fields:
 `.trim();
 
 // ===== AI 서버 구조화 응답 형식 =====
+const boundsSchema = {
+  type: "object",
+  properties: {
+    x: { type: "number" },
+    y: { type: "number" },
+    width: { type: "number" },
+    height: { type: "number" }
+  },
+  required: ["x", "y", "width", "height"],
+  additionalProperties: false
+};
+
 const businessCardResponseFormat = {
   type: "json_schema",
   json_schema: {
@@ -91,28 +103,8 @@ const businessCardResponseFormat = {
         email: { type: "string" },
         address: { type: "string" },
         website: { type: "string" },
-        crop_bounds: {
-          type: "object",
-          properties: {
-            x: { type: "number" },
-            y: { type: "number" },
-            width: { type: "number" },
-            height: { type: "number" }
-          },
-          required: ["x", "y", "width", "height"],
-          additionalProperties: false
-        },
-        logo_bounds: {
-          type: "object",
-          properties: {
-            x: { type: "number" },
-            y: { type: "number" },
-            width: { type: "number" },
-            height: { type: "number" }
-          },
-          required: ["x", "y", "width", "height"],
-          additionalProperties: false
-        }
+        crop_bounds: boundsSchema,
+        logo_bounds: boundsSchema
       },
       required: [
         "is_business_card",
@@ -178,7 +170,7 @@ async function requestChatCompletion(body, maximumTimeoutMs = Infinity) {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify({ model: process.env.AI_SERVER_MODEL, temperature: 0, ...body })
     });
     if (!response.ok) {
       throw new Error(`AI 서버 요청 실패: ${response.status}`);
@@ -191,11 +183,19 @@ async function requestChatCompletion(body, maximumTimeoutMs = Infinity) {
   }
 }
 
+function userImageMessage(text, imageDataUrl) {
+  return {
+    role: "user",
+    content: [
+      { type: "text", text },
+      { type: "image_url", image_url: { url: imageDataUrl } }
+    ]
+  };
+}
+
 // ===== 추출한 로고의 문자 방향 확인 =====
 async function analyzeLogoOrientation(imageDataUrl) {
   return requestChatCompletion({
-    model: process.env.AI_SERVER_MODEL,
-    temperature: 0,
     reasoning_effort: "none",
     max_tokens: 256,
     response_format: {
@@ -218,10 +218,7 @@ async function analyzeLogoOrientation(imageDataUrl) {
 Return the clockwise rotation in degrees that must be APPLIED to the input image to make the text upright and its reading baseline horizontal. Use the baseline of the full word or text line, not individual letter strokes. For example, text tilted 45 degrees clockwise needs clockwise_rotation=-45; text tilted 45 degrees counterclockwise needs +45; upside-down text needs 180.
 Do not infer orientation from a symbol, brand identity, expected logo appearance, decorative diagonal strokes, or the slant of italic letters. Italic DASSAULT SYSTEMES on a horizontal baseline needs 0, even when its letters lean. Do not reshape, unskew, or redesign the logo.
 Set has_text=false and clockwise_rotation=0 when there is no clearly readable text, including symbol-only logos. When letters are too stylized, clipped, curved, or different text lines disagree, return clockwise_rotation=0 with low confidence. Correct small camera tilt only when the text-line baseline is clear. Confidence must reflect visual evidence, not brand recognition. When uncertain, prefer no rotation.` },
-      { role: "user", content: [
-        { type: "text", text: "로고의 읽을 수 있는 글자 줄과 위아래 방향을 기준으로, 똑바로 보이게 만드는 회전 각도를 JSON으로 반환하세요." },
-        { type: "image_url", image_url: { url: imageDataUrl } }
-      ] }
+      userImageMessage("로고의 읽을 수 있는 글자 줄과 위아래 방향을 기준으로, 똑바로 보이게 만드는 회전 각도를 JSON으로 반환하세요.", imageDataUrl)
     ]
   }, 20000);
 }
@@ -238,8 +235,6 @@ async function extractBusinessCard(imageDataUrl) {
 
 async function requestBusinessCardExtraction(imageDataUrl, reasoningEffort) {
   return requestChatCompletion({
-    model: process.env.AI_SERVER_MODEL,
-    temperature: 0,
     reasoning_effort: reasoningEffort,
     max_tokens: 6000,
     response_format: businessCardResponseFormat,
@@ -248,21 +243,7 @@ async function requestBusinessCardExtraction(imageDataUrl, reasoningEffort) {
         role: "system",
         content: systemPrompt
       },
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: "먼저 이 이미지가 명함인지 판정하세요. 명함이면 보이는 정보만 추출하고, 명함이 아니면 is_business_card를 false로 반환하세요."
-          },
-          {
-            type: "image_url",
-            image_url: {
-              url: imageDataUrl
-            }
-          }
-        ]
-      }
+      userImageMessage("먼저 이 이미지가 명함인지 판정하세요. 명함이면 보이는 정보만 추출하고, 명함이 아니면 is_business_card를 false로 반환하세요.", imageDataUrl)
     ]
   });
 }
@@ -270,8 +251,6 @@ async function requestBusinessCardExtraction(imageDataUrl, reasoningEffort) {
 // ===== 누락된 핵심 필드 재확인 =====
 async function verifyCriticalFields(imageDataUrl) {
   return requestChatCompletion({
-    model: process.env.AI_SERVER_MODEL,
-    temperature: 0,
     reasoning_effort: "none",
     max_tokens: 450,
     response_format: criticalFieldResponseFormat,
@@ -289,28 +268,14 @@ Copy the entire physical address labeled A or printed next to a location-pin ico
 Copy the complete domain labeled W or W., printed next to a globe icon, beginning with http://, https://, or www, or shown as a bare printed domain such as 3ds.com into website. Do not derive it from an email address unless the domain is separately printed on the card.
 Return an empty string only when the field is truly absent.`
       },
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: "Recheck name, department, position, email, address, and website. Inspect the name area, every bottom line, and all contact icons."
-          },
-          {
-            type: "image_url",
-            image_url: {
-              url: imageDataUrl
-            }
-          }
-        ]
-      }
+      userImageMessage("Recheck name, department, position, email, address, and website. Inspect the name area, every bottom line, and all contact icons.", imageDataUrl)
     ]
   });
 }
 
 // ===== 업로드 이미지 Base64 Data URL 변환 =====
-function imageToDataUrl(file) {
-  const base64 = fs.readFileSync(file.path).toString("base64");
+async function imageToDataUrl(file) {
+  const base64 = (await fs.promises.readFile(file.path)).toString("base64");
   return `data:${file.mimetype};base64,${base64}`;
 }
 
