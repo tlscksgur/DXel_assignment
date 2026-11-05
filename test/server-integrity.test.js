@@ -193,6 +193,28 @@ test("기존 병기 이름과 새 한글 이름도 같은 회사이면 중복으
   });
 });
 
+test("중복 판정은 휴대폰이나 이름+회사로 찾고 조회 순서를 유지하며 불러오는 중 추가한 명함도 찾는다", async () => {
+  await isolatedServer(async ({ runCode }) => {
+    const ids = (card) => JSON.parse(runCode(`JSON.stringify(finder.find(${JSON.stringify(card)}).map((row) => row.id))`));
+    runCode(`var finder = createDuplicateFinder([
+      { id: 9, name: "김승현", company: "SAIGE", mobile: "010-1111-2222" },
+      { id: 5, name: "이영희", company: "DXEL", mobile: "+82 10-3333-4444 / 010-5555-6666" },
+      { id: 2, name: "김승현 Seunghyeon Kim", company: "SAIGE", mobile: "" },
+      { id: 1, name: null, company: null, mobile: null }
+    ])`);
+
+    assert.deepEqual(ids({ name: "김승현", company: "SAIGE" }), [9, 2]);
+    assert.deepEqual(ids({ mobile: "01055556666" }), [5]);
+    assert.deepEqual(ids({ mobile: "01033334444", name: "김승현", company: "SAIGE" }), [9, 5, 2]);
+    // 이름만 또는 회사만 같으면 다른 사람이고, 빈 값끼리는 중복이 아니다.
+    assert.deepEqual(ids({ name: "김승현", company: "DXEL" }), []);
+    assert.deepEqual(ids({ name: "", company: "", mobile: "" }), []);
+
+    runCode(`finder.add({ id: 11, name: "박민수", company: "NEW", mobile: "010-7777-8888" })`);
+    assert.deepEqual(ids({ mobile: "010-7777-8888" }), [11]);
+  });
+});
+
 test("bulk group and trash reject missing ids without changing valid cards", async () => {
   await isolatedServer(async ({ request, card, get }) => {
     const id = await card("A");

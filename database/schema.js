@@ -116,6 +116,11 @@ async function initializeSchema(db) {
   `);
 
   await ensureCardColumns(db);
+  // 이미지 요청마다 참조 명함을 찾으므로 인덱스가 필요하다. 예전 DB는 컬럼 추가 후에 만들어야 한다.
+  await exec(db, `
+    CREATE INDEX IF NOT EXISTS business_cards_image_path ON business_cards(image_path);
+    CREATE INDEX IF NOT EXISTS business_cards_logo_path ON business_cards(logo_path);
+  `);
 }
 
 module.exports = { initializeSchema };

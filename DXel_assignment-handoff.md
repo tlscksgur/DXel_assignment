@@ -4,8 +4,17 @@
 - 프로젝트명: DXel_assignment
 - 프로젝트 경로: C:\Users\DXEL01\Desktop\DXel_assignment
 - 기술 스택: 일반 HTML/CSS/JavaScript, Node.js·Express, SQLite, Multer, Nodemailer, 사내 Local AI
-- 마지막 업데이트: 2026-11-03 (한국 시간)
-- 마지막 작업 AI: Codex
+- 마지막 업데이트: 2026-11-05 (한국 시간)
+- 마지막 작업 AI: Claude Code
+
+### 리팩터링·최적화 기록 (2026-11-05, 커밋 전)
+- server.js: 중복 판정을 전체 비교에서 키 조회(createDuplicateFinder)로 변경하고 필요한 컬럼만 조회한다. 업로드 경로 검사, 이미지 참조 수, 태그 검증, 저장·수정의 중복 응답, 병합 필드·SQL, 목록 응답, makeCard/sanitizeExtractedCard의 중복을 공통 함수로 합쳤다.
+- database/schema.js: business_cards의 image_path, logo_path 인덱스를 추가했다. 서버 시작 시 자동 생성된다.
+- public/js/cardManagement.js: API 요청을 requestJson으로 통합하고 목록 일괄 삽입, 그룹 렌더링당 폭 계산 1회, Intl.Collator 정렬로 변경했다.
+- 테스트: deployment-path.test.js가 safeUploadSrc도 함께 실행하도록 수정, server-integrity.test.js에 중복 판정 테스트 추가.
+- cardAdd.js, cardImport.js, cardTrash.js, slide.js, localAi.js, auth/, CSS는 변경하지 않았다. 크롭·로고 재발 원인 미확정 상태라 cardAdd.js는 일부러 제외했다.
+- 미검증: 실제 브라우저 화면, 운영 DB 규모에서의 성능. 측정값은 합성 데이터 기준이다.
+- 제안만 하고 적용 안 함: /uploads의 no-store 완화(화면 갱신마다 로고 재요청, 공용 PC 디스크 캐시와 맞바꿈), pendingUploads 만료 처리, node_modules 추적 해제.
 
 ### 현재 목표
 홈 슬라이드의 최고 속도를 사용자 요청에 따라 초당 150px로 조정했다(이전 시안: 30→100px/초). 로컬 테스트 명함 15장은 유지하며 로컬 화면에서 체감 속도 재확인이 남아 있다. 명함 크롭·로고 추출 오류 수정은 main에 병합 완료(5d059c9, 병합 4c507b3)했으며 서버 git pull과 재시작은 대기 중이다.
@@ -19,7 +28,10 @@
 - 기존에 잘못 저장된 명함은 자동 복구되지 않아 재업로드가 필요하다.
 - 작업 트리에 있던 다른 변경(저장 범위 토글 UI, BCM.html, cardManagement.js 등)도 사용자 결정으로 같은 커밋에 포함했다. node_modules는 제외했다.
 - 커밋 기록: 사용자 요청으로 Claude Co-Authored-By 줄을 빼려고 main을 다시 썼다(ef80305→5d059c9, 9b8cbe1→4c507b3, 코드 동일). 사용자가 직접 강제 push했고 fix/card-crop-logo 브랜치는 원격·로컬 모두 삭제했다. PR #1 기록에는 이전 커밋이 남을 수 있다. 앞으로 커밋과 PR에 Claude 표시를 넣지 않는다. 이 시점 이전에 main을 받은 복사본은 새 기록에 맞춰야 한다.
-- 다음 작업: 서버에서 git pull 후 재시작(localAi.js·server.js 변경) → 잘못 저장된 명함 재업로드, 부산대 명함 크롭 확인.
+- 재발(2026-11-04): 운영 서버 화면 JS는 main과 일치 확인, 서버 재시작 여부는 미확인. 휴대폰 사진(Advance 명함)에서 크롭이 나무 배경 위주로 잡히고 로고도 배경만 잘렸으나 글자 추출은 정상. 원본 사진을 아직 받지 못해 원인 미확정.
+- 측정: 위치를 아는 합성 명함 8종(세로·가로·낮은 위치·작은 명함·3도 기울임) 2회씩 16건. 명함 IoU 0.89~0.99(기울임 외 0.96 이상), 로고 IoU 0.55~0.87. 이미지 비율이나 위치에 따른 일정한 쏠림은 없었다. 합성 이미지는 실사진과 달라 실사진 문제를 배제하지는 못한다.
+- 검토 중인 대책(미구현): 자른 결과를 AI에 다시 확인하고 실패하면 원본 저장, 픽셀 기반 테두리 보정, 로고 재질문.
+- 다음 작업: 문제 사진 원본 확보 후 재현 → 대책 구현 → 해당 사진과 기존 23장으로 검증. 서버 재시작 여부도 확인한다.
 
 ### 완료된 작업
 - 전체 공유·개인 저장 선택 UI와 서버 저장·접근 권한을 구현했다. 상세 내용은 아래 기능 완료 기록을 참고한다.

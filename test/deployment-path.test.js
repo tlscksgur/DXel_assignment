@@ -41,8 +41,9 @@ test('브라우저 API·내보내기·이미지 주소는 현재 앱 경로 안�
   }
   const source = fs.readFileSync(path.join(directory, 'cardManagement.js'), 'utf8');
   const context = { escapeHtml: (value) => value };
-  const imageFunction = source.match(/function createCardOriginalImage\(contact\) \{[\s\S]*?\n\}/)[0];
-  vm.runInNewContext(imageFunction, context);
+  const imageFunctions = source.match(/function safeUploadSrc\(value\) \{[\s\S]*?\n\}/)[0]
+    + source.match(/function createCardOriginalImage\(contact\) \{[\s\S]*?\n\}/)[0];
+  vm.runInNewContext(imageFunctions, context);
   const html = context.createCardOriginalImage({ image_path: '/uploads/test.jpg', name: '확인' });
   assert.match(html, /src="\.\/uploads\/test.jpg"/);
   assert.equal(new URL('./api/cards/export/csv', 'http://cards.test/businessCard/BCM.html').pathname,

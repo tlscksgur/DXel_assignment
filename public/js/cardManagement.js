@@ -122,6 +122,9 @@ function meetingTimestamp(value) {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
+// 정렬 비교마다 localeCompare 옵션을 해석하지 않도록 재사용한다.
+const cardTextCollator = new Intl.Collator("ko", { numeric: true, sensitivity: "base" });
+
 function sortCards(cards, key = sortKey, direction = sortDirection) {
   const directionMultiplier = direction === "asc" ? 1 : -1;
 
@@ -149,10 +152,7 @@ function sortCards(cards, key = sortKey, direction = sortDirection) {
 
     const firstValue = normalizedText(first[key]);
     const secondValue = normalizedText(second[key]);
-    const comparison = firstValue.localeCompare(secondValue, "ko", {
-      numeric: true,
-      sensitivity: "base"
-    });
+    const comparison = cardTextCollator.compare(firstValue, secondValue);
 
     if (comparison !== 0) {
       return comparison * directionMultiplier;
@@ -213,6 +213,11 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function safeUploadSrc(value) {
+  const imagePath = String(value || "").trim();
+  return /^\/uploads\/[A-Za-z0-9._-]+$/.test(imagePath) ? escapeHtml(`.${imagePath}`) : "";
 }
 
 function parseCardTags(value) {
@@ -289,8 +294,8 @@ async function copyText(value) {
   return copied;
 }
 
-function createCopyAllCardText(contact) {
-  const fields = [
+function cardInfoFields(contact) {
+  return [
     ["이름", contact.name],
     ["회사", contact.company],
     ["부서", contact.department],
@@ -301,18 +306,17 @@ function createCopyAllCardText(contact) {
     ["홈페이지", contact.website],
     ["주소", contact.address]
   ];
+}
 
-  return fields
+function createCopyAllCardText(contact) {
+  return cardInfoFields(contact)
     .filter(([, value]) => String(value || "").trim())
     .map(([label, value]) => `${label}: ${String(value).trim()}`)
     .join("\n");
 }
 
 function createCardOriginalImage(contact) {
-  const imagePath = String(contact.image_path || "").trim();
-  const safeImagePath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(imagePath)
-    ? escapeHtml(`.${imagePath}`)
-    : "";
+  const safeImagePath = safeUploadSrc(contact.image_path);
   const imageContent = safeImagePath
     ? `<img src="${safeImagePath}" alt="${escapeHtml(contact.name || "명함")} 원본 이미지" loading="eager" decoding="async">`
     : "<span>원본 이미지 없음</span>";
@@ -325,10 +329,7 @@ function createCardOriginalImage(contact) {
 }
 
 function createCardImageLightbox(contact) {
-  const imagePath = String(contact.image_path || "").trim();
-  const safeImagePath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(imagePath)
-    ? escapeHtml(`.${imagePath}`)
-    : "";
+  const safeImagePath = safeUploadSrc(contact.image_path);
   if (!safeImagePath) return "";
 
   const imageAlt = escapeHtml(contact.name || "명함");
@@ -376,10 +377,7 @@ function createCard(contact) {
   const position = escapeHtml(contact.position);
   const mobile = escapeHtml(contact.mobile);
   const email = escapeHtml(contact.email);
-  const logoPath = String(contact.logo_path || "").trim();
-  const safeLogoPath = /^\/uploads\/[A-Za-z0-9._-]+$/.test(logoPath)
-    ? escapeHtml(`.${logoPath}`)
-    : "";
+  const safeLogoPath = safeUploadSrc(contact.logo_path);
 
   return `
     <article class="profileCard ${classes}${isSelected ? " is-selected" : ""}${isFavorite ? " has-favorite" : ""}" data-card-id="${cardId}" tabindex="0" role="button" aria-pressed="${isSelected}" aria-label="${name} 명함 ${selectionMode ? "선택" : "상세 보기"}">
@@ -435,18 +433,7 @@ function createMeetingJournal(contact) {
 function createCardDetail(contact) {
   const classes = getCardVariant(contact);
   const copyableLabels = new Set(["휴대폰", "유선전화", "이메일", "홈페이지", "주소"]);
-  const fields = [
-    ["이름", contact.name],
-    ["회사", contact.company],
-    ["부서", contact.department],
-    ["직책", contact.position],
-    ["휴대폰", contact.mobile],
-    ["유선전화", contact.phone],
-    ["이메일", contact.email],
-    ["홈페이지", contact.website],
-    ["주소", contact.address]
-  ];
-  const details = fields.map(([label, value]) => {
+  const details = cardInfoFields(contact).map(([label, value]) => {
     const content = String(value || "").trim();
     const copyButton = copyableLabels.has(label) && content
       ? `<button type="button" class="cardDetailCopyButton" data-action="copy-field" data-copy-value="${escapeHtml(content)}" aria-label="${label} 복사">복사</button>`
@@ -563,18 +550,12 @@ function createCardEditor(contact, statusMessage = "") {
 }
 
 // ===== 명함 수정·삭제 API 요청 =====
-async function requestCardUpdate(cardId, card, allowDuplicate = false) {
-  const response = await fetch(`./api/cards/${encodeURIComponent(cardId)}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(allowDuplicate ? { ...card, allowDuplicate: true } : card)
-  });
+async function requestJson(url, options, fallbackMessage) {
+  const response = await fetch(url, options);
   const result = await response.json();
 
   if (!response.ok) {
-    const error = new Error(result.message || "명함을 수정하지 못했습니다.");
+    const error = new Error(result.message || fallbackMessage);
     error.status = response.status;
     error.result = result;
     throw error;
@@ -583,47 +564,42 @@ async function requestCardUpdate(cardId, card, allowDuplicate = false) {
   return result;
 }
 
-async function requestCardDelete(cardId) {
-  const response = await fetch(`./api/cards/${encodeURIComponent(cardId)}`, {
-    method: "DELETE"
-  });
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "명함을 삭제하지 못했습니다.");
-  }
-
-  return result;
-}
-
-async function requestFavoriteUpdate(cardId, isFavorite) {
-  const response = await fetch(`./api/cards/${encodeURIComponent(cardId)}/favorite`, {
-    method: "PATCH",
+function jsonRequest(method, body) {
+  return {
+    method,
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ isFavorite })
-  });
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "즐겨찾기를 변경하지 못했습니다.");
-  }
-
-  return result;
+    body: JSON.stringify(body)
+  };
 }
 
-async function requestTagUpdate(cardId, tags) {
-  const response = await fetch(`./api/cards/${encodeURIComponent(cardId)}/tags`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ tags })
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.message || "태그를 저장하지 못했습니다.");
-  return result;
+function requestCardUpdate(cardId, card, allowDuplicate = false) {
+  return requestJson(
+    `./api/cards/${encodeURIComponent(cardId)}`,
+    jsonRequest("PUT", allowDuplicate ? { ...card, allowDuplicate: true } : card),
+    "명함을 수정하지 못했습니다."
+  );
+}
+
+function requestCardDelete(cardId) {
+  return requestJson(`./api/cards/${encodeURIComponent(cardId)}`, { method: "DELETE" }, "명함을 삭제하지 못했습니다.");
+}
+
+function requestFavoriteUpdate(cardId, isFavorite) {
+  return requestJson(
+    `./api/cards/${encodeURIComponent(cardId)}/favorite`,
+    jsonRequest("PATCH", { isFavorite }),
+    "즐겨찾기를 변경하지 못했습니다."
+  );
+}
+
+function requestTagUpdate(cardId, tags) {
+  return requestJson(
+    `./api/cards/${encodeURIComponent(cardId)}/tags`,
+    jsonRequest("PATCH", { tags }),
+    "태그를 저장하지 못했습니다."
+  );
 }
 
 function syncCardTagDrawer(tags) {
@@ -924,9 +900,8 @@ function renderAllCards(cards) {
     return;
   }
 
-  cards.forEach((card) => {
-    board.insertAdjacentHTML("beforeend", createCard(card));
-  });
+  // 카드마다 삽입하면 브라우저가 매번 파싱하므로 한 번에 넣는다.
+  board.insertAdjacentHTML("beforeend", cards.map((card) => createCard(card)).join(""));
 }
 
 function groupCardsByName(cards) {
@@ -977,6 +952,16 @@ function groupCardChunkSize() {
   return Math.max(1, Math.min(5, columnCount)) * 2;
 }
 
+function createGroupedCardsMarkup(groupCards, cardsPerChunk) {
+  const primaryCards = groupCards.slice(0, cardsPerChunk);
+  const overflowCards = groupCards.slice(cardsPerChunk);
+  const cardsMarkup = primaryCards.map((card) => createCard(card)).join("");
+  const overflowCardsMarkup = overflowCards.map((card) => createCard(card)).join("");
+
+  return `<div class="groupedCards">${cardsMarkup}</div>
+          ${overflowCardsMarkup ? `<div class="groupedCards groupedCardsOverflow" style="--group-column-count:${cardsPerChunk / 2}">${overflowCardsMarkup}</div>` : ""}`;
+}
+
 function renderGroupedCards(cards) {
   board.classList.remove("duplicateMode", "tagMode");
   board.classList.add("groupMode");
@@ -988,12 +973,8 @@ function renderGroupedCards(cards) {
     return;
   }
 
+  const cardsPerChunk = groupCardChunkSize();
   groups.forEach((groupCards, groupName) => {
-    const cardsPerChunk = groupCardChunkSize();
-    const primaryCards = groupCards.slice(0, cardsPerChunk);
-    const overflowCards = groupCards.slice(cardsPerChunk);
-    const cardsMarkup = primaryCards.map((card) => createCard(card)).join("");
-    const overflowCardsMarkup = overflowCards.map((card) => createCard(card)).join("");
     const cardIds = groupCards
       .map((card) => Number(card.id))
       .filter((id) => Number.isInteger(id) && id > 0)
@@ -1009,8 +990,7 @@ function renderGroupedCards(cards) {
               <button type="button" class="groupRemoveButton" data-group-name="${escapeHtml(groupName)}" data-card-ids="${cardIds}">그룹 삭제</button>
             </div>
           </div>
-          <div class="groupedCards">${cardsMarkup}</div>
-          ${overflowCardsMarkup ? `<div class="groupedCards groupedCardsOverflow" style="--group-column-count:${cardsPerChunk / 2}">${overflowCardsMarkup}</div>` : ""}
+          ${createGroupedCardsMarkup(groupCards, cardsPerChunk)}
         </section>
       `
     );
@@ -1033,13 +1013,9 @@ function renderTagGroups(cards) {
     return;
   }
 
+  const cardsPerChunk = groupCardChunkSize();
   groups.forEach((taggedCards, tag) => {
     const tagIndex = CARD_TAG_OPTIONS.indexOf(tag);
-    const cardsPerChunk = groupCardChunkSize();
-    const primaryCards = taggedCards.slice(0, cardsPerChunk);
-    const overflowCards = taggedCards.slice(cardsPerChunk);
-    const cardsMarkup = primaryCards.map((card) => createCard(card)).join("");
-    const overflowCardsMarkup = overflowCards.map((card) => createCard(card)).join("");
 
     board.insertAdjacentHTML(
       "beforeend",
@@ -1049,8 +1025,7 @@ function renderTagGroups(cards) {
             <strong><i class="tagGroupSwatch" aria-hidden="true"></i>${escapeHtml(tag)}</strong>
             <div class="cardGroupMeta"><span>${taggedCards.length}장</span></div>
           </div>
-          <div class="groupedCards">${cardsMarkup}</div>
-          ${overflowCardsMarkup ? `<div class="groupedCards groupedCardsOverflow" style="--group-column-count:${cardsPerChunk / 2}">${overflowCardsMarkup}</div>` : ""}
+          ${createGroupedCardsMarkup(taggedCards, cardsPerChunk)}
         </section>
       `
     );
@@ -1099,28 +1074,19 @@ function renderDuplicateGroups(groups) {
 }
 
 // ===== 중복 명함 병합 =====
-async function requestDuplicateMerge(cardIds) {
-  const response = await fetch("./api/cards/merge-group", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ cardIds })
-  });
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "중복 명함 병합에 실패했습니다.");
-  }
-
-  return result;
+function requestDuplicateMerge(cardIds) {
+  return requestJson("./api/cards/merge-group", jsonRequest("POST", { cardIds }), "중복 명함 병합에 실패했습니다.");
 }
 
-async function mergeDuplicateGroup(button) {
-  const cardIds = String(button.dataset.cardIds || "")
+function buttonCardIds(button) {
+  return String(button.dataset.cardIds || "")
     .split(",")
     .map(Number)
     .filter((id) => Number.isInteger(id) && id > 0);
+}
+
+async function mergeDuplicateGroup(button) {
+  const cardIds = buttonCardIds(button);
 
   if (cardIds.length < 2) {
     alert("병합할 중복 명함이 부족합니다.");
@@ -1153,49 +1119,17 @@ async function mergeDuplicateGroup(button) {
 }
 
 // ===== 선택 명함 그룹 지정·삭제 API 요청 =====
-async function requestGroupAssignment(cardIds, groupName) {
-  const response = await fetch("./api/cards/groups", {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ cardIds, groupName })
-  });
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "그룹을 지정하지 못했습니다.");
-  }
-
-  return result;
+function requestGroupAssignment(cardIds, groupName) {
+  return requestJson("./api/cards/groups", jsonRequest("PATCH", { cardIds, groupName }), "그룹을 지정하지 못했습니다.");
 }
 
 async function requestGroupNames() {
-  const response = await fetch("./api/cards/groups", { cache: "no-store" });
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "그룹 목록을 불러오지 못했습니다.");
-  }
-
+  const result = await requestJson("./api/cards/groups", { cache: "no-store" }, "그룹 목록을 불러오지 못했습니다.");
   return Array.isArray(result.groups) ? result.groups : [];
 }
 
-async function requestBulkDelete(cardIds) {
-  const response = await fetch("./api/cards/bulk-delete", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ cardIds })
-  });
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "선택한 명함을 휴지통으로 옮기지 못했습니다.");
-  }
-
-  return result;
+function requestBulkDelete(cardIds) {
+  return requestJson("./api/cards/bulk-delete", jsonRequest("POST", { cardIds }), "선택한 명함을 휴지통으로 옮기지 못했습니다.");
 }
 
 // ===== 선택 모드 및 하단 작업 바 =====
@@ -1407,10 +1341,7 @@ async function removeSelectedFromGroup() {
 }
 
 async function removeGroupAssignment(button) {
-  const cardIds = String(button.dataset.cardIds || "")
-    .split(",")
-    .map(Number)
-    .filter((id) => Number.isInteger(id) && id > 0);
+  const cardIds = buttonCardIds(button);
   const groupName = String(button.dataset.groupName || "");
 
   if (cardIds.length === 0 || !window.confirm(
@@ -1450,6 +1381,11 @@ function exportSelectedCards(format) {
 }
 
 // ===== 명함 목록 검색 및 불러오기 =====
+function setToggleActive(button, isActive) {
+  button.classList.toggle("active", isActive);
+  button.setAttribute("aria-pressed", String(isActive));
+}
+
 function renderCurrentView() {
   syncSelectionUi();
   const scopedCards = filterCardsByVisibility(visibleCards);
@@ -1462,22 +1398,15 @@ function renderCurrentView() {
   const duplicateGroups = groupDuplicateCards(sortedCards);
   duplicateCountBadge.textContent = String(duplicateGroups.length);
   duplicateCountBadge.hidden = duplicateGroups.length === 0;
-  allViewToggle.classList.toggle("active", viewMode === "all");
-  allViewToggle.setAttribute("aria-pressed", String(viewMode === "all"));
-  groupViewToggle.classList.toggle("active", viewMode === "groups");
-  groupViewToggle.setAttribute("aria-pressed", String(viewMode === "groups"));
-  tagViewToggle.classList.toggle("active", viewMode === "tags");
-  tagViewToggle.setAttribute("aria-pressed", String(viewMode === "tags"));
+  setToggleActive(allViewToggle, viewMode === "all");
+  setToggleActive(groupViewToggle, viewMode === "groups");
+  setToggleActive(tagViewToggle, viewMode === "tags");
   tagFilterSelect.hidden = viewMode !== "tags";
-  duplicateToggle.classList.toggle("active", viewMode === "duplicates");
-  duplicateToggle.setAttribute("aria-pressed", String(viewMode === "duplicates"));
-  favoriteViewToggle.classList.toggle("active", favoritesOnly);
-  favoriteViewToggle.setAttribute("aria-pressed", String(favoritesOnly));
+  setToggleActive(duplicateToggle, viewMode === "duplicates");
+  setToggleActive(favoriteViewToggle, favoritesOnly);
   favoriteViewToggle.textContent = favoritesOnly ? "★" : "☆";
   sortDirectionButtons.forEach((button) => {
-    const isActive = button.dataset.sortDirection === sortDirection;
-    button.classList.toggle("active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
+    setToggleActive(button, button.dataset.sortDirection === sortDirection);
   });
 
   if (viewMode === "duplicates") {

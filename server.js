@@ -41,6 +41,12 @@ const cardAdminEmail = process.env.CARD_ADMIN_EMAIL || "";
 const pendingCropSources = new Map();
 const pendingUploads = new Map();
 
+function uploadFilename(imagePath) {
+  return typeof imagePath === "string"
+    ? imagePath.match(/^\/uploads\/(?!\.\.?$)([A-Za-z0-9._-]+)$/)?.[1]
+    : undefined;
+}
+
 function rememberPendingUpload(filename, userId) {
   if (!/^[A-Za-z0-9._-]+$/.test(String(filename || "")) || !Number.isSafeInteger(Number(userId)) || Number(userId) <= 0) {
     return;
@@ -49,9 +55,7 @@ function rememberPendingUpload(filename, userId) {
 }
 
 function forgetPendingUpload(imagePath, userId) {
-  const filename = typeof imagePath === "string"
-    ? imagePath.match(/^\/uploads\/([A-Za-z0-9._-]+)$/)?.[1]
-    : null;
+  const filename = uploadFilename(imagePath);
   if (filename && pendingUploads.get(filename) === Number(userId)) {
     pendingUploads.delete(filename);
   }
@@ -131,6 +135,15 @@ function singleLineText(value) {
 const MEETING_PURPOSE_MAX_LENGTH = 50;
 const MEETING_NOTE_MAX_LENGTH = 500;
 const CARD_TAGS = ["고객", "잠재 고객", "협력사", "공급업체", "파트너사", "내부", "기타"];
+
+function parseTags(value) {
+  if (!Array.isArray(value)) return { error: "태그 정보를 확인해 주세요." };
+
+  const tags = [...new Set(value.map(singleLineText).filter(Boolean))];
+  return tags.every((tag) => CARD_TAGS.includes(tag))
+    ? { tags }
+    : { error: "지원하지 않는 태그가 포함되어 있습니다." };
+}
 
 function limitText(value, maxLength) {
   return Array.from(text(value)).slice(0, maxLength).join("");
@@ -266,12 +279,10 @@ function normalizePhone(value) {
 }
 
 function phoneIdentity(value) {
-  const digits = text(value)
+  return text(value)
     .replace(/[‐‑‒–—―﹘﹣－]/g, "-")
     .replace(/^\+?82[\s.-]*/, "0")
     .replace(/\D/g, "");
-
-  return digits.startsWith("0") ? digits : digits;
 }
 
 function isKoreanMobile(value) {
@@ -337,22 +348,8 @@ function isValidEmail(email) {
 }
 
 function makeCard(body = {}) {
-  const phones = normalizePhoneFields(body.mobile, body.phone);
-  const organization = normalizeDepartmentAndPosition(
-    body.department,
-    body.position
-  );
-
-  return clearDuplicateDepartment({
-    name: normalizePersonName(body.name),
-    company: text(body.company),
-    department: organization.department,
-    position: organization.position,
-    mobile: phones.mobile,
-    phone: phones.phone,
-    email: normalizeEmails(body.email),
-    address: normalizeAddress(body.address),
-    website: normalizeWebsite(body.website),
+  return {
+    ...sanitizeExtractedCard(body),
     image_path: text(body.image_path || body.imagePath),
     logo_path: body.logo_path === undefined && body.logoPath === undefined
       ? null
@@ -369,7 +366,7 @@ function makeCard(body = {}) {
       body.meeting_note || body.meetingNote,
       MEETING_NOTE_MAX_LENGTH
     )
-  });
+  };
 }
 
 function validateCard(card) {
@@ -614,29 +611,42 @@ function rejectNonBusinessCard(req, res) {
 }
 
 // ===== 중복 명함 조회 =====
-function cardsAreDuplicates(card, row) {
-  const mobileKeys = new Set(
-    text(card.mobile)
-      .split(/\s*\/\s*/)
-      .map(phoneIdentity)
-      .filter(Boolean)
-  );
-  const rowMobileKeys = text(row.mobile)
+function duplicateKeys(card) {
+  const keys = text(card.mobile)
     .split(/\s*\/\s*/)
     .map(phoneIdentity)
-    .filter(Boolean);
-  const sameMobile = [...mobileKeys].some((key) => rowMobileKeys.includes(key));
+    .filter(Boolean)
+    .map((key) => `mobile:${key}`);
   const name = normalizePersonName(card.name);
-  const samePerson = name && card.company
-    && name === normalizePersonName(row.name)
-    && card.company === row.company;
-
-  return sameMobile || samePerson;
+  if (name && card.company) keys.push(`person:${JSON.stringify([name, card.company])}`);
+  return keys;
 }
 
-function checkDuplicate(card, excludeId, userId, callback) {
+// 대량 불러오기가 이벤트 루프를 막지 않도록 전체 비교 대신 키로 찾는다.
+function createDuplicateFinder(rows) {
+  const cards = [];
+  const positionsByKey = new Map();
+  const add = (card) => {
+    const position = cards.push(card) - 1;
+    for (const key of duplicateKeys(card)) {
+      if (!positionsByKey.has(key)) positionsByKey.set(key, []);
+      positionsByKey.get(key).push(position);
+    }
+  };
+  rows.forEach((row) => add(row));
+
+  return {
+    add,
+    find(card) {
+      const positions = new Set(duplicateKeys(card).flatMap((key) => positionsByKey.get(key) || []));
+      return [...positions].sort((first, second) => first - second).map((position) => cards[position]);
+    }
+  };
+}
+
+function loadDuplicateFinder(excludeId, userId, callback) {
   const sql = `
-    SELECT *
+    SELECT id, name, company, mobile, phone, email
     FROM business_cards
     WHERE id != ? AND deleted_at IS NULL AND (visibility = 'shared' OR created_by = ?)
     ORDER BY created_at DESC
@@ -644,10 +654,35 @@ function checkDuplicate(card, excludeId, userId, callback) {
 
   db.all(sql, [excludeId || 0, userId], (error, rows = []) => {
     if (error) return callback(error);
+    callback(null, createDuplicateFinder(rows));
+  });
+}
 
-    const duplicates = rows.filter((row) => cardsAreDuplicates(card, row));
+function checkDuplicate(card, excludeId, userId, callback) {
+  loadDuplicateFinder(excludeId, userId, (error, finder) => {
+    if (error) return callback(error);
+    callback(null, finder.find(card));
+  });
+}
 
-    callback(null, duplicates);
+function whenNoDuplicate(req, res, card, excludeId, proceed) {
+  checkDuplicate(card, excludeId, req.user.id, (error, duplicates) => {
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: "중복 확인 실패"
+      });
+    }
+
+    if (duplicates.length > 0 && !allowDuplicate(req.body)) {
+      return res.status(409).json({
+        success: false,
+        message: "중복 가능성이 있는 명함이 있습니다.",
+        duplicates: duplicates.map(duplicatePreview)
+      });
+    }
+
+    proceed();
   });
 }
 
@@ -802,7 +837,7 @@ app.post("/api/cards/cropped-image", upload.single("image"), async (req, res) =>
   }
 
   const originalPath = text(req.body?.originalPath);
-  const originalFilename = originalPath.match(/^\/uploads\/([A-Za-z0-9._-]+)$/)?.[1];
+  const originalFilename = uploadFilename(originalPath);
   if (!originalFilename) {
     fs.unlink(req.file.path, () => {});
     return res.status(400).json({
@@ -876,9 +911,7 @@ app.post("/api/cards/uploads/cleanup", async (req, res) => {
   }
 
   const paths = req.body?.paths;
-  if (!Array.isArray(paths) || paths.length > 10 || paths.some((imagePath) => {
-    return typeof imagePath !== "string" || !/^\/uploads\/(?!\.\.?$)[A-Za-z0-9._-]+$/.test(imagePath);
-  })) {
+  if (!Array.isArray(paths) || paths.length > 10 || paths.some((imagePath) => !uploadFilename(imagePath))) {
     return res.status(400).json({ success: false, message: "정리할 업로드 경로를 확인해 주세요." });
   }
 
@@ -888,11 +921,7 @@ app.post("/api/cards/uploads/cleanup", async (req, res) => {
       const filename = imagePath.slice("/uploads/".length);
       if (pendingUploads.get(filename) !== userId) continue;
 
-      const references = await new Promise((resolve, reject) => {
-        db.get("SELECT COUNT(*) AS count FROM business_cards WHERE image_path = ? OR logo_path = ?", [imagePath, imagePath],
-          (error, row) => error ? reject(error) : resolve(row.count));
-      });
-      if (references === 0) {
+      if (await imageReferenceCount(imagePath) === 0) {
         try {
           await fs.promises.unlink(`${UPLOAD_DIR}/${filename}`);
           deletedCount += 1;
@@ -918,12 +947,9 @@ function saveCard(req, res) {
   if (!["shared", "private"].includes(visibility)) {
     return res.status(400).json({ success: false, message: "저장 범위를 확인해 주세요." });
   }
-  if (req.body.tags !== undefined && !Array.isArray(req.body.tags)) {
-    return res.status(400).json({ success: false, message: "태그 정보를 확인해 주세요." });
-  }
-  const tags = [...new Set((req.body.tags || []).map(singleLineText).filter(Boolean))];
-  if (tags.some((tag) => !CARD_TAGS.includes(tag))) {
-    return res.status(400).json({ success: false, message: "지원하지 않는 태그가 포함되어 있습니다." });
+  const { tags, error: tagError } = parseTags(req.body.tags === undefined ? [] : req.body.tags);
+  if (tagError) {
+    return res.status(400).json({ success: false, message: tagError });
   }
 
   const card = makeCard(req.body);
@@ -936,22 +962,7 @@ function saveCard(req, res) {
     });
   }
 
-  checkDuplicate(card, 0, req.user.id, (error, duplicates) => {
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        message: "중복 확인 실패"
-      });
-    }
-
-    if (duplicates.length > 0 && !allowDuplicate(req.body)) {
-      return res.status(409).json({
-        success: false,
-        message: "중복 가능성이 있는 명함이 있습니다.",
-        duplicates: duplicates.map(duplicatePreview)
-      });
-    }
-
+  whenNoDuplicate(req, res, card, 0, () => {
     const sql = `
       INSERT INTO business_cards (
         name, company, department, position, mobile, phone,
@@ -1036,15 +1047,13 @@ app.post("/api/cards/import/preview", (req, res) => {
     return res.status(400).json({ success: false, message: parsed.error });
   }
 
-  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL AND (visibility = 'shared' OR created_by = ?) ORDER BY created_at DESC", [req.user.id], (error, existingCards) => {
+  loadDuplicateFinder(0, req.user.id, (error, finder) => {
     if (error) {
       return res.status(500).json({ success: false, message: "중복 확인에 실패했습니다." });
     }
 
     const cards = parsed.rows.map(({ index, card, error: validationError }) => {
-      const duplicates = validationError
-        ? []
-        : existingCards.filter((existing) => cardsAreDuplicates(card, existing));
+      const duplicates = validationError ? [] : finder.find(card);
       return {
         index,
         ...card,
@@ -1069,28 +1078,25 @@ app.post("/api/cards/import", (req, res) => {
     return res.status(400).json({ success: false, message: "그룹 이름은 40자 이내로 입력해 주세요." });
   }
 
-  db.all("SELECT * FROM business_cards WHERE deleted_at IS NULL AND (visibility = 'shared' OR created_by = ?) ORDER BY created_at DESC", [req.user.id], (selectError, existingCards) => {
+  loadDuplicateFinder(0, req.user.id, (selectError, finder) => {
     if (selectError) {
       return res.status(500).json({ success: false, message: "중복 확인에 실패했습니다." });
     }
 
     const skipped = [];
     const pendingCards = [];
-    const acceptedCards = [];
     parsed.rows.forEach(({ index, card, groupName, error }) => {
       if (error) {
         skipped.push({ index, reason: error });
         return;
       }
 
-      const duplicate = existingCards.some((existing) => cardsAreDuplicates(card, existing))
-        || acceptedCards.some((accepted) => cardsAreDuplicates(card, accepted));
-      if (duplicate && !importDuplicates) {
+      if (finder.find(card).length > 0 && !importDuplicates) {
         skipped.push({ index, reason: "기존 명함과 중복" });
         return;
       }
 
-      acceptedCards.push(card);
+      finder.add(card);
       pendingCards.push({ index, card, groupName });
     });
 
@@ -1208,6 +1214,22 @@ app.get("/api/cards/duplicates", (req, res) => {
 });
 
 // ===== 명함 목록 및 검색 API =====
+function sendCardList(res, sql, params) {
+  db.all(sql, params, (error, rows) => {
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: "명함 목록 조회 실패"
+      });
+    }
+
+    res.json({
+      success: true,
+      cards: rows.map(cardForResponse)
+    });
+  });
+}
+
 app.get("/api/cards", (req, res) => {
   const keyword = String(req.query.q || req.query.keyword || "").trim();
   const trashOnly = req.query.trash === "1";
@@ -1228,35 +1250,11 @@ app.get("/api/cards", (req, res) => {
 
   sql += ` WHERE ${whereParts.join(" AND ")} ORDER BY bc.created_at DESC`;
 
-  db.all(sql, params, (error, rows) => {
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        message: "명함 목록 조회 실패"
-      });
-    }
-
-    res.json({
-      success: true,
-      cards: rows.map(cardForResponse)
-    });
-  });
+  sendCardList(res, sql, params);
 });
 
 app.get("/api/cardSelect", (req, res) => {
-  db.all(`${cardReadSql()} WHERE bc.deleted_at IS NULL ORDER BY bc.created_at DESC`, cardReadParams(req), (error, rows) => {
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        message: "명함 목록 조회 실패"
-      });
-    }
-
-    res.json({
-      success: true,
-      cards: rows.map(cardForResponse)
-    });
-  });
+  sendCardList(res, `${cardReadSql()} WHERE bc.deleted_at IS NULL ORDER BY bc.created_at DESC`, cardReadParams(req));
 });
 
 // ===== 선택 명함 그룹 지정·일괄 삭제 API =====
@@ -1416,22 +1414,7 @@ app.put("/api/cards/:id", requireCardOwner, (req, res) => {
     });
   }
 
-  checkDuplicate(card, Number(req.params.id), req.user.id, (error, duplicates) => {
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        message: "중복 확인 실패"
-      });
-    }
-
-    if (duplicates.length > 0 && !allowDuplicate(req.body)) {
-      return res.status(409).json({
-        success: false,
-        message: "중복 가능성이 있는 명함이 있습니다.",
-        duplicates: duplicates.map(duplicatePreview)
-      });
-    }
-
+  whenNoDuplicate(req, res, card, Number(req.params.id), () => {
     const sql = `
       UPDATE business_cards
       SET name = ?,
@@ -1503,10 +1486,7 @@ app.patch("/api/cards/:id/favorite", async (req, res) => {
 
   const isFavorite = req.body.isFavorite ? 1 : 0;
   try {
-    const card = await new Promise((resolve, reject) => {
-      db.get("SELECT id FROM business_cards WHERE id = ? AND deleted_at IS NULL", [req.params.id],
-        (error, row) => error ? reject(error) : resolve(row));
-    });
+    const [card] = await all(db, "SELECT id FROM business_cards WHERE id = ? AND deleted_at IS NULL", [req.params.id]);
     if (!card) {
       return res.status(404).json({ success: false, message: "즐겨찾기를 변경할 명함을 찾을 수 없습니다." });
     }
@@ -1523,13 +1503,9 @@ app.patch("/api/cards/:id/favorite", async (req, res) => {
 
 // ===== 명함 분류 태그 API =====
 app.patch("/api/cards/:id/tags", requireCardOwner, (req, res) => {
-  if (!Array.isArray(req.body.tags)) {
-    return res.status(400).json({ success: false, message: "태그 정보를 확인해 주세요." });
-  }
-
-  const tags = [...new Set(req.body.tags.map(singleLineText).filter(Boolean))];
-  if (tags.some((tag) => !CARD_TAGS.includes(tag))) {
-    return res.status(400).json({ success: false, message: "지원하지 않는 태그가 포함되어 있습니다." });
+  const { tags, error: tagError } = parseTags(req.body.tags);
+  if (tagError) {
+    return res.status(400).json({ success: false, message: tagError });
   }
 
   db.run(
@@ -1544,6 +1520,17 @@ app.patch("/api/cards/:id/tags", requireCardOwner, (req, res) => {
 });
 
 // ===== 중복 명함 그룹 병합 API =====
+const CARD_MERGE_FIELDS = [
+  "name", "company", "department", "position", "mobile", "phone", "email",
+  "address", "website", "image_path", "logo_path", "meeting_date",
+  "meeting_place", "meeting_purpose", "meeting_note"
+];
+const UPDATE_MERGED_CARD_SQL = `
+  UPDATE business_cards
+  SET ${CARD_MERGE_FIELDS.map((field) => `${field} = ?`).join(", ")}
+  WHERE id = ? AND deleted_at IS NULL
+`;
+
 app.post("/api/cards/merge-group", requireBulkCardOwner, (req, res) => {
   const cardIds = parseCardIds(req.body.cardIds);
 
@@ -1578,29 +1565,11 @@ app.post("/api/cards/merge-group", requireBulkCardOwner, (req, res) => {
 
     const representative = cards[0];
     const duplicateIds = cards.slice(1).map((card) => card.id);
-    const mergeFields = [
-      "name", "company", "department", "position", "mobile", "phone", "email",
-      "address", "website", "image_path", "logo_path", "meeting_date",
-      "meeting_place", "meeting_purpose", "meeting_note"
-    ];
-    const mergedCard = Object.fromEntries(mergeFields.map((field) => {
+    const mergedValues = CARD_MERGE_FIELDS.map((field) => {
       const source = cards.find((card) => text(card[field]));
-      return [field, source ? text(source[field]) : ""];
-    }));
-    const updateSql = `
-      UPDATE business_cards
-      SET name = ?, company = ?, department = ?, position = ?, mobile = ?, phone = ?,
-          email = ?, address = ?, website = ?, image_path = ?, logo_path = ?,
-          meeting_date = ?, meeting_place = ?, meeting_purpose = ?, meeting_note = ?
-      WHERE id = ? AND deleted_at IS NULL
-    `;
-    const update = await run(transactionDb, updateSql, [
-      mergedCard.name, mergedCard.company, mergedCard.department, mergedCard.position,
-      mergedCard.mobile, mergedCard.phone, mergedCard.email, mergedCard.address,
-      mergedCard.website, mergedCard.image_path, mergedCard.logo_path,
-      mergedCard.meeting_date, mergedCard.meeting_place, mergedCard.meeting_purpose,
-      mergedCard.meeting_note, representative.id
-    ]);
+      return source ? text(source[field]) : "";
+    });
+    const update = await run(transactionDb, UPDATE_MERGED_CARD_SQL, [...mergedValues, representative.id]);
     if (update.changes !== 1) throw new Error("대표 명함 갱신에 실패했습니다.");
 
     const deletePlaceholders = duplicateIds.map(() => "?").join(", ");
@@ -1640,61 +1609,9 @@ app.post("/api/cards/:id/merge", requireCardOwner, (req, res) => {
     }
 
     const newCard = makeCard(req.body);
-    const mergedCard = {
-      name: newCard.name || oldCard.name || "",
-      company: newCard.company || oldCard.company || "",
-      department: newCard.department || oldCard.department || "",
-      position: newCard.position || oldCard.position || "",
-      mobile: newCard.mobile || oldCard.mobile || "",
-      phone: newCard.phone || oldCard.phone || "",
-      email: newCard.email || oldCard.email || "",
-      address: newCard.address || oldCard.address || "",
-      website: newCard.website || oldCard.website || "",
-      image_path: newCard.image_path || oldCard.image_path || "",
-      logo_path: newCard.logo_path || oldCard.logo_path || "",
-      meeting_date: newCard.meeting_date || oldCard.meeting_date || "",
-      meeting_place: newCard.meeting_place || oldCard.meeting_place || "",
-      meeting_purpose: newCard.meeting_purpose || oldCard.meeting_purpose || "",
-      meeting_note: newCard.meeting_note || oldCard.meeting_note || ""
-    };
-    const sql = `
-      UPDATE business_cards
-      SET name = ?,
-          company = ?,
-          department = ?,
-          position = ?,
-          mobile = ?,
-          phone = ?,
-          email = ?,
-          address = ?,
-          website = ?,
-          image_path = ?,
-          logo_path = ?,
-          meeting_date = ?,
-          meeting_place = ?,
-          meeting_purpose = ?,
-          meeting_note = ?
-      WHERE id = ? AND deleted_at IS NULL
-    `;
+    const mergedValues = CARD_MERGE_FIELDS.map((field) => newCard[field] || oldCard[field] || "");
 
-    db.run(sql, [
-      mergedCard.name,
-      mergedCard.company,
-      mergedCard.department,
-      mergedCard.position,
-      mergedCard.mobile,
-      mergedCard.phone,
-      mergedCard.email,
-      mergedCard.address,
-      mergedCard.website,
-      mergedCard.image_path,
-      mergedCard.logo_path,
-      mergedCard.meeting_date,
-      mergedCard.meeting_place,
-      mergedCard.meeting_purpose,
-      mergedCard.meeting_note,
-      req.params.id
-    ], (updateError) => {
+    db.run(UPDATE_MERGED_CARD_SQL, [...mergedValues, req.params.id], (updateError) => {
       if (updateError) {
         return res.status(500).json({
           success: false,
@@ -1729,18 +1646,18 @@ app.post("/api/cards/bulk-restore", requireBulkCardOwner, (req, res) => {
   );
 });
 
+async function imageReferenceCount(imagePath) {
+  const [{ count }] = await all(db,
+    "SELECT COUNT(*) AS count FROM business_cards WHERE image_path = ? OR logo_path = ?",
+    [imagePath, imagePath]);
+  return count;
+}
+
 async function cleanupDeletedImages(rows) {
   const paths = [...new Set(rows.flatMap((row) => [row.image_path, row.logo_path]))];
   for (const imagePath of paths) {
-    const filename = typeof imagePath === "string"
-      ? imagePath.match(/^\/uploads\/([A-Za-z0-9._-]+)$/)?.[1]
-      : null;
-    if (!filename) continue;
-    const references = await new Promise((resolve, reject) => {
-      db.get("SELECT COUNT(*) AS count FROM business_cards WHERE image_path = ? OR logo_path = ?", [imagePath, imagePath],
-        (error, row) => error ? reject(error) : resolve(row.count));
-    });
-    if (references !== 0) continue;
+    const filename = uploadFilename(imagePath);
+    if (!filename || await imageReferenceCount(imagePath) !== 0) continue;
     try {
       await fs.promises.unlink(`${UPLOAD_DIR}/${filename}`);
     } catch (error) {
