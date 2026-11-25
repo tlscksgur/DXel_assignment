@@ -180,8 +180,11 @@
         <p id="cardLogoHelp">명함 사진을 움직여 프레임에 로고를 맞추세요.</p>
         <canvas width="600" height="240" tabindex="0" aria-label="로고 프레임. 방향키로 사진 이동" aria-describedby="cardLogoHelp" hidden></canvas>
         <img class="cardLogoCurrent" alt="현재 저장된 로고" hidden>
-        <button class="cardLogoReposition" type="button" hidden>명함 사진에서 위치 선택</button>
         <label>확대 <input type="range" min="100" max="500" value="140" disabled></label>
+        <div class="cardLogoTools">
+          <button class="cardLogoReposition" type="button" hidden>명함 사진에서 위치 선택</button>
+          <button class="cardLogoRotate" type="button" disabled>↻ 90° 회전</button>
+        </div>
         <p class="cardLogoStatus" role="status"></p>
         <div class="groupAssignActions">
           <button type="button" data-group-action="cancel">취소</button>

@@ -1221,6 +1221,26 @@ body.detailOpen {
   accent-color: #031632;
 }
 
+.cardLogoTools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cardLogoRotate {
+  margin-inline-start: auto;
+  padding: 4px 8px;
+  border: 1px solid #031632;
+  border-radius: 8px;
+  background: #fff;
+  color: #031632;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .cardLogoModal .groupAssignActions {
   padding: 0;
 }

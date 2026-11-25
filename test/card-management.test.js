@@ -426,6 +426,61 @@ test("중앙에서 벗어난 현재 로고의 영역을 사진에서 찾는다",
   assert.equal(find(source, similarFragment), null, "검색에 쓰인 픽셀만 비슷한 조각은 거부한다");
 });
 
+test("로고 프레임을 90도 돌려도 선택한 명함 영역을 유지한다", async () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const start = source.indexOf("function openLogoEditor(");
+  const end = source.indexOf("async function toggleFavorite(", start);
+  let center;
+  let angle;
+  let drawnImage;
+  let matchingCrop = { x: .6, y: .2, width: .3, height: .2 };
+  const context2d = {
+    clearRect() {}, save() {}, restore() {},
+    translate: (x, y) => { center = [x, y]; },
+    rotate: (radians) => { angle = radians; },
+    drawImage: (image) => { drawnImage = image; }
+  };
+  const canvas = { width: 600, height: 240, getContext: () => context2d, focus() {} };
+  const rotate = {};
+  const save = {};
+  const currentLogo = { naturalWidth: 300, naturalHeight: 120, decode: async () => {} };
+  const zoom = { value: 140 };
+  const elements = { canvas, '.cardLogoRotate': rotate, 'input[type="range"]': zoom,
+    'button[type="submit"]': save, '.cardLogoCurrent': currentLogo };
+  const form = { reset() {}, querySelector: (selector) => elements[selector] ?? {} };
+  const dialog = { querySelector: () => form, showModal() { this.open = true; } };
+  let photo;
+  const open = vm.runInNewContext(`${source.slice(start, end)}\nopenLogoEditor`, {
+    visibleCards: [{ id: 7, image_path: "/uploads/photo.jpg", logo_path: "/uploads/logo.png" }],
+    canEditCard: () => true, safeUploadSrc: () => true,
+    locateSavedLogo: () => matchingCrop, document: { querySelector: () => dialog },
+    Image: function () { this.naturalWidth = 1000; this.naturalHeight = 600; photo = this; }
+  });
+
+  open(7);
+  await photo.onload();
+  const originalCenter = center.map(Math.round);
+  assert.deepEqual([canvas.width, canvas.height], [600, 240]);
+  rotate.onclick();
+  assert.deepEqual(center.map(Math.round), [240 - originalCenter[1], originalCenter[0]]);
+  assert.deepEqual([canvas.width, canvas.height, angle], [240, 600, Math.PI / 2]);
+  for (let turn = 0; turn < 3; turn += 1) rotate.onclick();
+  assert.deepEqual(center.map(Math.round), originalCenter);
+  assert.deepEqual([canvas.width, canvas.height, angle], [600, 240, 0]);
+
+  dialog.onclose();
+  dialog.open = false;
+  matchingCrop = null;
+  open(7);
+  await photo.onload();
+  assert.equal(save.disabled, true);
+  rotate.onclick();
+  assert.equal(drawnImage, currentLogo);
+  assert.equal(save.disabled, false);
+  assert.equal(zoom.disabled, true);
+  assert.deepEqual([canvas.width, canvas.height, angle], [240, 600, Math.PI / 2]);
+});
+
 test("일반 목록에서 즐겨찾기를 바꿔도 전체 목록을 다시 렌더링하지 않는다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8").replace(/\r\n/g, "\n");
   const toggleFavorite = source.match(/async function toggleFavorite[\s\S]*?\n}\n\nasync function saveCardEdits/)?.[0] || "";
