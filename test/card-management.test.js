@@ -416,6 +416,14 @@ test("중앙에서 벗어난 현재 로고의 영역을 사진에서 찾는다",
   assert.ok(match);
   assert.ok(Math.abs(match.x - 145) <= 2 && Math.abs(match.y - 12) <= 2 && Math.abs(match.width - 47) <= 3, JSON.stringify(match));
   assert.equal(find(source, image(47, 24, () => 255)), null);
+
+  const sampledColumns = Array.from({ length: 8 }, (_, i) => Math.floor((i + 0.5) * 47 / 8));
+  const sampledRows = Array.from({ length: 6 }, (_, i) => Math.floor((i + 0.5) * 24 / 6));
+  const similarFragment = image(47, 24, (x, y, channel) => {
+    const value = photo(x + 145, y + 12, channel);
+    return channel === 3 || (sampledColumns.includes(x) && sampledRows.includes(y)) ? value : 255 - value;
+  });
+  assert.equal(find(source, similarFragment), null, "검색에 쓰인 픽셀만 비슷한 조각은 거부한다");
 });
 
 test("일반 목록에서 즐겨찾기를 바꿔도 전체 목록을 다시 렌더링하지 않는다", () => {

@@ -735,7 +735,7 @@ function findLogoCrop(source, template) {
     best = { x, y, width, height, error: error / (samples.length * 3) };
   }
 
-  const minWidth = Math.max(5, 5 * aspect);
+  const minWidth = Math.max(10, 10 * aspect);
   for (let width = maxWidth; width >= minWidth; width /= 1.15) {
     const height = width / aspect;
     const dx = Math.max(1, Math.floor(width / 10));
@@ -760,32 +760,40 @@ function findLogoCrop(source, template) {
       }
     }
   }
-  return best;
+  // 드문 점 몇 개가 맞아도 다른 글자나 배경일 수 있으므로 별도 격자로 후보 전체를 확인한다.
+  let totalError = 0;
+  let mismatches = 0;
+  const gridSize = 24;
+  for (let row = 0; row < gridSize; row += 1) {
+    const v = (row + 0.5) / gridSize;
+    for (let column = 0; column < gridSize; column += 1) {
+      const u = (column + 0.5) / gridSize;
+      const i = (Math.floor(best.y + v * best.height) * source.width + Math.floor(best.x + u * best.width)) * 4;
+      const j = (Math.floor(v * template.height) * template.width + Math.floor(u * template.width)) * 4;
+      const error = (Math.abs(source.data[i] - template.data[j])
+        + Math.abs(source.data[i + 1] - template.data[j + 1])
+        + Math.abs(source.data[i + 2] - template.data[j + 2])) / 3;
+      totalError += error;
+      if (error > 30) mismatches += 1;
+    }
+  }
+  const count = gridSize * gridSize;
+  return totalError / count <= 14 && mismatches / count <= 0.15 ? best : null;
 }
 
 function locateSavedLogo(photo, logo) {
   const raster = document.createElement("canvas");
   const context = raster.getContext("2d", { willReadFrequently: true });
-  function pixels(image, edge, angle = 0) {
+  function pixels(image, edge) {
     const scale = edge / Math.max(image.naturalWidth, image.naturalHeight);
-    const width = Math.max(1, Math.round(image.naturalWidth * scale));
-    const height = Math.max(1, Math.round(image.naturalHeight * scale));
-    const sideways = angle % Math.PI !== 0;
-    raster.width = sideways ? height : width;
-    raster.height = sideways ? width : height;
-    context.translate(raster.width / 2, raster.height / 2);
-    context.rotate(angle);
-    context.drawImage(image, -width / 2, -height / 2, width, height);
+    raster.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    raster.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    context.drawImage(image, 0, 0, raster.width, raster.height);
     return context.getImageData(0, 0, raster.width, raster.height);
   }
 
   const source = pixels(photo, 220);
-  let best = null;
-  for (const angle of [0, Math.PI, Math.PI / 2, -Math.PI / 2]) {
-    const match = findLogoCrop(source, pixels(logo, 64, angle));
-    if (match && (!best || match.error < best.error)) best = match;
-    if (best && best.error < 5) break;
-  }
+  const best = findLogoCrop(source, pixels(logo, 64));
   if (!best) return null;
   return { x: best.x / source.width, y: best.y / source.height, width: best.width / source.width, height: best.height / source.height };
 }
@@ -866,7 +874,7 @@ function openLogoEditor(cardId) {
     if (!crop) {
       currentLogo.hidden = !currentLogo.naturalWidth;
       choosePosition.hidden = false;
-      status.textContent = "저장된 명함 사진에서 기존 로고 위치를 찾지 못했습니다.";
+      status.textContent = "기존 로고 위치를 확인하기 어려워 저장된 로고를 표시했습니다.";
       return;
     }
     const width = crop.width * photo.naturalWidth;
