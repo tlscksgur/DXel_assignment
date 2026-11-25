@@ -231,9 +231,20 @@ main {
 .cardInfo {
   position: relative;
   flex: 1;
+  min-width: 0;
   height: 100%;
   padding: 0px 18px;
 }
+
+.cardInfo h2,
+.cardInfo p,
+.cardContact span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardContact span { min-width: 0; }
 
 .date {
   position: absolute;

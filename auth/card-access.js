@@ -1,8 +1,7 @@
 const { all } = require("../database/operations");
 
 function isCardApi(path) {
-  return path === "/api/cardstorage" || path === "/api/cardselect"
-    || path === "/api/cards" || path.startsWith("/api/cards/");
+  return path === "/api/cards" || path.startsWith("/api/cards/");
 }
 
 function sameOrigin(req, appBaseUrl, allowRequestOrigin, allowedOrigins) {

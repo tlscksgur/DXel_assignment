@@ -376,8 +376,8 @@ ${JSON.stringify({
     assert.match(systemPrompt, /31791, 충청남도 당진시/i);
     assert.doesNotMatch(systemPrompt, /"fax":/);
     assert.doesNotMatch(systemPrompt, /"other_text":/);
-    assert.equal(receivedLmRequest.reasoning_effort, "low");
-    assert.equal(receivedLmRequest.max_tokens, 6000);
+    assert.equal(receivedLmRequest.reasoning_effort, "none");
+    assert.equal(receivedLmRequest.max_tokens, 2000);
     assert.equal(receivedLmRequest.response_format.type, "json_schema");
     assert.equal(receivedLmRequest.response_format.json_schema.strict, true);
     assert.deepEqual(
@@ -683,7 +683,7 @@ function namedImage(name) {
 
 function createCardAddBrowser(
   fetchImplementation,
-  { mobile = true, imageDimensions = null, logoOrientation = { hasText: false, applied: false, rotation: 0 } } = {}
+  { mobile = true, imageDimensions = null, logoOrientation = { hasText: false, applied: false, rotation: 0 }, cropCheck = async () => ({ ok: true, json: async () => ({ isComplete: true }) }) } = {}
 ) {
   const elements = new Map();
   const handlers = new Map();
@@ -780,9 +780,11 @@ function createCardAddBrowser(
         };
       }
     },
-    fetch: (url, options) => url.endsWith("/api/cards/logo-orientation")
-      ? Promise.resolve({ ok: true, json: async () => logoOrientation })
-      : fetchImplementation(url.replace(/^\.\//, "/"), options),
+    fetch: (url, options) => {
+      if (url.endsWith("/api/cards/logo-orientation")) return Promise.resolve({ ok: true, json: async () => logoOrientation });
+      if (url.endsWith("/api/cards/crop-check")) return cropCheck();
+      return fetchImplementation(url.replace(/^\.\//, "/"), options);
+    },
     innerHeight: 720,
     visualViewport: {
       height: 640,
@@ -983,6 +985,77 @@ for (const type of ["image/webp", "image/jpeg"]) {
     assert.deepEqual(browser.canvasState.rotations, []);
   });
 }
+
+for (const [label, cropCheck] of [
+  ["AI가 명함이 온전하지 않다고 답하면", async () => ({ ok: true, json: async () => ({ isComplete: false }) })],
+  ["크롭 확인이 실패하면", async () => { throw new Error("AI 오류"); }]
+]) {
+  test(`${label} 잘못된 크롭과 로고를 저장하지 않고 원본을 유지한다`, async () => {
+    const uploads = [];
+    const browser = createCardAddBrowser(async (url, options) => {
+      if (url !== "/api/cards/extract") {
+        uploads.push(url);
+        return { ok: true, json: async () => ({ file: { path: "/uploads/cut.jpg" } }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          file: { path: "/uploads/original.jpg" },
+          uprightRotation: 0,
+          cropBounds: { x: 0.05, y: 0.05, width: 0.9, height: 0.3 },
+          logoBounds: { x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
+          extracted: { name: "이명광", company: "테스트" }
+        })
+      };
+    }, { imageDimensions: { width: 900, height: 1200 }, cropCheck });
+
+    await browser.handler("#cardGalleryInput", "change")({
+      target: { files: [namedImage("card.jpg")], value: "selected" }
+    });
+
+    assert.deepEqual(uploads, []);
+    assert.equal(browser.element("#name").value, "이명광");
+  });
+}
+
+test("세운 이미지의 크롭이 온전하지 않으면 원본 저장 대신 세운 이미지를 크롭 없이 저장한다", async () => {
+  const cardUploads = [];
+  const logoUploads = [];
+  let extractCount = 0;
+  const browser = createCardAddBrowser(async (url, options) => {
+    if (url === "/api/cards/cropped-image") {
+      cardUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/upright.jpg" } }) };
+    }
+    if (url === "/api/cards/logo-image") {
+      logoUploads.push(options.body);
+      return { ok: true, json: async () => ({ file: { path: "/uploads/logo.jpg" } }) };
+    }
+    extractCount += 1;
+    const isFirst = extractCount === 1;
+    return {
+      ok: true,
+      json: async () => ({
+        file: { path: "/uploads/sideways.jpg" },
+        uprightRotation: isFirst ? 90 : 0,
+        cropBounds: isFirst ? null : { x: 0.05, y: 0.05, width: 0.9, height: 0.3 },
+        logoBounds: isFirst ? null : { x: 0.1, y: 0.1, width: 0.1, height: 0.1 },
+        extracted: { name: "이명광", company: "테스트" }
+      })
+    };
+  }, {
+    imageDimensions: { width: 900, height: 1200 },
+    cropCheck: async () => ({ ok: true, json: async () => ({ isComplete: false }) })
+  });
+
+  await browser.handler("#cardGalleryInput", "change")({
+    target: { files: [namedImage("sideways.png")], value: "selected" }
+  });
+
+  assert.equal(cardUploads.length, 1);
+  assert.match(cardUploads[0].get("image").name, /-upright\.jpg$/);
+  assert.equal(logoUploads.length, 0);
+});
 
 test("글자가 누운 사진은 세운 이미지를 다시 분석해 그 좌표로 명함과 로고를 자른다", async () => {
   const requests = [];

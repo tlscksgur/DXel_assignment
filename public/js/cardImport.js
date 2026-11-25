@@ -17,6 +17,7 @@ const importSubmit = document.querySelector(".importSubmit");
 const importCancel = document.querySelector(".importCancel");
 const importGroup = document.querySelector(".importGroup");
 const importGroupName = document.querySelector(".importGroupName");
+const importVisibility = document.querySelector(".importVisibility");
 const duplicateChoices = document.querySelector(".importDuplicateChoices");
 
 let previewCards = [];
@@ -76,7 +77,19 @@ function parseCsv(text) {
   });
 }
 
-function unfoldVcard(text) { return text.replace(/\r?\n[ \t]/g, ""); }
+function unfoldVcard(text) {
+  // Quoted-Printable 값은 줄 끝의 = 로 다음 줄에 이어진다.
+  return text
+    .replace(/^[^:\r\n]*QUOTED-PRINTABLE[^:\r\n]*:(?:.*=\r?\n)*.*$/gim, (line) => line.replace(/=\r?\n/g, ""))
+    .replace(/\r?\n[ \t]/g, "");
+}
+function decodeQuotedPrintable(value) {
+  try {
+    return decodeURIComponent(value.replace(/%/g, "%25").replace(/=([0-9A-F]{2})/gi, "%$1"));
+  } catch (error) {
+    return value;
+  }
+}
 function decodeVcardValue(value) {
   return value.replace(/\\([\\;,nN])/g, (_, character) => /[nN]/.test(character) ? "\n" : character);
 }
@@ -118,7 +131,11 @@ function parseVcard(text) {
     const card = { name:"", company:"", department:"", position:"", mobile:"", phone:"", email:"", website:"", address:"" };
     block.split(/\r?\n/).forEach((line) => {
       const separator = line.indexOf(":"); if (separator < 0) return;
-      const key = line.slice(0, separator).toUpperCase(); const rawValue = line.slice(separator + 1); const value = decodeVcardValue(rawValue);
+      // 연락처 앱은 item1.URL처럼 묶음 이름을 앞에 붙이기도 한다.
+      const key = line.slice(0, separator).toUpperCase().replace(/^[^.;]+\./, "");
+      const encodedValue = line.slice(separator + 1);
+      const rawValue = key.includes("QUOTED-PRINTABLE") ? decodeQuotedPrintable(encodedValue) : encodedValue;
+      const value = decodeVcardValue(rawValue);
       if (key.startsWith("FN")) card.name = value;
       else if (key.startsWith("ORG")) { const [company, department] = splitVcardComponents(rawValue); card.company = company || ""; card.department = department || ""; }
       else if (key.startsWith("TITLE")) card.position = value;
@@ -186,6 +203,7 @@ async function showFile(file) {
   if (!file || !["csv", "vcf"].includes(extension)) throw new Error("CSV 또는 vCard(.vcf) 파일만 선택할 수 있습니다.");
   const text = await readImportText(file);
   const rawCards = extension === "csv" ? parseCsv(text) : parseVcard(text);
+  if (rawCards.length > 500) throw new Error("한 번에 최대 500장까지 불러올 수 있습니다.");
   const response = await fetch("./api/cards/import/preview", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ cards: rawCards }) });
   const result = await readImportResponse(response); if (!response.ok) throw new Error(result.message || "파일을 분석하지 못했습니다.");
   previewCards = result.cards.map((card) => ({ ...card, groupName: currentDefaultGroupName(), selected: card.valid }));
@@ -274,7 +292,7 @@ importSubmit.addEventListener("click", async () => {
   if (groupName.length > 40) { alert("그룹 이름은 40자 이내로 입력해 주세요."); return; }
   importSubmit.disabled = true; importSubmit.textContent = "저장 중…";
   try {
-    const response = await fetch("./api/cards/import", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ cards, duplicateAction, groupName }) });
+    const response = await fetch("./api/cards/import", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ cards, duplicateAction, groupName, visibility: importVisibility.value }) });
     const result = await readImportResponse(response);
     if (!response.ok) throw new Error(result.message || "명함을 저장하지 못했습니다.");
     alert(`${result.savedCount}장을 저장했습니다.${result.skipped.length ? ` ${result.skipped.length}장은 건너뛰었습니다.` : ""}`);

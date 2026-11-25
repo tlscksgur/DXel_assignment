@@ -4,22 +4,81 @@
 - 프로젝트명: DXel_assignment
 - 프로젝트 경로: C:\Users\DXEL01\Desktop\DXel_assignment
 - 기술 스택: 일반 HTML/CSS/JavaScript, Node.js·Express, SQLite, Multer, Nodemailer, 사내 Local AI
-- 마지막 업데이트: 2026-11-05 (한국 시간)
-- 마지막 작업 AI: Claude Code
+- 마지막 업데이트: 2026-11-25 (한국 시간)
+- 마지막 작업 AI: Codex
 
 ### 2026-11-25 Unsloth 추론 인증
 - Unsloth의 명함 이미지 분석 요청에 선택형 Bearer 인증을 추가했다. Node 서버의 .env에 AI_SERVER_API_KEY를 설정하면 헤더로 전달하며 JSON 응답을 요청한다.
 - Unsloth 주소는 /v1/chat/completions 및 /api/health를 사용한다. 모델 ID는 인증된 /v1/models 응답에서 확인한다. 설정 후 명함 웹을 재시작한다. 운영 서버의 실제 키와 이미지 추출은 별도 확인이 필요하다.
 - 검증: 인증 변경만 적용한 별도 작업 디렉터리에서 전체 테스트 399개 통과.
+- GitHub `main`에 `0eadfd3`으로 푸시했고 원격 `main`이 해당 커밋을 가리킴을 확인했다. 로컬 `.env`의 모델명은 운영에 설정된 Qwen ID로 맞췄다. 운영 반영은 서버에서 `git pull --ff-only`, 기존 `.env`에 Unsloth 키 입력, 운영 Node 재시작 순서로 진행한다.
+- 후속 로컬 502 조사: 로컬 `.env`의 `AI_SERVER_API_KEY`가 비어 있었다. 같은 8080 추론 주소로 키 없이 POST하면 401 `authentication_error`가 나오고, 로컬 `/api/status`는 `sqlite:true,localAi:true`였다. 상태 확인과 추론 인증은 별개다. 로컬 Node도 `.env`에 유효한 키를 넣고 재시작해야 한다. 모델 파일은 AI 서버에만 있으면 된다.
+- 이후 로컬 `.env`의 `AI_SERVER_API_KEY`에 Unsloth 화면의 Base URL이 들어간 것을 확인해 해당 칸을 비웠다. 실제 추론 주소는 `/v1/chat/completions`로 설정돼 있다. Unsloth 설정의 API 키 메뉴에서 받은 값을 로컬 `.env`에 입력한 뒤 재시작해야 하며, 키가 없어 인증된 추출은 미검증이다.
+- 사용자가 실제 키를 입력한 뒤 토큰 인증으로 `/v1/models` 200을 확인했다. 서버에 로드된 Swift Qwen 양자화는 IQ3_S였고, 같은 앱 코드로 합성 명함 이미지를 보내자 Unsloth가 현재 GGUF에 이미지 입력 지원이 없다는 400을 반환했다. Swift 배포본은 검증된 이미지 프로젝터를 제공하지 않는다고 모델 카드에 명시한다.
+- API 목록에는 대체 모델 `unsloth/Qwen3.8-27B-GGUF`의 `UD-Q4_K_M`이 미로드 상태로 보였다. 해당 배포본은 `mmproj`를 제공한다. 공유 AI 프로세스의 로드 모델은 변경하지 않았고, 추출 재검증은 이미지 지원 모델이 로드된 뒤 진행한다.
 
-### 2차 리팩터링 기록 (2026-11-05, 커밋 전)
+### 2026-11-25 NariQ 전환 확인
+- 사용자 요청으로 로컬 `.env`의 `AI_SERVER_MODEL`만 `nari-labs/Qwen3.8-27B-NariQ-GGUF`로 변경했다.
+- 로컬에서 8080의 `/api/health`와 `/v1/models`는 연결이 거부됐다. 사용자 SSH 인증 후 `opsia`에 8080 리스너가 없고, 최근 Unsloth 하위 런타임 로그에 NariQ 모델 로드 실패가 기록된 것을 확인했다.
+- 공식 모델 카드에서 NariQ 전용 llama.cpp 포크를 요구하며 이미지 입력용 `Qwen3.8-27B-NariQ-mmproj-BF16.gguf`를 함께 제공한다. 명함 웹 코드를 수정하기 전에 이 포크에서 모델과 프로젝터를 기동하거나 Unsloth가 지원하는 이미지 모델을 로드해야 한다. 서버 프로세스와 런타임은 변경하지 않았고 이미지 추출은 미검증이다.
+
+### 2026-11-25 Inkling 모델 추론 지연 조사
+- 후속 확인에서 사용자는 문제의 변경이 Inkling 전환이 아니라 기존 Qwen의 다른 양자화 버전이라고 정정했다. 아래 최초 조사는 변경 대상을 정정하기 전 기록이다.
+- 사용자 보고로 Inkling 전환 후 추론이 오래 걸린다. 로컬 `localAi.js`의 명함 추출 요청은 `max_tokens: 2000`과 `reasoning_effort: "none"`을 전송한다. 2000은 생성 토큰 상한이다.
+- `chshin@192.168.210.10` SSH는 인증 거절, 이 PC에서 AI 포트 8080과 8081은 연결 거부였다. 실행 중인 바이너리·바인딩·로그·실측 시간은 확인하지 못했다.
+- llama.cpp #32753에서 일부 빌드가 Inkling에 최상위 `reasoning_effort: "none"`을 전달하지 않아 기본 추론 설정을 사용하는 문제가 확인됐다. 수정 PR #32763의 병합 커밋은 `afe77e1`이다. 서버에서 실행 버전과 리스닝 주소를 확인하고 `/apply-template`에서 설정 적용 여부를 확인한 뒤 실제 추출 시간을 측정한다.
+- 서버와 로컬 코드·설정은 변경하지 않았다.
+
+### 2026-11-25 Qwen 양자화 버전 교체 후 연결 확인
+- 사용자가 SSH 콘솔에서 직접 인증한 후 `opsia`에서 읽기 전용으로 확인했다. 확인 시점에 `llama` 프로세스가 보이지 않았으며, 서버 내부의 루프백과 사내 주소 양쪽에서 8080·8081·9931 포트의 모델 목록 연결이 거부됐다.
+- 서버 `~/cksgur/DXel_assignment/.env`의 `AI_SERVER_MODEL`은 `unsloth/Inkling-2-MINI-GGUF`, `AI_SERVER_ENDPOINT`는 `http://192.168.210.10:8080/v1`이었다. `localAi.js`는 설정된 주소에 직접 POST하므로 기존 llama.cpp 연결 방식은 `/v1/chat/completions` 전체 경로를 사용한다.
+- 다음 확인은 사용할 Qwen 양자화 버전을 기동하고 `/v1/models`가 반환하는 모델 ID로 `.env`를 맞춘 뒤 명함 웹을 재시작하는 것이다. 실제 양자화 버전이나 기동 실패 로그는 이번 접속에서 확인하지 못했다. 서버 설정과 프로세스는 조회만 했다.
+- 사용자가 `192.168.210.10:8080`에서 Unsloth를 사용한다고 정정했다. 재확인 결과 `Server: unsloth-studio`, `/api/health` 200, `/health` 404였다. 앞서 확인한 8888은 `dxel-studio` 인증 응답을 주는 별도 포트다.
+- 8080의 `/v1/models`와 `/v1/chat/completions`는 무인증 요청에 401과 `WWW-Authenticate: Bearer`를 반환했다. 명함 웹은 8080의 전체 추론 경로와 `/api/health`를 사용해야 하며, 현재 `localAi.js`에는 추론 인증 헤더 처리가 없다. 인증된 모델 ID 및 이미지 추론 확인은 남아 있다.
+
+### 2026-11-25 Unsloth 명함 추출 요청 인증 지원
+- 브라우저의 분석 실패를 조사했다. 실제 8080에서 `POST /v1`은 405, `POST /v1/chat/completions`는 무인증 401, `GET /api/health`는 200이었다. 로컬 `.env`의 추론·상태 주소를 각각 올바른 경로로 변경했다.
+- `localAi.js`가 `AI_SERVER_API_KEY` 값이 있으면 AI 요청에 Bearer 헤더를 추가한다. JSON 본문을 받도록 `stream: false`를 명시했다. `.env.example`과 `deploy/ubuntu.env.example`에 빈 키 항목을 추가했다.
+- 로컬 `.env`의 키는 비어 있고 모델명은 기존 Inkling 설정이다. 사용하는 명함 웹의 `.env`에 실제 키와 Unsloth에서 제공하는 Qwen ID를 설정한 뒤 앱을 재시작한다. 회사 서버의 파일과 프로세스는 변경하지 않았다.
+- 검증: `node --test test/local-ai-timeout.test.js test/upload-flow.test.js` 58개 통과. 실제 키가 없어 사내 AI의 인증된 모델 조회와 이미지 추출은 미실시다.
+
+### 2026-11-25 opsia 운영 명함 웹의 인증 설정 확인
+- 사용자가 SSH 창에서 직접 인증한 뒤 `/data/chshin/cksgur/DXel_assignment`에서 운영 인스턴스를 확인했다. 해당 프로젝트의 Node는 `127.0.0.1:17777`, Unsloth는 `0.0.0.0:8080`에서 리스닝하고 있었다.
+- 운영 `.env`에는 `http://192.168.210.10:8080/v1/chat/completions`, `/api/health`, `ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF`가 설정돼 있었다. `AI_SERVER_API_KEY` 항목은 없었고 운영 `localAi.js`에도 Bearer 지원이 없었다.
+- 서버 내부에서 Unsloth `/api/health` 200과 키 없이 `/v1/models` 401을 재확인했다. 운영 배포와 인증된 명함 추출은 미실시다. 운영 웹의 인증 지원 코드 반영 및 Unsloth 키 설정 후 재시작과 실제 추출로 확인한다.
+
+### 2026-11-10 홈 명함의 긴 텍스트 말줄임
+- 사용자 화면에서 긴 중문·영문 회사명이 여러 줄로 늘어나 연락처를 카드 아래로 밀어내는 문제에 대응했다.
+- public/css/style.css의 .cardInfo에 min-width:0을 적용해 flex 항목이 카드 너비 안에서 줄어들게 했다. 이름·직책·회사명 및 전화·이메일에는 overflow:hidden, text-overflow:ellipsis, white-space:nowrap을 적용했고 연락처 span도 min-width:0으로 제한했다.
+- 기존 카드 크기·글자 크기·슬라이드 속도·모바일 연락처 세로 배치는 유지한다. 원문과 DB 값은 변경하지 않는다.
+- 검증: node --test test/responsive-layout.test.js test/upload-home-security.test.js test/slide-speed.test.js 총 24개 통과, git diff --check 통과. 브라우저 도구가 "The browser access host is unavailable"을 반환해 실제 렌더링 검증은 하지 못했다.
+- 기존 작업 트리 및 스테이지 변경을 보존했다. 이번 변경은 CSS와 인계 문서만 수정했고 커밋·push·서버 배포는 하지 않았다. 로컬 홈 강력 새로고침 후 긴 회사명과 연락처 표시를 확인한다.
+- 후속 사용자 요청으로 로컬 DB에 긴 텍스트 확인용 명함 1개(ID 48)를 추가했다. 이름은 `[TEST] 긴텍스트 말줄임 확인`으로 시작하며 이름 76자·중문/영문 회사명 438자·직책 95자·전화 53자·example.invalid 이메일 113자·주소 185자다. shared/created_by=NULL이며 실제 연락처가 아닌 테스트 데이터다.
+- 추가는 DATABASE_PATH가 프로젝트 로컬 DB인지 확인한 후 SQLite 트랜잭션으로 수행했다. 전체 행 수 46→47 및 기존 46개 행 전체 값 불변을 검증했다. 식별용 meeting_note는 `TEST long-text ellipsis fixture 2026-11-10; safe to delete this test card.`이며 테스트 후 해당 ID의 명함만 삭제할 수 있다. 회사 서버에는 추가하지 않았다.
+
+### 저장소 감사 후 수정 (2026-11-05, 미커밋·서버 미반영)
+- 적용: SIGNUP_EMAIL_DOMAINS 가입 도메인 제한(비우면 제한 없음), 같은 주소 가입 메일 1분 제한, express.json 1mb, /api/cards/crop-check와 cropShowsWholeCard(확인 실패 시 크롭·로고를 쓰지 않음), 불러오기 저장 범위 선택, vCard itemN 접두사·Quoted-Printable, 미저장 사진 정리와 병합 시 사진 정리, /api/cardStorage·/api/cardSelect 삭제, npm audit fix(취약점 0), node_modules와 .DS_Store Git 추적 해제(스테이지됨), README 수정.
+- 검증: npm test 410개 통과. 크롭 확인 실제 AI 시험(명함 12장, 합성 크롭): 정상 12/12 통과, 위로 밀림 12/12 거부, 오른쪽·아래 잘림 19/24 거부, 평균 4.4초 추가. 격리 서버로 crop-check 경로 호출 확인.
+- 속도(사용자 요구: 명함 한 장 1분 이내, 목표 30초): 89초의 주원인은 추출의 reasoning low(1장 35~62초)였다. 추출을 reasoning none, max_tokens 2000으로 바꾸고 토큰 잘림 재요청을 없앴다. 추론이 없으면 3/21장에서 좌표가 0-1000을 벗어나므로, 그 경우만 locateCardBounds로 좌표를 다시 묻고 실패하면 크롭·로고를 건너뛴다(server.js ensureBoundsInRange). 스키마 maximum은 AI 서버에서 강제되지 않았다.
+- 속도 검증: 격리 서버 /api/cards/extract 실제 사진 21장(1600px) 전부 성공, 평균 5.7초·최대 8.3초. 그 좌표로 자른 19장 크롭 확인 전부 통과, 평균 1.0초. npm test 410개 통과.
+- 짧은 추론 시험: reasoning_effort low + thinking_budget_tokens 150이 동작한다(reasoning_budget은 무시, minimal은 500). 21장 평균 7.1초(none 4.7초), 좌표 범위 이탈 0건. 다만 원본 대조 결과 이름·회사 오독이 있어(정밝은태양→정박은태양, 디지텍→디지털) none을 유지했다. 표본이 작아 결론은 잠정적이다. 양쪽 다 tsingoal을 틀렸다.
+- 추론 켬/끔 비교(21장, 재확인 포함): none 평균 5.4초·최대 7.2초, low 평균 13.9초·최대 22.0초, 좌표 범위 이탈 none 3건·low 0건. 원본 대조 시 이름(정밝은태양)·학교명(디지텍)·부서(namecard_17)·주소(namecard_09)는 none이 맞았고, low가 나은 것은 직책 1건(namecard_13)이었다. 이메일·홈페이지 오독(tsingoal, daejooheavy)은 양쪽 모두 있었다. 그래서 none을 유지한다.
+- 불러오기 화면: 저장 범위 칸 추가 후 2000x1023에서 설정이 패널 밖으로 넘쳤다. public/css/cardImport.css의 넓은 화면 .importSettings를 flex:0 0 auto로 고치고 브라우저에서 확인했다.
+- 측정 주의: 같은 설정도 시점에 따라 AI 생성 속도가 약 3배 차이 났다(약 29~90토큰/초). 35~62초 수치는 느린 시점의 측정이고, 다른 시점 low는 12~16초였다. 89초 원인을 추론 하나로 단정하지 않는다.
+- 정확도 주의: namecard_03의 "생산시스템 시뮬레이션"은 low에서만 부서로 나왔으나 원본상 부서인지 불분명하다. 21장 필드 전체와 로고 이미지를 원본과 대조하지는 않았다.
+- 미검증: 실제 브라우저 전체 흐름과 시간(휴대폰 포함), 로고 결과 육안 확인, 이번 재발 사진 원본(미수신), 실제 메일 발송.
+- 사고: 첫 사진 정리 구현이 서버 시작 때 uploads 폴더 전체를 훑어, npm test의 임시 DB 서버가 로컬 uploads를 전부 삭제했다. 로컬 DB가 참조하는 45개 파일 소실, Git 기록에 없어 복구 불가. 운영 서버는 영향 없음. 정리 대상을 이 프로세스가 받은 미저장 파일로 제한해 재발을 막았다. uploads 폴더를 스캔해 지우는 코드를 다시 넣지 않는다.
+- 미처리: HTTPS(서버 관리자 필요), escapeHtml 5개 복사본 통합(테스트 수정 범위 대비 효과가 작아 보류), 로고 좌표 단독 오류(명함 크롭이 통과하면 로고는 확인하지 않음).
+- 배포 순서: cp -a node_modules 백업 → git pull → npm ci → .env에 SIGNUP_EMAIL_DOMAINS 설정 → 재시작. pull이 추적 중이던 node_modules를 지우므로 npm ci가 필수다.
+
+### 2차 리팩터링 기록 (2026-11-05, 사용자 커밋 6fb1050, push 완료)
 - auth/routes.js: 요청 출처 검사를 sameOriginRoute로 통합, 메일 실패 로그·인증 링크·토큰 오류 공통화. 토큰·이메일·비밀번호 검사는 auth/security.js로 옮겨 password-reset.js와 공유한다.
 - localAi.js: 응답 스키마와 메시지 형식의 반복 제거, imageToDataUrl 비동기화(server.js 호출부 await). 프롬프트 문구는 변경하지 않았다.
 - public/js: authUI.js 메뉴 닫기·아바타 공통화, cardImport.js 긴 줄 분리·파일 없음 오류 메시지 수정, footerStatus.js 숨겨진 탭 상태 확인 중단.
 - 검증(리팩터링 전 a378a1c 기준, 1·2차 합산): npm test 398개 통과, 격리 서버 API 요청 191건 차이 0, DB 7개 테이블 차이 0, 가짜 AI 서버로 받은 요청 5건 바이트 동일, headless Chrome 39개 화면 상태 DOM 동일(오류 스택 줄 번호 1건만 다름). 비교 스크립트는 세션 임시 폴더에만 있고 저장소에는 없다.
 - 미검증: 실제 AI 서버·실제 사진 추출과 크롭, 실제 메일 발송과 메일 링크 인증·재설정, 운영 DB. cardAdd.html은 페이지 로드만 비교했다.
 - 변경 안 함: cardAdd.js, CSS, slide.js(테스트가 동작을 고정), authPages.js, cardTrash.js.
-- 다음 작업: 사용자 확인 후 2차 커밋(Claude 표시 없이) → 서버 git pull·재시작 → 실제 명함 1장 등록과 인증 메일 1건 확인.
+- 다음 작업: 서버 git pull·재시작 → 실제 명함 1장 등록과 인증 메일 1건 확인. 앞으로도 커밋에 Claude 표시를 넣지 않는다.
 
 ### 1차 리팩터링·최적화 기록 (2026-11-05, 사용자 커밋 a9fd373, push 완료)
 - server.js: 중복 판정을 전체 비교에서 키 조회(createDuplicateFinder)로 변경하고 필요한 컬럼만 조회한다. 업로드 경로 검사, 이미지 참조 수, 태그 검증, 저장·수정의 중복 응답, 병합 필드·SQL, 목록 응답, makeCard/sanitizeExtractedCard의 중복을 공통 함수로 합쳤다.

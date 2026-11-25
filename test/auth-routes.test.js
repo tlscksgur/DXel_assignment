@@ -61,7 +61,7 @@ function createRouteApp() {
   return app;
 }
 
-async function withAuthApp(runTest, { sendMail, appBaseUrl = "http://cards.test", allowedOrigins = [] } = {}) {
+async function withAuthApp(runTest, { sendMail, appBaseUrl = "http://cards.test", allowedOrigins = [], signupEmailDomains = [] } = {}) {
   assert.equal(typeof registerAuthRoutes, "function", "registerAuthRoutes 함수를 제공해야 합니다.");
   const db = new sqlite3.Database(":memory:");
   const mails = [];
@@ -72,6 +72,7 @@ async function withAuthApp(runTest, { sendMail, appBaseUrl = "http://cards.test"
       db,
       appBaseUrl,
       allowedOrigins,
+      signupEmailDomains,
       secureCookie: false,
       now: () => new Date("2026-09-29T00:00:00.000Z"),
       sendMail: sendMail || (async (message) => { mails.push(message); })
@@ -148,6 +149,55 @@ test("가입은 표시 이름·이메일·비밀번호만 받아 정규화된 �
   });
 });
 
+test("인증 경로는 모두 다른 출처의 요청을 거부한다", async () => {
+  await withAuthApp(async ({ app }) => {
+    const routes = [
+      ["POST", "/api/auth/signup"], ["POST", "/api/auth/verify"], ["POST", "/api/auth/verification/resend"],
+      ["POST", "/api/auth/login"], ["POST", "/api/auth/logout"], ["PATCH", "/api/auth/profile"],
+      ["PATCH", "/api/auth/password"], ["POST", "/api/auth/password-reset/request"], ["POST", "/api/auth/password-reset/complete"]
+    ];
+    for (const [method, url] of routes) {
+      const result = await app.request(method, url, { headers: { origin: "http://evil.test" } });
+      assert.equal(result.status, 403, `${method} ${url}`);
+    }
+  });
+});
+
+test("가입 도메인을 지정하면 다른 도메인은 가입도 인증 메일 재전송도 할 수 없다", async () => {
+  await withAuthApp(async ({ app, db, mails }) => {
+    const headers = { origin: "http://cards.test" };
+    const signup = (email) => app.request("POST", "/api/auth/signup", {
+      headers, body: { displayName: "가입자", email, password: "abcde" }
+    });
+    assert.equal((await signup("outside@gmail.test")).status, 403);
+    assert.equal((await signup("mimic@dxel.co.kr.gmail.test")).status, 403);
+    assert.equal(mails.length, 0);
+    assert.equal((await signup("Staff@DXEL.co.kr")).status, 201);
+    assert.equal(mails.length, 1);
+
+    // 제한을 켜기 전에 가입 신청해 둔 외부 계정은 새 인증 링크를 받지 못한다.
+    await run(db, "INSERT INTO users (display_name, email, password_hash) VALUES (?, ?, ?)", ["외부", "old@gmail.test", "x"]);
+    const resend = await app.request("POST", "/api/auth/verification/resend", { headers, body: { email: "old@gmail.test" } });
+    assert.equal(resend.status, 202);
+    assert.equal(mails.length, 1);
+  }, { signupEmailDomains: ["dxel.co.kr"] });
+});
+
+test("같은 주소로 가입을 반복해도 1분 안에는 인증 메일을 다시 보내지 않는다", async () => {
+  await withAuthApp(async ({ app, db, mails }) => {
+    const headers = { origin: "http://cards.test" };
+    const body = { displayName: "가입자", email: "flood@example.test", password: "abcde" };
+    assert.equal((await app.request("POST", "/api/auth/signup", { headers, body })).status, 201);
+    assert.equal((await app.request("POST", "/api/auth/signup", { headers, body })).status, 429);
+    assert.equal(mails.length, 1);
+    const firstToken = new URL(mails[0].url).searchParams.get("token");
+    await run(db, "UPDATE email_verification_tokens SET created_at = ?", ["2026-09-28T00:00:00.000Z"]);
+    assert.equal((await app.request("POST", "/api/auth/signup", { headers, body })).status, 201);
+    assert.equal(mails.length, 2);
+    assert.notEqual(new URL(mails[1].url).searchParams.get("token"), firstToken);
+  });
+});
+
 test("미인증 이메일로 다시 가입하면 새 비밀번호와 새 인증 링크만 유효하다", async () => {
   await withAuthApp(async ({ app, db, mails }) => {
     const headers = { origin: "http://cards.test" };
@@ -155,6 +205,7 @@ test("미인증 이메일로 다시 가입하면 새 비밀번호와 새 인증 
     await app.request("POST", "/api/auth/signup", {
       headers, body: { displayName: "사전 가입", email, password: "attacker-password" }
     });
+    await run(db, "UPDATE email_verification_tokens SET created_at = ?", ["2026-09-28T00:00:00.000Z"]);
     assert.equal((await app.request("POST", "/api/auth/signup", {
       headers, body: { displayName: "메일 소유자", email, password: "owner-password" }
     })).status, 201);
@@ -201,6 +252,7 @@ test("이전 가입 메일의 늦은 발송 실패가 새 가입 요청의 계�
       headers, body: { displayName: "첫 요청", email, password: "first-password" }
     });
     while (!rejectFirst) await new Promise(setImmediate);
+    await run(db, "UPDATE email_verification_tokens SET created_at = ?", ["2026-09-28T00:00:00.000Z"]);
     assert.equal((await app.request("POST", "/api/auth/signup", {
       headers, body: { displayName: "새 요청", email, password: "second-password" }
     })).status, 201);

@@ -42,7 +42,13 @@ async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
   const upload = { single: () => () => {} };
   const localAi = {
     extractBusinessCard() {}, verifyCriticalFields() {}, imageToDataUrl() {}, parseModelJson: JSON.parse,
-    analyzeLogoOrientation: async () => localAi.orientationResponse
+    analyzeLogoOrientation: async () => localAi.orientationResponse,
+    checkCardCrop: async () => localAi.cropResponse,
+    locateCardBounds: async () => {
+      localAi.locateCalls = (localAi.locateCalls || 0) + 1;
+      if (localAi.locateResponse instanceof Error) throw localAi.locateResponse;
+      return localAi.locateResponse;
+    }
   };
   const source = fs.readFileSync(path.join(root, "server.js"), "utf8");
   const context = {
@@ -60,7 +66,8 @@ async function isolatedServer(run, { deferDatabaseReady = false } = {}) {
       if (name === "./deployment") return require("../deployment");
       return require(name);
     },
-    console, process, fetch, AbortSignal, Buffer, setTimeout, clearTimeout
+    console, process, fetch, AbortSignal, Buffer, setTimeout, clearTimeout,
+    setInterval: () => ({ unref() {} })
   };
   vm.runInNewContext(source, context, { filename: "server.js" });
   const request = (method, url, body = {}, params = {}, file, user = null) => new Promise((resolve, reject) => {
@@ -145,6 +152,105 @@ test("일반 등록과 파일 불러오기는 로그인 계정을 등록자로 �
     assert.equal(imported.status, 201);
     assert.equal((await get("SELECT created_by FROM business_cards WHERE id = ?", [single.body.id])).created_by, 7);
     assert.equal((await get("SELECT created_by FROM business_cards WHERE id = ?", [imported.body.savedIds[0]])).created_by, 7);
+  });
+});
+
+test("범위를 벗어난 좌표만 다시 묻고, 그래도 틀리면 크롭과 로고를 건너뛴다", async () => {
+  await isolatedServer(async ({ runCode, localAi }) => {
+    const ensure = (parsed) => {
+      localAi.lastParsed = parsed;
+      return runCode(`ensureBoundsInRange(${JSON.stringify(parsed)}, "image")`);
+    };
+    const answer = (value) => ({ choices: [{ message: { content: JSON.stringify(value) } }] });
+    const inRange = { x: 40, y: 100, width: 900, height: 700 };
+    const pixels = { x: 130, y: 240, width: 1450, height: 880 };
+    const noLogo = { x: 0, y: 0, width: 0, height: 0 };
+
+    const good = await ensure({ name: "유지", crop_bounds: inRange, logo_bounds: noLogo });
+    assert.equal(localAi.locateCalls || 0, 0);
+    assert.equal(good.crop_bounds.width, 900);
+
+    localAi.locateResponse = answer({ crop_bounds: inRange, logo_bounds: noLogo });
+    const fixed = await ensure({ name: "유지", crop_bounds: pixels, logo_bounds: noLogo });
+    assert.equal(localAi.locateCalls, 1);
+    assert.equal(fixed.name, "유지");
+    assert.equal(fixed.crop_bounds.width, 900);
+
+    localAi.locateResponse = answer({ crop_bounds: pixels, logo_bounds: noLogo });
+    const stillWrong = await ensure({ name: "유지", crop_bounds: pixels, logo_bounds: noLogo });
+    assert.equal(stillWrong.crop_bounds, null);
+    assert.equal(stillWrong.logo_bounds, null);
+    assert.equal(runCode("normalizeCropBounds(null)"), null);
+
+    localAi.locateResponse = new Error("AI 오류");
+    const failed = await ensure({ name: "유지", crop_bounds: inRange, logo_bounds: pixels });
+    assert.equal(failed.crop_bounds, null);
+  });
+});
+
+test("크롭 확인 API는 AI 판정을 돌려주고 임시 파일을 지운다", async () => {
+  await isolatedServer(async ({ request, uploads, localAi }) => {
+    for (const [isComplete, expected] of [[true, true], [false, false], ["true", false]]) {
+      localAi.cropResponse = { choices: [{ message: { content: JSON.stringify({ is_complete: isComplete }) } }] };
+      const filePath = path.join(uploads, "crop-check.jpg");
+      fs.writeFileSync(filePath, "test");
+      const result = await request("POST", "/api/cards/crop-check", {}, {}, { path: filePath });
+      assert.equal(result.status, 200);
+      assert.equal(result.body.isComplete, expected);
+      for (let i = 0; i < 50 && fs.existsSync(filePath); i += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+      assert.equal(fs.existsSync(filePath), false);
+    }
+    localAi.cropResponse = { choices: [{ message: {} }] };
+    const filePath = path.join(uploads, "crop-check.jpg");
+    fs.writeFileSync(filePath, "test");
+    assert.equal((await request("POST", "/api/cards/crop-check", {}, {}, { path: filePath })).status, 502);
+  });
+});
+
+test("파일 불러오기는 선택한 저장 범위로 저장하고 잘못된 범위는 거부한다", async () => {
+  await isolatedServer(async ({ request, get }) => {
+    const user = { id: 7 };
+    const cards = [{ name: "개인 주소록" }];
+    const imported = await request("POST", "/api/cards/import", { cards, visibility: "private" }, {}, undefined, user);
+    assert.equal(imported.status, 201);
+    assert.equal((await get("SELECT visibility FROM business_cards WHERE id = ?", [imported.body.savedIds[0]])).visibility, "private");
+    const rejected = await request("POST", "/api/cards/import", { cards, visibility: "public" }, {}, undefined, user);
+    assert.equal(rejected.status, 400);
+  });
+});
+
+test("미저장 정리는 이 서버가 받은 하루 지난 미참조 파일만 지운다", async () => {
+  await isolatedServer(async ({ uploads, card, runCode }) => {
+    const stale = "stale.jpg";
+    const saved = "saved.jpg";
+    const recent = "recent.jpg";
+    // DB에 참조가 없어도 이 서버가 받지 않은 파일은 절대 지우면 안 된다(다른 DB로 켠 서버의 전체 삭제 방지).
+    const notMine = "not-mine.jpg";
+    const old = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    for (const name of [stale, saved, recent, notMine]) {
+      const file = path.join(uploads, name);
+      fs.writeFileSync(file, "x");
+      if (name !== recent) fs.utimesSync(file, old, old);
+    }
+    for (const name of [stale, saved, recent, "already-gone.jpg"]) runCode(`rememberPendingUpload("${name}", 7)`);
+    await card("저장됨", `/uploads/${saved}`);
+    await runCode("removeOrphanUploads()");
+    assert.deepEqual(fs.readdirSync(uploads).sort(), [saved, recent, notMine].sort());
+    assert.equal(runCode('pendingUploads.has("recent.jpg")'), true);
+    assert.equal(runCode('pendingUploads.has("already-gone.jpg")'), false);
+  });
+});
+
+test("병합으로 사라진 명함의 사진은 지우고 대표 명함의 사진은 남긴다", async () => {
+  await isolatedServer(async ({ uploads, card, request }) => {
+    const kept = "kept.jpg";
+    const removed = "removed.jpg";
+    for (const name of [kept, removed]) fs.writeFileSync(path.join(uploads, name), "x");
+    const older = await card("예전", `/uploads/${removed}`);
+    const newer = await card("최신", `/uploads/${kept}`);
+    const result = await request("POST", "/api/cards/merge-group", { cardIds: [older, newer] }, {}, undefined, { id: 7 });
+    assert.equal(result.status, 200);
+    assert.deepEqual(fs.readdirSync(uploads), [kept]);
   });
 });
 

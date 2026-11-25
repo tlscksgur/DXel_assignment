@@ -15,6 +15,8 @@ const {
   extractBusinessCard,
   verifyCriticalFields,
   analyzeLogoOrientation,
+  checkCardCrop,
+  locateCardBounds,
   imageToDataUrl,
   parseModelJson
 } = require("./localAi");
@@ -100,14 +102,16 @@ function cardReadParams(req) {
   return [userId, isCardAdmin(req.user, cardAdminEmail) ? 1 : 0, userId, userId, userId, userId, userId, userId];
 }
 
-app.use(express.json());
+// 불러오기가 500장까지 허용되므로 기본 100KB 제한으로는 부족하다.
+app.use(express.json({ limit: "1mb" }));
 app.use(createSessionMiddleware(db));
 registerAuthRoutes(app, {
   db,
   sendMail: smtpMailer?.sendMail,
   appBaseUrl,
   secureCookie: isProduction,
-  allowedOrigins
+  allowedOrigins,
+  signupEmailDomains: (process.env.SIGNUP_EMAIL_DOMAINS || "").split(",").map((domain) => domain.trim().toLowerCase()).filter(Boolean)
 });
 app.use(createCardAccessMiddleware(db, { appBaseUrl, allowedOrigins, allowRequestOrigin: !isProduction }));
 const requireCardOwner = createCardOwnerMiddleware(db, { adminEmail: cardAdminEmail });
@@ -516,6 +520,24 @@ function cardBoundsIncludingLogo(cardBounds, logoBounds) {
   };
 }
 
+function boundsOutOfRange(value) {
+  return Number(value?.x) + Number(value?.width) > 1000 || Number(value?.y) + Number(value?.height) > 1000;
+}
+
+// 추론 없이 추출하면 모델이 가끔 0-1000이 아닌 좌표를 준다. 좌표만 다시 물으면 바르게 답한다.
+async function ensureBoundsInRange(parsed, imageDataUrl) {
+  if (!boundsOutOfRange(parsed.crop_bounds) && !boundsOutOfRange(parsed.logo_bounds)) return parsed;
+  try {
+    const response = await locateCardBounds(imageDataUrl);
+    const located = parseModelJson(response.choices?.[0]?.message?.content);
+    if (!boundsOutOfRange(located.crop_bounds) && !boundsOutOfRange(located.logo_bounds)) return { ...parsed, ...located };
+  } catch (error) {
+    console.warn("명함 좌표 재확인 실패:", error.message);
+  }
+  // 틀린 좌표로 자르면 원본이 지워지므로 크롭과 로고를 건너뛴다.
+  return { ...parsed, crop_bounds: null, logo_bounds: null };
+}
+
 function normalizeCropBounds(value) {
   const x = Number(value?.x);
   const y = Number(value?.y);
@@ -796,7 +818,8 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
       rememberCropSource(req.file.filename, req.user.id);
     }
 
-    const cardBounds = cardBoundsIncludingLogo(parsed.crop_bounds, parsed.logo_bounds);
+    const bounds = await ensureBoundsInRange(parsed, imageDataUrl);
+    const cardBounds = cardBoundsIncludingLogo(bounds.crop_bounds, bounds.logo_bounds);
 
     res.json({
       success: true,
@@ -808,7 +831,7 @@ app.post("/api/cards/extract", upload.single("image"), async (req, res) => {
         size: req.file.size
       },
       cropBounds: normalizeCropBounds(cardBounds),
-      logoBounds: normalizeLogoBounds(parsed.logo_bounds, cardBounds),
+      logoBounds: normalizeLogoBounds(bounds.logo_bounds, cardBounds),
       uprightRotation: normalizeUprightRotation(parsed.upright_rotation),
       extracted
     });
@@ -889,6 +912,22 @@ app.post("/api/cards/logo-orientation", upload.single("image"), async (req, res)
   } finally {
     try { await fs.promises.unlink(req.file.path); }
     catch (error) { if (error.code !== "ENOENT") console.warn("방향 확인용 로고 정리 실패:", error.code); }
+  }
+});
+
+app.post("/api/cards/crop-check", upload.single("image"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: "확인할 이미지가 없습니다." });
+  try {
+    const response = await checkCardCrop(await imageToDataUrl(req.file));
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) throw new Error("크롭 확인 응답이 없습니다.");
+    return res.json({ success: true, isComplete: parseModelJson(content).is_complete === true });
+  } catch (error) {
+    console.warn("크롭 확인 실패:", error.message);
+    return res.status(502).json({ success: false, message: "자른 이미지를 확인하지 못했습니다." });
+  } finally {
+    try { await fs.promises.unlink(req.file.path); }
+    catch (error) { if (error.code !== "ENOENT") console.warn("크롭 확인 이미지 정리 실패:", error.code); }
   }
 });
 
@@ -1011,7 +1050,6 @@ function saveCard(req, res) {
 }
 
 app.post("/api/cards", saveCard);
-app.post("/api/cardStorage", saveCard);
 
 // ===== 명함 데이터 파일 미리보기·일괄 불러오기 =====
 function parseImportCards(value, defaultGroupName = "") {
@@ -1071,8 +1109,12 @@ app.post("/api/cards/import", (req, res) => {
   const defaultGroupName = singleLineText(req.body?.groupName);
   const parsed = parseImportCards(req.body?.cards, defaultGroupName);
   const importDuplicates = req.body?.duplicateAction === "add";
+  const visibility = req.body?.visibility === undefined ? "shared" : req.body.visibility;
   if (parsed.error) {
     return res.status(400).json({ success: false, message: parsed.error });
+  }
+  if (!["shared", "private"].includes(visibility)) {
+    return res.status(400).json({ success: false, message: "저장 범위를 확인해 주세요." });
   }
   if (defaultGroupName.length > 40) {
     return res.status(400).json({ success: false, message: "그룹 이름은 40자 이내로 입력해 주세요." });
@@ -1108,8 +1150,8 @@ app.post("/api/cards/import", (req, res) => {
       INSERT INTO business_cards (
         name, company, department, position, mobile, phone,
         email, address, website, image_path,
-        meeting_date, meeting_place, meeting_purpose, meeting_note, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        meeting_date, meeting_place, meeting_purpose, meeting_note, created_by, visibility
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const savedIds = [];
     withTransaction(db, async (transactionDb) => {
@@ -1119,7 +1161,7 @@ app.post("/api/cards/import", (req, res) => {
           card.mobile, card.phone, card.email, card.address,
           card.website, card.image_path,
           card.meeting_date, card.meeting_place,
-          card.meeting_purpose, card.meeting_note, req.user.id
+          card.meeting_purpose, card.meeting_note, req.user.id, visibility
         ]);
         if (groupName) {
           await run(transactionDb,
@@ -1251,10 +1293,6 @@ app.get("/api/cards", (req, res) => {
   sql += ` WHERE ${whereParts.join(" AND ")} ORDER BY bc.created_at DESC`;
 
   sendCardList(res, sql, params);
-});
-
-app.get("/api/cardSelect", (req, res) => {
-  sendCardList(res, `${cardReadSql()} WHERE bc.deleted_at IS NULL ORDER BY bc.created_at DESC`, cardReadParams(req));
 });
 
 // ===== 선택 명함 그룹 지정·일괄 삭제 API =====
@@ -1579,8 +1617,13 @@ app.post("/api/cards/merge-group", requireBulkCardOwner, (req, res) => {
     );
     if (deletion.changes !== duplicateIds.length) throw new Error("중복 명함 삭제에 실패했습니다.");
 
-    return { representativeId: representative.id, deletedCount: duplicateIds.length };
-  }).then((result) => {
+    return { cards, representativeId: representative.id, deletedCount: duplicateIds.length };
+  }).then(async ({ cards, ...result }) => {
+    try {
+      await cleanupDeletedImages(cards);
+    } catch (cleanupError) {
+      console.warn("병합된 명함 이미지 정리 실패:", cleanupError.message);
+    }
     res.json({ success: true, message: "중복 명함 병합 완료", ...result });
   }).catch((error) => {
     console.error("명함 병합 트랜잭션 실패:", error.message);
@@ -1611,12 +1654,18 @@ app.post("/api/cards/:id/merge", requireCardOwner, (req, res) => {
     const newCard = makeCard(req.body);
     const mergedValues = CARD_MERGE_FIELDS.map((field) => newCard[field] || oldCard[field] || "");
 
-    db.run(UPDATE_MERGED_CARD_SQL, [...mergedValues, req.params.id], (updateError) => {
+    db.run(UPDATE_MERGED_CARD_SQL, [...mergedValues, req.params.id], async (updateError) => {
       if (updateError) {
         return res.status(500).json({
           success: false,
           message: "명함 병합 실패"
         });
+      }
+
+      try {
+        await cleanupDeletedImages([oldCard]);
+      } catch (cleanupError) {
+        console.warn("병합된 명함 이미지 정리 실패:", cleanupError.message);
       }
 
       res.json({
@@ -1663,6 +1712,27 @@ async function cleanupDeletedImages(rows) {
     } catch (error) {
       if (error.code !== "ENOENT") console.warn("영구 삭제된 명함 이미지 정리 실패:", error.message);
     }
+  }
+}
+
+// 저장하지 않고 탭을 닫은 사진을 지운다. 폴더 전체를 훑으면 DB를 잘못 지정한 서버가 모든 사진을 지울 수 있으므로
+// 이 프로세스가 직접 받은 파일만 대상으로 한다.
+// shortcut: 재시작하면 목록이 사라져 그때까지의 미저장 파일은 남는다, 디스크가 문제 되면 대기 목록을 DB에 저장한다.
+const ORPHAN_UPLOAD_AGE_MS = 24 * 60 * 60 * 1000;
+
+async function removeOrphanUploads(now = Date.now()) {
+  for (const filename of [...pendingUploads.keys()]) {
+    try {
+      const { mtimeMs } = await fs.promises.stat(`${UPLOAD_DIR}/${filename}`);
+      if (now - mtimeMs < ORPHAN_UPLOAD_AGE_MS) continue;
+      if (await imageReferenceCount(`/uploads/${filename}`) === 0) {
+        await fs.promises.unlink(`${UPLOAD_DIR}/${filename}`);
+      }
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    pendingUploads.delete(filename);
+    pendingCropSources.delete(filename);
   }
 }
 
@@ -1785,6 +1855,10 @@ Promise.resolve(db.ready).then(() => {
   server.on("error", (error) => {
     console.error(`Server failed: ${error.message}`);
   });
+
+  setInterval(() => removeOrphanUploads().catch((error) => {
+    console.warn("미저장 이미지 정리 실패:", error.message);
+  }), 60 * 60 * 1000).unref();
 }).catch((error) => {
   console.error(`Server startup aborted: ${error.message}`);
 });

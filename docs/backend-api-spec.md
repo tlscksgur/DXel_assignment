@@ -62,10 +62,8 @@
 | `GET /api/cards?q=검색어` | 로그인 | 전체 활성 명함 최신순. `q`/`keyword`는 이름·회사·전화·이메일·태그 검색 |
 | `GET /api/cards?trash=1` | 로그인, 본인 것만 | 내 휴지통 |
 | `GET /api/cards/:id` | 로그인 | `{success,card}` 활성 명함 상세 |
-| `GET /api/cardSelect` | 로그인 | 활성 명함 전체 목록(레거시 별칭; `/api/cards` 권장) |
 | `GET /api/cards/duplicates?...` | 로그인 | 명함 필드 query로 중복 후보 조회; `excludeId` 선택 |
 | `POST /api/cards` | 로그인 | 명함 JSON 저장; 성공 `201 {success,message,id}` |
-| `POST /api/cardStorage` | 로그인 | `/api/cards`와 같은 레거시 주소; 신규 연동은 `/api/cards` 사용 |
 | `PUT /api/cards/:id` | 로그인, 등록자만 | 명함 필드 수정; 중복이면 기본 `409`, 허용 시 `allowDuplicate:true` |
 | `PATCH /api/cards/:id/favorite` | 로그인 | `{isFavorite:boolean}`; 로그인 사용자 개인 즐겨찾기 |
 | `PATCH /api/cards/groups` | 로그인 | `{cardIds:[...],groupName:"그룹"}`; 빈 이름은 그룹 해제, 최대 40자 |

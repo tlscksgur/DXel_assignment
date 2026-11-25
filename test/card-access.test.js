@@ -60,14 +60,13 @@ async function request(middleware, method, path, {
 
 test("비로그인 사용자는 명함 조회·검색·상세·변경·휴지통·내보내기 모두 거부된다", async () => {
   await withAccess(async ({ middleware }) => {
-    for (const path of ["/api/cards", "/api/cards/3", "/api/cardSelect", "/api/cards/duplicates"]) {
+    for (const path of ["/api/cards", "/api/cards/3", "/api/cards/duplicates"]) {
       const result = await request(middleware, "GET", path);
       assert.equal(result.status, 401, path);
       assert.equal(result.continued, false, path);
     }
     for (const [method, path] of [
       ["POST", "/api/cards"],
-      ["POST", "/api/cardStorage"],
       ["POST", "/api/cards/extract"],
       ["PATCH", "/api/cards/3/tags"],
       ["GET", "/api/cards/export/csv"],

@@ -131,10 +131,10 @@ test("명함 분석은 AI 크롭 좌표를 받아 Canvas 크롭본으로 원본�
   const addSource = fs.readFileSync(path.join(projectRoot, "public/js/cardAdd.js"), "utf8");
 
   assert.match(aiSource, /crop_bounds/);
-  assert.match(aiSource, /x:\s*\{ type: "number" \}/);
+  assert.match(aiSource, /x:\s*\{ type: "number", minimum: 0, maximum: 1000 \}/);
   assert.match(aiSource, /normalized 0-1000 coordinates/i);
   assert.match(serverSource, /function normalizeCropBounds\(value\)/);
-  assert.match(serverSource, /cardBoundsIncludingLogo\(parsed\.crop_bounds, parsed\.logo_bounds\)/);
+  assert.match(serverSource, /cardBoundsIncludingLogo\(bounds\.crop_bounds, bounds\.logo_bounds\)/);
   assert.match(serverSource, /cropBounds:\s*normalizeCropBounds\(cardBounds\)/);
   assert.match(serverSource, /app\.post\("\/api\/cards\/cropped-image", upload\.single\("image"\)/);
   assert.match(addSource, /async function cropImageToBounds\(blob, bounds, filename\)/);
@@ -151,7 +151,7 @@ test("신규 명함은 로고 좌표를 추출하고 별도 저장해 목록에 
   const database = fs.readFileSync(path.join(projectRoot, "database/schema.js"), "utf8");
 
   assert.match(ai, /logo_bounds/);
-  assert.match(server, /logoBounds:\s*normalizeLogoBounds\(parsed\.logo_bounds/);
+  assert.match(server, /logoBounds:\s*normalizeLogoBounds\(bounds\.logo_bounds/);
   assert.match(server, /app\.post\("\/api\/cards\/logo-image", upload\.single\("image"\)/);
   assert.match(add, /fetch\("\.\/api\/cards\/logo-image"/);
   assert.match(add, /logo_path:\s*currentItem\?\.logoPath/);

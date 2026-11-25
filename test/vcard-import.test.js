@@ -125,3 +125,28 @@ test("불러오기는 UTF-8과 CP949 파일을 모두 읽고 내보낸 vCard를 
     assert.equal(parse(text)[0].company, "테스트 주식회사");
   }
 });
+
+test("연락처 앱의 묶음 이름과 Quoted-Printable 값을 읽는다", () => {
+  const [card] = parse([
+    "BEGIN:VCARD",
+    "VERSION:2.1",
+    "FN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:=ED=99=8D=EA=B8=B8=EB=8F=99",
+    "ORG;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:=ED=85=8C=EC=8A=A4=ED=8A=B8=",
+    "=ED=9A=8C=EC=82=AC;=EA=B0=9C=EB=B0=9C=ED=8C=80",
+    "item1.URL:https://example.com",
+    "item2.EMAIL;type=INTERNET:hong@example.com",
+    "TEL;CELL:010-1234-5678",
+    "END:VCARD"
+  ].join("\r\n"));
+  assert.equal(card.name, "홍길동");
+  assert.equal(card.company, "테스트회사");
+  assert.equal(card.department, "개발팀");
+  assert.equal(card.website, "https://example.com");
+  assert.equal(card.email, "hong@example.com");
+  assert.equal(card.mobile, "010-1234-5678");
+});
+
+test("Quoted-Printable을 UTF-8로 해독할 수 없으면 원래 값을 유지한다", () => {
+  const [card] = parse("BEGIN:VCARD\r\nFN;ENCODING=QUOTED-PRINTABLE:=C8=41\r\nEND:VCARD");
+  assert.equal(card.name, "=C8=41");
+});

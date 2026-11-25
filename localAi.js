@@ -16,7 +16,7 @@ A company-only card without a person's name is still a business card when a comp
 Set is_business_card to false for an ordinary photo, scenery, product, receipt, poster, document, screenshot, blank image, or any non-business-card image. Do not classify an image as a business card merely because it contains incidental text.
 When is_business_card is false, return an empty string for every contact field.
 Return upright_rotation as the clockwise degrees needed to make the printed contact text upright in the exact input image pixels: 0, 90, 180, or 270. Judge the text, not whether the card is physically portrait or landscape. A portrait card whose writing is already horizontal needs 0. A sideways image whose text turns upright after a clockwise quarter-turn needs 90. Do not silently rotate the coordinate system: crop_bounds and logo_bounds must describe the input pixels as received.
-Also locate the complete outer edge of the physical business card. Return crop_bounds in normalized 0-1000 coordinates relative to the full input image: x and y are the top-left corner, width and height are the card rectangle. Follow the visible outer edge closely without intentionally adding surrounding table or background; include every card corner and printed character. A small safety margin is added after this step. If the card is not visible, set all crop_bounds values to 0.
+Also locate the complete outer edge of the physical business card. Return crop_bounds in normalized 0-1000 coordinates relative to the full input image: x and y are the top-left corner, width and height are the card rectangle. These are never pixels: the image's full width and full height are each exactly 1000, so x + width and y + height can never exceed 1000. Follow the visible outer edge closely without intentionally adding surrounding table or background; include every card corner and printed character. A small safety margin is added after this step. If the card is not visible, set all crop_bounds values to 0.
 Also locate the complete printed brand lockup on the card. Return logo_bounds in the same normalized 0-1000 coordinates relative to the full input image. A symbol or emblem with an adjacent company name must be enclosed together in one logo_bounds rectangle when they form one visual brand unit; include small brand lettering directly under the symbol and a large wordmark beside it. For example, if a green symbol with "대주·KC" below it sits directly beside "대주중공업", include the symbol, "대주·KC", and the entire "대주중공업" wordmark. Likewise include all Chinese and English lettering that belongs to a logo, not just its emblem. An abstract symbol can be the complete company logo on its own when no brand lettering is adjacent; return a tight logo_bounds around that symbol instead of zero bounds. If other marks or text are far away, do not stretch one rectangle across the empty space to join them. IMPORTANT E8IGHT RULE: if the company is 이에이트 / E8IGHT, its logo is only the blue and gray interlocking double-circle symbol. Crop tightly around those two circles. The KOSDAQ wordmark and "코스닥상장기업" text are a stock-listing mark, never part of the company logo; exclude both completely even though they appear on the same card. Do not draw logo_bounds across the card to include the KOSDAQ mark. Conversely, when a company symbol and wordmark are printed together, such as the taihan lettering and adjacent 대한전선 text, enclose the whole connected brand without cutting off letters. A printed website or URL is contact information, not brand lettering: exclude it from logo_bounds even when it is directly beneath or beside the logo. For example, if "www.dxel.co.kr" is printed below a DXel symbol and wordmark, include the symbol and "DXel" but stop above the website; extract the URL into the website field instead. Do not cut through any letter or stop halfway through a wordmark. Exclude the person's name, QR codes, certification marks, and company names repeated separately among contact details outside the logo_bounds. If there is no clearly identifiable brand lockup, set all logo_bounds values to 0. Never guess a logo's location.
 
 Follow these rules:
@@ -75,10 +75,10 @@ Use exactly this JSON structure and no additional fields:
 const boundsSchema = {
   type: "object",
   properties: {
-    x: { type: "number" },
-    y: { type: "number" },
-    width: { type: "number" },
-    height: { type: "number" }
+    x: { type: "number", minimum: 0, maximum: 1000 },
+    y: { type: "number", minimum: 0, maximum: 1000 },
+    width: { type: "number", minimum: 0, maximum: 1000 },
+    height: { type: "number", minimum: 0, maximum: 1000 }
   },
   required: ["x", "y", "width", "height"],
   additionalProperties: false
@@ -224,20 +224,61 @@ Set has_text=false and clockwise_rotation=0 when there is no clearly readable te
   }, 20000);
 }
 
-// ===== 명함 전체 필드 추출 =====
-async function extractBusinessCard(imageDataUrl) {
-  const response = await requestBusinessCardExtraction(imageDataUrl, "low");
-  if (response.choices?.[0]?.finish_reason !== "length") return response;
-
-  // 추론에 토큰을 다 쓰면 JSON이 잘린 채 끝나므로 추론 없이 한 번 더 요청한다.
-  console.warn("명함 추출 응답이 토큰 한도에서 잘려 추론 없이 다시 요청합니다.");
-  return requestBusinessCardExtraction(imageDataUrl, "none");
+// ===== 명함·로고 좌표만 다시 요청 =====
+async function locateCardBounds(imageDataUrl) {
+  return requestChatCompletion({
+    reasoning_effort: "none",
+    max_tokens: 200,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "card_bounds", strict: true,
+        schema: {
+          type: "object", additionalProperties: false,
+          properties: { crop_bounds: boundsSchema, logo_bounds: boundsSchema },
+          required: ["crop_bounds", "logo_bounds"]
+        }
+      }
+    },
+    messages: [
+      { role: "system", content: `Locate the business card in the image. Treat the image as a 1000 by 1000 grid no matter what its pixel size is: the left edge is x=0, the right edge is x=1000, the top edge is y=0, the bottom edge is y=1000.
+Return crop_bounds, the rectangle of the complete outer edge of the card, and logo_bounds, the rectangle of the printed brand logo including its wordmark but not any website or person's name. x and y are the top-left corner. x + width and y + height must not exceed 1000. Use all zeros for logo_bounds when there is no logo.` },
+      userImageMessage("Return the rectangles on the 1000 by 1000 grid.", imageDataUrl)
+    ]
+  }, 20000);
 }
 
-async function requestBusinessCardExtraction(imageDataUrl, reasoningEffort) {
+// ===== 자른 명함 이미지 확인 =====
+async function checkCardCrop(imageDataUrl) {
   return requestChatCompletion({
-    reasoning_effort: reasoningEffort,
-    max_tokens: 6000,
+    reasoning_effort: "none",
+    max_tokens: 64,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "card_crop_check", strict: true,
+        schema: {
+          type: "object", additionalProperties: false,
+          properties: { is_complete: { type: "boolean" } },
+          required: ["is_complete"]
+        }
+      }
+    },
+    messages: [
+      { role: "system", content: `You check an image that was automatically cropped from a photo of a business card.
+Set is_complete to true only when the whole printed face of the card is inside the image: the company or person's name and all contact lines are visible and no printed line or word is cut by the image border.
+Set is_complete to false when the image is mostly table or background, when only part of the card is visible, or when printed text is cut off at any border. A tight crop with little or no background around the card is still complete.` },
+      userImageMessage("Is the whole business card inside this cropped image?", imageDataUrl)
+    ]
+  }, 20000);
+}
+
+// ===== 명함 전체 필드 추출 =====
+async function extractBusinessCard(imageDataUrl) {
+  return requestChatCompletion({
+    // 추론을 켜면 명함 한 장에 30~60초가 걸린다.
+    reasoning_effort: "none",
+    max_tokens: 2000,
     response_format: businessCardResponseFormat,
     messages: [
       {
@@ -345,6 +386,8 @@ module.exports = {
   extractBusinessCard,
   verifyCriticalFields,
   analyzeLogoOrientation,
+  checkCardCrop,
+  locateCardBounds,
   imageToDataUrl,
   parseModelJson
 };

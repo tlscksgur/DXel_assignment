@@ -654,6 +654,23 @@ async function orientLogoFromText(logoImage) {
   }
 }
 
+// 좌표가 틀리면 배경만 남은 이미지가 저장되고 원본은 지워지므로, 확인되지 않은 크롭은 쓰지 않는다.
+async function cropShowsWholeCard(croppedImage) {
+  try {
+    const formData = new FormData();
+    formData.append("image", croppedImage.blob, croppedImage.filename);
+    const response = await fetch("./api/cards/crop-check", {
+      method: "POST", body: formData,
+      signal: globalThis.AbortSignal?.timeout?.(25000)
+    });
+    if (!response.ok) throw new Error("크롭 확인 실패");
+    return (await response.json()).isComplete === true;
+  } catch (error) {
+    console.warn("자른 이미지를 확인하지 못해 크롭하지 않은 이미지를 사용합니다:", error.message);
+    return false;
+  }
+}
+
 // ===== Local AI 분석 및 큐 이동 =====
 async function analyzeCurrentCard() {
   const item = uploadQueue[currentQueueIndex];
@@ -736,11 +753,16 @@ async function analyzeCurrentCard() {
     let imagePath = result.file.path;
     if (cardBounds || imageSource !== preparedImage) {
       try {
-        const croppedImage = cardBounds ? await cropImageToBounds(
+        let croppedImage = cardBounds ? await cropImageToBounds(
           imageSource.blob,
           cardBounds,
           imageSource.filename
         ) : imageSource;
+        if (cardBounds && croppedImage && !(await cropShowsWholeCard(croppedImage))) {
+          // 명함 좌표가 틀렸다면 같은 응답의 로고 좌표도 믿을 수 없다.
+          logoBounds = null;
+          croppedImage = imageSource === preparedImage ? null : imageSource;
+        }
         if (croppedImage) {
           const croppedFormData = new FormData();
           croppedFormData.append("image", croppedImage.blob, croppedImage.filename);

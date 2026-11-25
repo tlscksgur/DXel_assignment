@@ -110,7 +110,7 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
     const account = await fetch(`${origin}/businessCard/api/auth/me`);
     assert.equal(account.status, 200);
     assert.equal((await account.json()).user, null);
-    for (const path of ['/api/cards', '/api/cards?q=검색', '/api/cards/1', '/api/cardSelect', '/api/cards/duplicates', '/API/CARDS/01/', '/uploads/test.jpg']) {
+    for (const path of ['/api/cards', '/api/cards?q=검색', '/api/cards/1', '/api/cards/duplicates', '/API/CARDS/01/', '/uploads/test.jpg']) {
       const denied = await fetch(`${origin}/businessCard${path}`);
       assert.equal(denied.status, 401, path);
       assert.match(denied.headers.get('cache-control'), /no-store/);
@@ -118,6 +118,12 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
     }
     assert.equal((await fetch(`${origin}/api/cards`)).status, 404);
     assert.equal((await fetch(`${origin}/businessCard/api/cards/extract`, { method: 'POST' })).status, 401);
+    // 500장 불러오기 크기의 본문이 크기 제한에 걸리지 않고 로그인 검사까지 도달해야 한다.
+    const largeImport = JSON.stringify({ cards: Array(500).fill({ name: '홍길동'.repeat(150) }) });
+    assert.ok(Buffer.byteLength(largeImport) > 500 * 1024);
+    assert.equal((await fetch(`${origin}/businessCard/api/cards/import`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', origin }, body: largeImport
+    })).status, 401);
     const db = new sqlite3.Database(path.join(dir, 'cards.db'));
     const execute = (sql, params = []) => new Promise((resolve, reject) => {
       db.run(sql, params, (error) => error ? reject(error) : resolve());
@@ -187,7 +193,7 @@ test('실제 서버의 보호 페이지 이동과 계정 API도 하위 경로를
       }
     }
     await t.test('대소문자가 바뀐 등록 API도 인증 필요', async () => {
-      assert.equal((await apiRequest('/API/CARDSTORAGE/', 'POST', null, { name: '금지' })).status, 401);
+      assert.equal((await apiRequest('/API/CARDS/', 'POST', null, { name: '금지' })).status, 401);
     });
     await t.test('대소문자가 바뀐 개인 데이터 및 휴지통 조회도 인증 필요', async () => {
       for (const apiPath of ['/API/CARDS/GROUPS', '/API/CARDS/?trash=1', '/API/CARDS/EXPORT/CSV']) {

@@ -243,7 +243,8 @@ test("대형 화면의 명함 불러오기 옵션 박스는 업로드와 설정 
 
   assert.match(largeScreenLayout, /\.importOptions\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/);
   assert.match(largeScreenLayout, /\.importDropzone\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*320px;/);
-  assert.match(largeScreenLayout, /\.importSettings\s*\{[^}]*flex:\s*1 1 0;[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*justify-content:\s*space-between;/);
+  // 설정 칸이 늘어도 패널 밖으로 넘치지 않도록 내용만큼 자리를 차지한다.
+  assert.match(largeScreenLayout, /\.importSettings\s*\{[^}]*flex:\s*0 0 auto;/);
   assert.match(largeScreenLayout, /\.importSettings select\s*\{[^}]*height:\s*clamp\(48px,\s*4\.5vh,\s*62px\);/);
   assert.match(largeScreenLayout, /\.importDuplicateChoices button\s*\{[^}]*min-height:\s*clamp\(44px,\s*4\.5vh,\s*60px\);/);
 });

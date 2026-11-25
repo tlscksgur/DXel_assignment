@@ -153,7 +153,7 @@ function createSessionMiddleware(db, { now = () => new Date() } = {}) {
   };
 }
 
-function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = false, allowedOrigins = [], now = () => new Date() }) {
+function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = false, allowedOrigins = [], signupEmailDomains = [], now = () => new Date() }) {
   const cookiePath = `${applicationBasePath(appBaseUrl)}/`;
   const passwordReset = createPasswordResetService({ db, sendMail, appBaseUrl, now });
   const sessionCookies = (token, maxAge) => {
@@ -169,6 +169,9 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
     }
     return handler(req, res);
   });
+  const signupEmailAllowed = (email) => {
+    return signupEmailDomains.length === 0 || signupEmailDomains.includes(email.split("@")[1]);
+  };
   const verificationLink = (token) => {
     const verificationUrl = publicPageUrl(appBaseUrl, "verify-email.html");
     verificationUrl.searchParams.set("token", token);
@@ -185,6 +188,9 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
       || !validPassword(password)
     ) {
       return res.status(400).json({ success: false, message: "이름, 이메일, 비밀번호를 확인해 주세요." });
+    }
+    if (!signupEmailAllowed(email)) {
+      return res.status(403).json({ success: false, message: "가입할 수 없는 이메일입니다. 회사 이메일로 가입해 주세요." });
     }
 
     if (typeof sendMail !== "function" || !appBaseUrl) {
@@ -208,6 +214,17 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
 
         let pendingUserId = existingUser?.id;
         if (existingUser) {
+          // 가입 요청을 반복해 같은 주소로 메일을 계속 보내지 못하게 한다.
+          const recentRequest = await get(transactionDb,
+            `SELECT 1 AS recent FROM email_verification_tokens
+              WHERE user_id = ? AND datetime(created_at) >= datetime(?) LIMIT 1`,
+            [existingUser.id, new Date(now().getTime() - VERIFICATION_RESEND_COOLDOWN_MS).toISOString()]
+          );
+          if (recentRequest) {
+            const error = new Error("signup requested too recently");
+            error.code = "SIGNUP_COOLDOWN";
+            throw error;
+          }
           // 재가입은 새 입력으로 교체하고 예전 인증 링크를 폐기한다.
           await run(transactionDb,
             "UPDATE users SET display_name = ?, password_hash = ?, updated_at = ? WHERE id = ? AND email_verified_at IS NULL",
@@ -221,14 +238,17 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
           pendingUserId = inserted.lastID;
         }
         await run(transactionDb,
-          "INSERT INTO email_verification_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)",
-          [tokenHash, pendingUserId, expiresAt]
+          "INSERT INTO email_verification_tokens (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
+          [tokenHash, pendingUserId, expiresAt, now().toISOString()]
         );
         return pendingUserId;
       });
     } catch (error) {
       if (error.code === "DUPLICATE_EMAIL" || String(error.message).includes("users.email")) {
         return res.status(409).json({ success: false, message: "이 이메일은 이미 가입되어 있습니다." });
+      }
+      if (error.code === "SIGNUP_COOLDOWN") {
+        return res.status(429).json({ success: false, message: "인증 메일을 방금 보냈습니다. 잠시 후 다시 시도해 주세요." });
       }
       console.error("계정 생성 실패:", error.message);
       return res.status(500).json({ success: false, message: "계정을 만들지 못했습니다." });
@@ -322,7 +342,7 @@ function registerAuthRoutes(app, { db, sendMail, appBaseUrl, secureCookie = fals
           [email]
         );
       }
-      if (!user) return res.status(202).json(verificationResendMessage());
+      if (!user || !signupEmailAllowed(user.email)) return res.status(202).json(verificationResendMessage());
       email = user.email;
 
       const cooldownKey = hashToken(email);

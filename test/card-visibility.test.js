@@ -62,7 +62,7 @@ test("개인 명함은 등록자만 목록·중복·내보내기·이미지·변
     assert.equal((await request(1, imagePath)).status, 200);
     assert.equal((await request(1, "/api/cards")).data.cards.length, 2);
     for (const user of [2, 3]) {
-      for (const route of ["/api/cards", "/api/cardSelect", "/api/cards?trash=1", "/api/cards?q=개인테스트"]) {
+      for (const route of ["/api/cards", "/api/cards?trash=1", "/api/cards?q=개인테스트"]) {
         const result = await request(user, route);
         assert.equal(result.status, 200);
         assert.ok(result.data.cards.every((card) => card.id !== id), route);
