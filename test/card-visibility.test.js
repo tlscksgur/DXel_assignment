@@ -80,6 +80,7 @@ test("개인 명함은 등록자만 목록·중복·내보내기·이미지·변
       assert.deepEqual(preview.data.cards[0].duplicateIds, []);
       for (const [route, method, body] of [
         [`/api/cards/${id}/favorite`, "PATCH", { isFavorite: true }],
+        [`/api/cards/${id}/logo`, "PATCH"],
         ["/api/cards/groups", "PATCH", { cardIds: [id], groupName: "침입" }],
         [`/api/cards/${id}`, "PUT", { name: "변경시도" }],
         [`/api/cards/%${id.toString().charCodeAt(0).toString(16)}`, "DELETE"],

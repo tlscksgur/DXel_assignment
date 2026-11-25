@@ -511,7 +511,7 @@ test("로고 방향 재분석용 이미지만 정리하고 가로 명함 원본�
   }
 });
 
-test("신규 명함 로고를 저장하고 수정 후에도 유지한다", async () => {
+test("로고만 교체하고 명함 정보 수정 시 새 로고를 유지한다", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "card-logo-test-"));
   fs.mkdirSync(path.join(tempDir, "database"));
   const probeServer = http.createServer();
@@ -523,6 +523,7 @@ test("신규 명함 로고를 저장하고 수정 후에도 유지한다", async
     stdio: ["ignore", "pipe", "pipe"]
   });
   let logoFile = "";
+  let replacementFile = "";
 
   try {
     await waitForServer(app);
@@ -538,12 +539,23 @@ test("신규 명함 로고를 저장하고 수정 후에도 유지한다", async
     const saved = await fetch(`http://127.0.0.1:${appPort}/api/cards`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "로고 테스트", company: "예시 회사", email: "logo@example.com", logo_path: logoPath })
+      body: JSON.stringify({ name: "로고 테스트", company: "예시 회사", email: "logo@example.com", image_path: logoPath, logo_path: logoPath })
     });
     assert.equal(saved.status, 201);
     const id = (await saved.json()).id;
     const read = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`);
     assert.equal((await read.json()).card.logo_path, logoPath);
+
+    const replaced = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}/logo`, { method: "PATCH", body: form });
+    assert.equal(replaced.status, 200);
+    const newLogoPath = (await replaced.json()).logo_path;
+    replacementFile = path.join(projectRoot, newLogoPath);
+    assert.notEqual(newLogoPath, logoPath);
+    const updatedCard = (await (await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`)).json()).card;
+    assert.equal(updatedCard.logo_path, newLogoPath);
+    assert.equal(updatedCard.image_path, logoPath);
+    assert.equal(updatedCard.name, "로고 테스트");
+    assert.equal((await fetch(`http://127.0.0.1:${appPort}${newLogoPath}`)).status, 200);
 
     const updated = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`, {
       method: "PUT",
@@ -552,10 +564,11 @@ test("신규 명함 로고를 저장하고 수정 후에도 유지한다", async
     });
     assert.equal(updated.status, 200);
     const readAgain = await fetch(`http://127.0.0.1:${appPort}/api/cards/${id}`);
-    assert.equal((await readAgain.json()).card.logo_path, logoPath);
+    assert.equal((await readAgain.json()).card.logo_path, newLogoPath);
   } finally {
     await stopTestServer(app);
     if (logoFile && fs.existsSync(logoFile)) fs.unlinkSync(logoFile);
+    if (replacementFile && fs.existsSync(replacementFile)) fs.unlinkSync(replacementFile);
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });

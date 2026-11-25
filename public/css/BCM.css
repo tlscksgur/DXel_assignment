@@ -810,6 +810,15 @@ body.bcm-page .bcmBoard {
   object-position: right center;
 }
 
+.profileCardLogo[data-logo-editor] {
+  cursor: pointer;
+}
+
+.profileCardLogo[data-logo-editor]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
 .profileCard:has(.profileCardLogo) .emailMeta {
   padding-right: 113px;
   max-height: 2.8em;
@@ -900,7 +909,8 @@ body.detailOpen {
   overflow: hidden;
 }
 
-.groupAssignModal {
+.groupAssignModal,
+.cardLogoModal {
   width: min(620px, calc(100% - 32px));
   max-height: calc(100dvh - 32px);
   margin: auto;
@@ -913,7 +923,8 @@ body.detailOpen {
   box-shadow: 0 30px 90px rgba(3, 22, 50, .3);
 }
 
-.groupAssignModal::backdrop {
+.groupAssignModal::backdrop,
+.cardLogoModal::backdrop {
   background: rgba(3, 15, 31, .6);
   backdrop-filter: blur(5px);
 }
@@ -1152,6 +1163,71 @@ body.detailOpen {
 .groupAssignActions button[data-group-action="cancel"] {
   background: #fff;
   color: #031632;
+}
+
+.cardLogoModal {
+  width: min(440px, calc(100% - 32px));
+  padding: 24px;
+}
+
+.cardLogoModal h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.cardLogoModal p {
+  margin-block: 10px;
+  font-size: 14px;
+}
+
+.cardLogoModal canvas:not([hidden]) {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 8px;
+  outline: 1px solid currentColor;
+  cursor: grab;
+  touch-action: none;
+}
+
+.cardLogoCurrent:not([hidden]) {
+  display: block;
+  max-width: 100%;
+  max-height: 180px;
+  margin-bottom: 12px;
+  object-fit: contain;
+}
+
+.cardLogoModal canvas:active {
+  cursor: grabbing;
+}
+
+.cardLogoModal canvas:focus-visible {
+  outline: 2px solid currentColor;
+}
+
+.cardLogoModal label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.cardLogoModal input {
+  flex: 1;
+  accent-color: #031632;
+}
+
+.cardLogoModal .groupAssignActions {
+  padding: 0;
+}
+
+.cardLogoModal button:disabled {
+  opacity: .55;
+  cursor: default;
 }
 
 .cardDetailModal {

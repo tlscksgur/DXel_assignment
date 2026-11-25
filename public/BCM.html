@@ -174,6 +174,22 @@
       <button class="cardDetailClose" type="button" aria-label="명함 상세 닫기">×</button>
     </dialog>
 
+    <dialog class="cardLogoModal" aria-labelledby="cardLogoTitle">
+      <form>
+        <h2 id="cardLogoTitle">로고 위치 수정</h2>
+        <p id="cardLogoHelp">명함 사진을 움직여 프레임에 로고를 맞추세요.</p>
+        <canvas width="600" height="240" tabindex="0" aria-label="로고 프레임. 방향키로 사진 이동" aria-describedby="cardLogoHelp" hidden></canvas>
+        <img class="cardLogoCurrent" alt="현재 저장된 로고" hidden>
+        <button class="cardLogoReposition" type="button" hidden>명함 사진에서 위치 선택</button>
+        <label>확대 <input type="range" min="100" max="500" value="140" disabled></label>
+        <p class="cardLogoStatus" role="status"></p>
+        <div class="groupAssignActions">
+          <button type="button" data-group-action="cancel">취소</button>
+          <button type="submit" disabled>저장</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- ===== 서비스 연결 상태 및 내보내기 ===== -->
     <footer>
       <div class="footerLeft">

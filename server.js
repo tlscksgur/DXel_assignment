@@ -943,6 +943,24 @@ app.post("/api/cards/logo-image", upload.single("image"), (req, res) => {
   });
 });
 
+app.patch("/api/cards/:id/logo", requireCardOwner, upload.single("image"), async (req, res, next) => {
+  if (!req.file) return res.status(400).json({ success: false, message: "로고 이미지 파일이 없습니다." });
+
+  const logoPath = `/uploads/${req.file.filename}`;
+  try {
+    const { changes } = await run(db,
+      "UPDATE business_cards SET logo_path = ? WHERE id = ? AND deleted_at IS NULL",
+      [logoPath, req.params.id]);
+    if (changes) return res.json({ success: true, logo_path: logoPath });
+  } catch (error) {
+    await fs.promises.unlink(req.file.path).catch(() => {});
+    return next(error);
+  }
+
+  await fs.promises.unlink(req.file.path).catch(() => {});
+  return res.status(404).json({ success: false, message: "명함을 찾을 수 없습니다." });
+});
+
 app.post("/api/cards/uploads/cleanup", async (req, res) => {
   const userId = Number(req.user?.id);
   if (!Number.isSafeInteger(userId) || userId <= 0) {

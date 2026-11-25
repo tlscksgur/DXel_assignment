@@ -378,13 +378,15 @@ function createCard(contact) {
   const mobile = escapeHtml(contact.mobile);
   const email = escapeHtml(contact.email);
   const safeLogoPath = safeUploadSrc(contact.logo_path);
+  const canAdjustLogo = canEditCard(contact) && safeUploadSrc(contact.image_path);
+  const logoControl = canAdjustLogo ? ' data-logo-editor tabindex="0" role="button" title="클릭하여 로고 위치 수정" aria-label="로고 위치 수정"' : "";
 
   return `
     <article class="profileCard ${classes}${isSelected ? " is-selected" : ""}${isFavorite ? " has-favorite" : ""}" data-card-id="${cardId}" tabindex="0" role="button" aria-pressed="${isSelected}" aria-label="${name} 명함 ${selectionMode ? "선택" : "상세 보기"}">
       ${isFavorite ? '<span class="profileCardFavoriteMarker" aria-hidden="true">★</span>' : ""}
       <span class="pill">${company || "BUSINESS CARD"}</span>
       <span class="cardId">#${Number(contact.display_number) || "-"}</span>
-      ${safeLogoPath ? `<img class="profileCardLogo" src="${safeLogoPath}" alt="${company || name} 로고" loading="lazy" decoding="async">` : ""}
+      ${safeLogoPath ? `<img class="profileCardLogo" src="${safeLogoPath}" alt="${company || name} 로고" loading="lazy" decoding="async" draggable="false"${logoControl}>` : ""}
       <h2>${name}</h2>
       <p class="role">${[position, company].filter(Boolean).join(" · ")}</p>
       ${mobile ? `<p class="meta strong">${mobile}</p>` : ""}
@@ -552,7 +554,14 @@ function createCardEditor(contact, statusMessage = "") {
 // ===== 명함 수정·삭제 API 요청 =====
 async function requestJson(url, options, fallbackMessage) {
   const response = await fetch(url, options);
-  const result = await response.json();
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    const error = new Error(`${fallbackMessage} (서버가 JSON을 반환하지 않았습니다. HTTP ${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
 
   if (!response.ok) {
     const error = new Error(result.message || fallbackMessage);
@@ -697,6 +706,238 @@ function syncFavoriteCard(cardId, isFavorite) {
   });
 }
 
+function findLogoCrop(source, template) {
+  const aspect = template.width / template.height;
+  const maxWidth = Math.min(source.width, source.height * aspect);
+  const samples = [];
+  for (let row = 0; row < 6; row += 1) {
+    for (let column = 0; column < 8; column += 1) {
+      const u = (column + 0.5) / 8;
+      const v = (row + 0.5) / 6;
+      const i = (Math.floor(v * template.height) * template.width + Math.floor(u * template.width)) * 4;
+      samples.push({ u, v, r: template.data[i], g: template.data[i + 1], b: template.data[i + 2] });
+    }
+  }
+  const average = samples.reduce((sum, pixel) => sum + pixel.r + pixel.g + pixel.b, 0) / (3 * samples.length);
+  if (samples.every((pixel) => Math.abs((pixel.r + pixel.g + pixel.b) / 3 - average) < 7)) return null;
+
+  let best = null;
+  let lowestError = 24 * samples.length * 3;
+  function compare(x, y, width, height) {
+    if (x < 0 || y < 0 || x + width > source.width || y + height > source.height) return;
+    let error = 0;
+    for (const pixel of samples) {
+      const i = (Math.floor(y + pixel.v * height) * source.width + Math.floor(x + pixel.u * width)) * 4;
+      error += Math.abs(source.data[i] - pixel.r) + Math.abs(source.data[i + 1] - pixel.g) + Math.abs(source.data[i + 2] - pixel.b);
+      if (error >= lowestError) return;
+    }
+    lowestError = error;
+    best = { x, y, width, height, error: error / (samples.length * 3) };
+  }
+
+  const minWidth = Math.max(5, 5 * aspect);
+  for (let width = maxWidth; width >= minWidth; width /= 1.15) {
+    const height = width / aspect;
+    const dx = Math.max(1, Math.floor(width / 10));
+    const dy = Math.max(1, Math.floor(height / 10));
+    const maxX = source.width - width;
+    const maxY = source.height - height;
+    for (let y = 0; y < maxY + dy; y += dy) {
+      for (let x = 0; x < maxX + dx; x += dx) {
+        compare(Math.min(x, maxX), Math.min(y, maxY), width, height);
+      }
+    }
+  }
+  if (!best) return null;
+
+  const seed = best;
+  for (let ratio = 0.88; ratio <= 1.13; ratio += 0.025) {
+    const width = seed.width * ratio;
+    const height = seed.height * ratio;
+    for (let dy = -Math.ceil(seed.height / 10); dy <= Math.ceil(seed.height / 10); dy += 1) {
+      for (let dx = -Math.ceil(seed.width / 10); dx <= Math.ceil(seed.width / 10); dx += 1) {
+        compare(seed.x + dx, seed.y + dy, width, height);
+      }
+    }
+  }
+  return best;
+}
+
+function locateSavedLogo(photo, logo) {
+  const raster = document.createElement("canvas");
+  const context = raster.getContext("2d", { willReadFrequently: true });
+  function pixels(image, edge, angle = 0) {
+    const scale = edge / Math.max(image.naturalWidth, image.naturalHeight);
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const sideways = angle % Math.PI !== 0;
+    raster.width = sideways ? height : width;
+    raster.height = sideways ? width : height;
+    context.translate(raster.width / 2, raster.height / 2);
+    context.rotate(angle);
+    context.drawImage(image, -width / 2, -height / 2, width, height);
+    return context.getImageData(0, 0, raster.width, raster.height);
+  }
+
+  const source = pixels(photo, 220);
+  let best = null;
+  for (const angle of [0, Math.PI, Math.PI / 2, -Math.PI / 2]) {
+    const match = findLogoCrop(source, pixels(logo, 64, angle));
+    if (match && (!best || match.error < best.error)) best = match;
+    if (best && best.error < 5) break;
+  }
+  if (!best) return null;
+  return { x: best.x / source.width, y: best.y / source.height, width: best.width / source.width, height: best.height / source.height };
+}
+
+function openLogoEditor(cardId) {
+  const contact = visibleCards.find((card) => Number(card.id) === Number(cardId));
+  if (!contact || !canEditCard(contact)) return;
+  const source = contact.image_path;
+  if (!safeUploadSrc(source) || !safeUploadSrc(contact.logo_path)) return;
+
+  const dialog = document.querySelector(".cardLogoModal");
+  if (dialog.open) return;
+  const form = dialog.querySelector("form");
+  const canvas = form.querySelector("canvas");
+  const zoom = form.querySelector('input[type="range"]');
+  const save = form.querySelector('button[type="submit"]');
+  const cancel = form.querySelector('[data-group-action="cancel"]');
+  const choosePosition = form.querySelector(".cardLogoReposition");
+  const currentLogo = form.querySelector(".cardLogoCurrent");
+  const status = form.querySelector(".cardLogoStatus");
+  const context = canvas.getContext("2d");
+  const photo = new Image();
+  let x = 0;
+  let y = 0;
+  let scale = 0;
+  let drag;
+  let saving = false;
+
+  function draw() {
+    const width = photo.naturalWidth * scale;
+    const height = photo.naturalHeight * scale;
+    x = Math.max(canvas.width - width, Math.min(0, x));
+    y = Math.max(canvas.height - height, Math.min(0, y));
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(photo, x, y, width, height);
+  }
+
+  function resize() {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const nextScale = Math.max(canvas.width / photo.naturalWidth, canvas.height / photo.naturalHeight) * Number(zoom.value) / 100;
+    x = scale ? centerX + (x - centerX) * nextScale / scale : centerX - photo.naturalWidth * nextScale / 2;
+    y = scale ? centerY + (y - centerY) * nextScale / scale : centerY - photo.naturalHeight * nextScale / 2;
+    scale = nextScale;
+    draw();
+  }
+
+  form.reset();
+  canvas.hidden = true;
+  currentLogo.hidden = choosePosition.hidden = true;
+  currentLogo.src = `.${contact.logo_path.trim()}`;
+  zoom.disabled = save.disabled = true;
+  cancel.disabled = false;
+  status.textContent = "사진을 불러오는 중입니다.";
+  dialog.oncancel = (event) => { if (saving) event.preventDefault(); };
+  let closed = false;
+  dialog.onclose = () => {
+    closed = true;
+    photo.onload = photo.onerror = null;
+  };
+  cancel.onclick = () => dialog.close();
+  function showFrame() {
+    resize();
+    choosePosition.hidden = currentLogo.hidden = true;
+    canvas.hidden = false;
+    zoom.disabled = save.disabled = false;
+    status.textContent = "";
+    canvas.focus();
+  }
+  photo.onload = async () => {
+    let crop;
+    try {
+      await currentLogo.decode();
+      if (closed || !dialog.open) return;
+      crop = locateSavedLogo(photo, currentLogo);
+    } catch { /* 이전 로고를 불러오지 못해도 명함 사진으로 새 위치를 잡을 수 있다. */ }
+    if (closed || !dialog.open) return;
+    if (!crop) {
+      currentLogo.hidden = !currentLogo.naturalWidth;
+      choosePosition.hidden = false;
+      status.textContent = "저장된 명함 사진에서 기존 로고 위치를 찾지 못했습니다.";
+      return;
+    }
+    const width = crop.width * photo.naturalWidth;
+    const height = crop.height * photo.naturalHeight;
+    const ratio = 600 / Math.max(width, height);
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    scale = canvas.width / width;
+    x = -crop.x * photo.naturalWidth * scale;
+    y = -crop.y * photo.naturalHeight * scale;
+    const base = Math.max(canvas.width / photo.naturalWidth, canvas.height / photo.naturalHeight);
+    zoom.max = Math.max(500, Math.ceil(200 * scale / base));
+    zoom.value = Math.round(100 * scale / base);
+    showFrame();
+  };
+  choosePosition.onclick = () => {
+    canvas.width = 600;
+    canvas.height = 240;
+    zoom.max = 500;
+    zoom.value = 140;
+    showFrame();
+  };
+  photo.onerror = () => { status.textContent = "명함 사진을 불러오지 못했습니다."; };
+  zoom.oninput = resize;
+  canvas.onpointerdown = (event) => {
+    if (event.button !== 0 || drag || saving) return;
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    canvas.setPointerCapture(event.pointerId);
+  };
+  canvas.onpointermove = (event) => {
+    if (drag?.id !== event.pointerId || saving) return;
+    x += (event.clientX - drag.x) * canvas.width / canvas.clientWidth;
+    y += (event.clientY - drag.y) * canvas.height / canvas.clientHeight;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+    draw();
+  };
+  canvas.onlostpointercapture = () => { drag = null; };
+  canvas.onkeydown = (event) => {
+    const offset = { ArrowLeft: [-12, 0], ArrowRight: [12, 0], ArrowUp: [0, -12], ArrowDown: [0, 12] }[event.key];
+    if (!Array.isArray(offset) || saving) return;
+    event.preventDefault();
+    x += offset[0];
+    y += offset[1];
+    draw();
+  };
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    if (save.disabled) return;
+    saving = zoom.disabled = save.disabled = cancel.disabled = true;
+    status.textContent = "로고를 저장하는 중입니다.";
+    try {
+      const logo = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!logo) throw new Error("로고 이미지를 만들지 못했습니다.");
+      const body = new FormData();
+      body.append("image", logo, "logo.png");
+      await requestJson(`./api/cards/${contact.id}/logo`, { method: "PATCH", body }, "로고를 저장하지 못했습니다.");
+      dialog.close();
+      await loadCards();
+      board.querySelector(`.profileCard[data-card-id="${Number(cardId)}"] [data-logo-editor]`)?.focus();
+    } catch (error) {
+      status.textContent = error.message || "로고를 저장하지 못했습니다.";
+      saving = zoom.disabled = save.disabled = cancel.disabled = false;
+    }
+  };
+
+  dialog.showModal();
+  photo.src = `.${source.trim()}`;
+}
+
 async function toggleFavorite(cardId) {
   const contact = visibleCards.find((card) => Number(card.id) === Number(cardId));
   if (!contact || !canManagePersonalData(contact)) {
@@ -778,8 +1019,7 @@ async function saveCardEdits(form) {
     meeting_place: String(formData.get("meeting_place") || "").trim(),
     meeting_purpose: String(formData.get("meeting_purpose") || "").trim(),
     meeting_note: String(formData.get("meeting_note") || "").trim(),
-    image_path: contact.image_path || "",
-    logo_path: contact.logo_path || ""
+    image_path: contact.image_path || ""
   };
 
   setEditorBusy(form, true, "저장 중입니다.");
@@ -1627,6 +1867,9 @@ board.addEventListener("click", (event) => {
   if (card) {
     if (selectionMode) {
       toggleCardSelection(card.dataset.cardId);
+    } else if (event.target.closest("[data-logo-editor]")) {
+      clearTimeout(cardOpenTimer);
+      openLogoEditor(card.dataset.cardId);
     } else if (!usesFinePointer()) {
       openCardDetail(card.dataset.cardId);
     } else {
@@ -1645,6 +1888,7 @@ board.addEventListener("dblclick", (event) => {
   }
 
   clearTimeout(cardOpenTimer);
+  if (event.target.closest(".profileCardLogo")) return;
   toggleFavorite(card.dataset.cardId);
 });
 
@@ -1659,6 +1903,8 @@ board.addEventListener("keydown", (event) => {
     clearTimeout(cardOpenTimer);
     if (selectionMode) {
       toggleCardSelection(card.dataset.cardId);
+    } else if (event.target.closest("[data-logo-editor]")) {
+      openLogoEditor(card.dataset.cardId);
     } else {
       openCardDetail(card.dataset.cardId);
     }

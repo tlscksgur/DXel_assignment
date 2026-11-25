@@ -363,6 +363,61 @@ test("즐겨찾기는 PC 더블클릭과 상세 모달 별 버튼으로 토글�
   assert.match(css, /\.favoriteViewToggle\.active\s*\{/);
 });
 
+test("로고 한 번 클릭과 일반 카드 더블클릭을 별도로 처리한다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const handlers = new Map();
+  const actions = [];
+  const card = { dataset: { cardId: "7" } };
+  let finePointer = true;
+  const context = {
+    board: { addEventListener: (event, handler) => handlers.set(event, handler) },
+    selectionMode: false,
+    cardOpenTimer: null,
+    clearTimeout() {},
+    setTimeout: () => actions.push("detail scheduled"),
+    usesFinePointer: () => finePointer,
+    openLogoEditor: (id) => actions.push(`logo ${id}`),
+    toggleFavorite: (id) => actions.push(`favorite ${id}`)
+  };
+  const start = source.indexOf('board.addEventListener("click"');
+  const end = source.indexOf('groupAssignForm.addEventListener("submit"', start);
+  vm.runInNewContext(source.slice(start, end), context);
+  const event = (logo, editable = true) => ({ target: { closest: (selector) => {
+    if (selector === ".profileCard") return card;
+    if (selector === ".profileCardLogo" && logo) return {};
+    if (selector === "[data-logo-editor]" && logo && editable) return {};
+    return null;
+  } } });
+
+  handlers.get("click")(event(true));
+  handlers.get("dblclick")(event(true));
+  handlers.get("dblclick")(event(false));
+  handlers.get("dblclick")(event(true, false));
+  finePointer = false;
+  handlers.get("click")(event(true));
+  assert.deepEqual(actions, ["logo 7", "favorite 7", "logo 7"]);
+});
+
+test("중앙에서 벗어난 현재 로고의 영역을 사진에서 찾는다", () => {
+  const sourceCode = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const start = sourceCode.indexOf("function findLogoCrop(");
+  const end = sourceCode.indexOf("function locateSavedLogo(", start);
+  const find = vm.runInNewContext(`${sourceCode.slice(start, end)}\nfindLogoCrop`);
+  const image = (width, height, color) => ({ width, height, data: Uint8Array.from(
+    { length: width * height * 4 }, (_, i) => color(Math.floor(i / 4) % width, Math.floor(i / 4 / width), i % 4)) });
+  const photo = (x, y, channel) => {
+    if (channel === 3) return 255;
+    if (x < 145 || x >= 192 || y < 12 || y >= 36) return 235;
+    return Math.round(85 + 50 * Math.sin((x - 145) / 9) + 35 * Math.cos((y - 12) / 4) + 25 * channel);
+  };
+  const source = image(220, 110, photo);
+  const logo = image(47, 24, (x, y, channel) => photo(x + 145, y + 12, channel));
+  const match = find(source, logo);
+  assert.ok(match);
+  assert.ok(Math.abs(match.x - 145) <= 2 && Math.abs(match.y - 12) <= 2 && Math.abs(match.width - 47) <= 3, JSON.stringify(match));
+  assert.equal(find(source, image(47, 24, () => 255)), null);
+});
+
 test("일반 목록에서 즐겨찾기를 바꿔도 전체 목록을 다시 렌더링하지 않는다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8").replace(/\r\n/g, "\n");
   const toggleFavorite = source.match(/async function toggleFavorite[\s\S]*?\n}\n\nasync function saveCardEdits/)?.[0] || "";
