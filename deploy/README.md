@@ -4,6 +4,8 @@
 
 ## 코드·환경 설정
 
+Unsloth Studio를 사용하면 `AI_SERVER_ENDPOINT`의 경로를 `/v1/chat/completions`, `AI_SERVER_STATUS_URL`의 경로를 `/api/health`로 설정합니다. 운영 `.env`에는 Unsloth에서 발급한 `AI_SERVER_API_KEY`와 인증된 `/v1/models` 응답의 모델 ID를 `AI_SERVER_MODEL`로 넣고 명함 웹을 재시작합니다. 실제 키는 Git에 올리지 않습니다.
+
 서버 `/data/chshin/cksgur/DXel_assignment`에서 최신 코드를 받고 `npm ci`를 실행합니다. 기존 DB와 uploads는 유지합니다. Git에는 운영 DB·이미지·.env가 포함되지 않으므로 별도 백업이 필요합니다.
 
 `.env`가 없는 경우 `deploy/ubuntu.env.example`을 `.env`로 복사하고 권한을 `chmod 600 .env`로 제한합니다. 기존 파일이 있다면 덮어쓰지 말고 편집합니다. SMTP_USER, SMTP_PASSWORD, MAIL_FROM은 실제 발신 계정 값으로 채웁니다. 비밀번호에 # 등이 있으면 dotenv 규칙에 따라 따옴표로 감쌉니다. AI_SERVER_MODEL도 현재 AI 서버 모델과 일치시킵니다.

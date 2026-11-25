@@ -161,3 +161,28 @@ test("명함 추출 응답이 정상 종료되면 다시 요청하지 않는다"
 
   assert.equal(requests, 1);
 });
+
+test("AI 추론의 서버 전용 API 키는 값이 있을 때만 Bearer 헤더에 들어간다", async (t) => {
+  const originalKey = process.env.AI_SERVER_API_KEY;
+  t.after(() => {
+    if (originalKey === undefined) delete process.env.AI_SERVER_API_KEY;
+    else process.env.AI_SERVER_API_KEY = originalKey;
+  });
+  const requests = [];
+  const fetchImpl = async (_url, options) => {
+    requests.push(options);
+    return { ok: true, json: async () => ({ choices: [] }) };
+  };
+
+  await withAiRequest(fetchImpl, async () => {
+    process.env.AI_SERVER_API_KEY = "test-only-key";
+    await extractBusinessCard("data:image/png;base64,AA==");
+    delete process.env.AI_SERVER_API_KEY;
+    await extractBusinessCard("data:image/png;base64,AA==");
+  });
+
+  assert.equal(requests[0].headers.Authorization, "Bearer test-only-key");
+  assert.equal(requests[1].headers.Authorization, undefined);
+  assert.equal(JSON.parse(requests[0].body).stream, false);
+  assert.doesNotMatch(requests[0].body, /test-only-key/);
+});

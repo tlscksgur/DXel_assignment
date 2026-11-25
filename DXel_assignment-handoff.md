@@ -7,6 +7,11 @@
 - 마지막 업데이트: 2026-11-05 (한국 시간)
 - 마지막 작업 AI: Claude Code
 
+### 2026-11-25 Unsloth 추론 인증
+- Unsloth의 명함 이미지 분석 요청에 선택형 Bearer 인증을 추가했다. Node 서버의 .env에 AI_SERVER_API_KEY를 설정하면 헤더로 전달하며 JSON 응답을 요청한다.
+- Unsloth 주소는 /v1/chat/completions 및 /api/health를 사용한다. 모델 ID는 인증된 /v1/models 응답에서 확인한다. 설정 후 명함 웹을 재시작한다. 운영 서버의 실제 키와 이미지 추출은 별도 확인이 필요하다.
+- 검증: 인증 변경만 적용한 별도 작업 디렉터리에서 전체 테스트 399개 통과.
+
 ### 2차 리팩터링 기록 (2026-11-05, 커밋 전)
 - auth/routes.js: 요청 출처 검사를 sameOriginRoute로 통합, 메일 실패 로그·인증 링크·토큰 오류 공통화. 토큰·이메일·비밀번호 검사는 auth/security.js로 옮겨 password-reset.js와 공유한다.
 - localAi.js: 응답 스키마와 메시지 형식의 반복 제거, imageToDataUrl 비동기화(server.js 호출부 await). 프롬프트 문구는 변경하지 않았다.

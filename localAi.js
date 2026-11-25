@@ -163,14 +163,15 @@ async function requestChatCompletion(body, maximumTimeoutMs = Infinity) {
   const timeoutMs = Math.min(requestTimeoutMs, maximumTimeoutMs);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new Error("AI 요청 시간이 초과되었습니다.")), timeoutMs);
+  const headers = { "Content-Type": "application/json" };
+  const apiKey = process.env.AI_SERVER_API_KEY?.trim();
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   try {
     const response = await fetch(process.env.AI_SERVER_ENDPOINT, {
       method: "POST",
       signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ model: process.env.AI_SERVER_MODEL, temperature: 0, ...body })
+      headers,
+      body: JSON.stringify({ model: process.env.AI_SERVER_MODEL, temperature: 0, stream: false, ...body })
     });
     if (!response.ok) {
       throw new Error(`AI 서버 요청 실패: ${response.status}`);
