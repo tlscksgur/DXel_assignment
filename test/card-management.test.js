@@ -290,6 +290,39 @@ test("상세 명함은 연락처 필드와 전체 정보를 빠르게 복사할 
   assert.match(css, /\.cardDetailHeader \.cardDetailCopyAllButton\s*\{/);
 });
 
+test("복사 API가 막히면 열린 상세 모달 안에서 복사한다", async () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const start = source.indexOf("async function copyText(");
+  const end = source.indexOf("function cardInfoFields(", start);
+  const detailModal = { open: true, append(element) { element.insideModal = true; } };
+  let focusRestored = false;
+  const textarea = {
+    style: {}, setAttribute() {}, select() {},
+    focus() { assert.equal(this.insideModal, true); },
+    setSelectionRange(from, to) { assert.equal(this.value.slice(from, to), "예시 연락처"); },
+    remove() { this.removed = true; }
+  };
+  const clipboard = { writeText: async () => { throw new Error("권한 거부"); } };
+  const navigator = {};
+  const copy = vm.runInNewContext(`${source.slice(start, end)}\ncopyText`, {
+    navigator,
+    detailModal,
+    document: {
+      activeElement: { focus() { focusRestored = true; } },
+      createElement: () => textarea,
+      execCommand(command) { assert.equal(command, "copy"); return true; }
+    }
+  });
+
+  for (const available of [undefined, clipboard]) {
+    navigator.clipboard = available;
+    textarea.insideModal = textarea.removed = focusRestored = false;
+    assert.equal(await copy(" 예시 연락처 "), true);
+    assert.equal(textarea.removed, true);
+    assert.equal(focusRestored, true);
+  }
+});
+
 test("태그별 보기는 선택된 태그마다 명함을 묶고 보기 전환 상태를 별도로 관리한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");

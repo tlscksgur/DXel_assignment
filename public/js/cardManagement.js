@@ -278,20 +278,30 @@ async function copyText(value) {
   if (!content) return false;
 
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(content);
-    return true;
+    try {
+      await navigator.clipboard.writeText(content);
+      return true;
+    } catch {
+      // 권한이나 브라우저 설정으로 Clipboard API를 쓸 수 없으면 선택 영역을 복사한다.
+    }
   }
 
   const textarea = document.createElement("textarea");
   textarea.value = content;
   textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.append(textarea);
-  textarea.select();
-  const copied = document.execCommand("copy");
-  textarea.remove();
-  return copied;
+  textarea.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
+  const previousFocus = document.activeElement;
+  // 모달 바깥은 비활성이라 복사용 입력을 선택할 수 없다.
+  (detailModal.open ? detailModal : document.body).append(textarea);
+  try {
+    textarea.focus({ preventScroll: true });
+    textarea.select();
+    textarea.setSelectionRange(0, content.length);
+    return document.execCommand("copy");
+  } finally {
+    textarea.remove();
+    previousFocus?.focus({ preventScroll: true });
+  }
 }
 
 function cardInfoFields(contact) {
