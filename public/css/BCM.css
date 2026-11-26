@@ -743,6 +743,7 @@ body.bcm-page .bcmBoard {
 }
 
 .profileCard h2 {
+  flex-shrink: 0;
   width: 100%;
   height: 46px;
   margin-top: 18px;
@@ -765,10 +766,12 @@ body.bcm-page .bcmBoard {
 }
 
 .profileCard .role {
+  flex-shrink: 0;
   width: 100%;
   display: -webkit-box;
   margin-top: 8px;
   overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: 11px;
   line-height: 1.35;
   letter-spacing: 2.2px;
@@ -779,6 +782,7 @@ body.bcm-page .bcmBoard {
 }
 
 .profileCard .meta {
+  flex-shrink: 0;
   width: 100%;
   margin-top: 7px;
   overflow: hidden;
@@ -788,10 +792,15 @@ body.bcm-page .bcmBoard {
   white-space: nowrap;
 }
 
-.profileCard .emailMeta {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: pre-line;
+.profileCard .emailMeta > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileCard:has(.emailMeta > span + span) .role {
+  -webkit-line-clamp: 1;
 }
 
 .profileCard .strong {
@@ -821,9 +830,6 @@ body.bcm-page .bcmBoard {
 
 .profileCard:has(.profileCardLogo) .emailMeta {
   padding-right: 113px;
-  max-height: 2.8em;
-  overflow: hidden;
-  overflow-wrap: anywhere;
 }
 
 .pill {

@@ -376,7 +376,7 @@ function createCard(contact) {
   const company = escapeHtml(contact.company);
   const position = escapeHtml(contact.position);
   const mobile = escapeHtml(contact.mobile);
-  const email = escapeHtml(contact.email);
+  const emails = String(contact.email || "").split(/\r?\n/).map((email) => email.trim()).filter(Boolean);
   const safeLogoPath = safeUploadSrc(contact.logo_path);
   const canAdjustLogo = canEditCard(contact) && safeUploadSrc(contact.image_path);
   const logoControl = canAdjustLogo ? ' data-logo-editor tabindex="0" role="button" title="클릭하여 로고 위치 수정" aria-label="로고 위치 수정"' : "";
@@ -390,7 +390,7 @@ function createCard(contact) {
       <h2>${name}</h2>
       <p class="role">${[position, company].filter(Boolean).join(" · ")}</p>
       ${mobile ? `<p class="meta strong">${mobile}</p>` : ""}
-      ${email ? `<p class="meta emailMeta">${email}</p>` : ""}
+      ${emails.length ? `<p class="meta emailMeta" title="${escapeHtml(emails.join("\n"))}">${emails.slice(0, 2).map((email) => `<span>${escapeHtml(email)}</span>`).join("")}</p>` : ""}
       ${createProfileCardTags(contact)}
     </article>
   `;

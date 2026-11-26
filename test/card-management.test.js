@@ -1022,12 +1022,14 @@ test("긴 직책을 두 줄 미리보기로 정리해 기본 명함 카드 높�
   assert.match(css, /\.profileCard \.role\s*\{[\s\S]*-webkit-line-clamp:\s*2;/);
 });
 
-test("목록 명함의 여러 이메일은 저장된 줄바꿈대로 표시한다", () => {
+test("목록 명함의 이메일은 최대 두 줄로 나누고 각 줄 끝을 말줄임한다", () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
   const css = fs.readFileSync(path.join(projectRoot, "public/css/BCM.css"), "utf8");
 
   assert.match(source, /class="meta emailMeta"/);
-  assert.match(css, /\.profileCard \.emailMeta\s*\{[\s\S]*white-space:\s*pre-line;/);
+  assert.match(source, /emails\.slice\(0, 2\).*<span>/);
+  assert.match(css, /\.profileCard \.emailMeta > span\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/);
+  assert.match(css, /\.profileCard:has\(\.emailMeta > span \+ span\) \.role\s*\{[^}]*-webkit-line-clamp:\s*1;/);
 });
 
 test("중복 후보와 일반 그룹은 세로 2장씩 채운 뒤 다음 열로 배치한다", () => {
