@@ -1167,7 +1167,7 @@ body.detailOpen {
 
 .cardLogoModal {
   width: min(440px, calc(100% - 32px));
-  padding: 24px;
+  padding: clamp(14px, 4vw, 24px);
 }
 
 .cardLogoModal h2 {
@@ -1180,24 +1180,74 @@ body.detailOpen {
   font-size: 14px;
 }
 
-.cardLogoModal canvas:not([hidden]) {
+.cardLogoPreview {
+  --logo-preview-height: min(240px, 38dvh);
+  display: flow-root;
+  height: var(--logo-preview-height);
+}
+
+.cardLogoFrame {
+  position: relative;
+  max-width: min(100%, calc(var(--logo-preview-height) * var(--logo-frame-ratio, 2.5)));
+}
+
+.cardLogoFrame canvas {
   display: block;
-  width: auto;
+  width: 100%;
   height: auto;
-  max-width: 100%;
-  max-height: 240px;
   border-radius: 8px;
   outline: 1px solid currentColor;
   cursor: grab;
   touch-action: none;
 }
 
-.cardLogoCurrent:not([hidden]) {
-  display: block;
-  max-width: 100%;
-  max-height: 180px;
-  margin-bottom: 12px;
-  object-fit: contain;
+.cardLogoFrame button {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  touch-action: none;
+}
+
+.cardLogoFrame button::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border: 1px solid #031632;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.cardLogoFrame button[data-logo-edge="n"],
+.cardLogoFrame button[data-logo-edge="s"] {
+  inset-inline: 10px;
+  width: auto;
+  cursor: ns-resize;
+}
+
+.cardLogoFrame button[data-logo-edge="e"],
+.cardLogoFrame button[data-logo-edge="w"] {
+  inset-block: 10px;
+  height: auto;
+  cursor: ew-resize;
+}
+
+.cardLogoFrame button[data-logo-edge^="n"] { top: -10px; }
+.cardLogoFrame button[data-logo-edge^="s"] { bottom: -10px; }
+.cardLogoFrame button[data-logo-edge$="w"] { left: -10px; }
+.cardLogoFrame button[data-logo-edge$="e"] { right: -10px; }
+.cardLogoFrame button[data-logo-edge="nw"],
+.cardLogoFrame button[data-logo-edge="se"] { cursor: nwse-resize; }
+.cardLogoFrame button[data-logo-edge="ne"],
+.cardLogoFrame button[data-logo-edge="sw"] { cursor: nesw-resize; }
+
+.cardLogoFrame button:focus-visible::before {
+  outline: 2px solid #031632;
+  outline-offset: 2px;
 }
 
 .cardLogoModal canvas:active {
@@ -1218,11 +1268,13 @@ body.detailOpen {
 
 .cardLogoModal input {
   flex: 1;
+  min-width: 0;
   accent-color: #031632;
 }
 
 .cardLogoTools {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;

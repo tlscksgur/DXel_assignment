@@ -177,9 +177,20 @@
     <dialog class="cardLogoModal" aria-labelledby="cardLogoTitle">
       <form>
         <h2 id="cardLogoTitle">로고 위치 수정</h2>
-        <p id="cardLogoHelp">명함 사진을 움직여 프레임에 로고를 맞추세요.</p>
-        <canvas width="600" height="240" tabindex="0" aria-label="로고 프레임. 방향키로 사진 이동" aria-describedby="cardLogoHelp" hidden></canvas>
-        <img class="cardLogoCurrent" alt="현재 저장된 로고" hidden>
+        <p id="cardLogoHelp">사진을 움직이고 테두리를 드래그해 로고 영역을 맞추세요.</p>
+        <div class="cardLogoPreview">
+          <div class="cardLogoFrame" hidden>
+            <canvas width="600" height="240" tabindex="0" aria-label="로고 프레임. 방향키로 사진 이동" aria-describedby="cardLogoHelp"></canvas>
+            <button type="button" data-logo-edge="n" aria-label="위쪽 크기 조절"></button>
+            <button type="button" data-logo-edge="e" aria-label="오른쪽 크기 조절"></button>
+            <button type="button" data-logo-edge="s" aria-label="아래쪽 크기 조절"></button>
+            <button type="button" data-logo-edge="w" aria-label="왼쪽 크기 조절"></button>
+            <button type="button" data-logo-edge="nw" aria-label="왼쪽 위 크기 조절"></button>
+            <button type="button" data-logo-edge="ne" aria-label="오른쪽 위 크기 조절"></button>
+            <button type="button" data-logo-edge="sw" aria-label="왼쪽 아래 크기 조절"></button>
+            <button type="button" data-logo-edge="se" aria-label="오른쪽 아래 크기 조절"></button>
+          </div>
+        </div>
         <label>확대 <input type="range" min="100" max="500" value="140" disabled></label>
         <div class="cardLogoTools">
           <button class="cardLogoReposition" type="button" hidden>명함 사진에서 위치 선택</button>

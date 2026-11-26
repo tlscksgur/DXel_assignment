@@ -426,36 +426,57 @@ test("중앙에서 벗어난 현재 로고의 영역을 사진에서 찾는다",
   assert.equal(find(source, similarFragment), null, "검색에 쓰인 픽셀만 비슷한 조각은 거부한다");
 });
 
-test("로고 프레임을 90도 돌려도 선택한 명함 영역을 유지한다", async () => {
+test("로고 프레임은 선택 영역을 유지해 회전하고 테두리로 크기를 조절한다", async () => {
   const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
-  const start = source.indexOf("function openLogoEditor(");
+  const start = source.indexOf("function resizeLogoFrame(");
   const end = source.indexOf("async function toggleFavorite(", start);
   let center;
   let angle;
   let drawnImage;
   let matchingCrop = { x: .6, y: .2, width: .3, height: .2 };
   const context2d = {
-    clearRect() {}, save() {}, restore() {},
+    clearRect() {}, save() {}, restore() {}, scale() {},
     translate: (x, y) => { center = [x, y]; },
     rotate: (radians) => { angle = radians; },
     drawImage: (image) => { drawnImage = image; }
   };
-  const canvas = { width: 600, height: 240, getContext: () => context2d, focus() {} };
+  const canvas = { width: 600, height: 240, clientWidth: 300, clientHeight: 120, getContext: () => context2d, focus() {} };
+  const frame = { style: { setProperty() {} } };
   const rotate = {};
   const save = {};
-  const currentLogo = { naturalWidth: 300, naturalHeight: 120, decode: async () => {} };
+  let currentLogo;
   const zoom = { value: 140 };
   const elements = { canvas, '.cardLogoRotate': rotate, 'input[type="range"]': zoom,
-    'button[type="submit"]': save, '.cardLogoCurrent': currentLogo };
+    'button[type="submit"]': save, '.cardLogoFrame': frame };
   const form = { reset() {}, querySelector: (selector) => elements[selector] ?? {} };
   const dialog = { querySelector: () => form, showModal() { this.open = true; } };
   let photo;
+  let nextIsPhoto = false;
+  let saved;
+  const output = { getContext: () => context2d, toBlob: (callback) => callback(new Blob(["image"], { type: "image/png" })) };
   const open = vm.runInNewContext(`${source.slice(start, end)}\nopenLogoEditor`, {
     visibleCards: [{ id: 7, image_path: "/uploads/photo.jpg", logo_path: "/uploads/logo.png" }],
     canEditCard: () => true, safeUploadSrc: () => true,
-    locateSavedLogo: () => matchingCrop, document: { querySelector: () => dialog },
-    Image: function () { this.naturalWidth = 1000; this.naturalHeight = 600; photo = this; }
+    locateSavedLogo: () => matchingCrop, document: { querySelector: () => dialog, createElement: () => output },
+    FormData,
+    requestJson: async (url) => { saved = url; },
+    loadCards: async () => {},
+    board: { querySelector: () => null },
+    Image: function () {
+      if (nextIsPhoto) {
+        this.naturalWidth = 1000;
+        this.naturalHeight = 600;
+        photo = this;
+      } else {
+        this.naturalWidth = 300;
+        this.naturalHeight = 120;
+        this.decode = async () => {};
+        currentLogo = this;
+      }
+      nextIsPhoto = !nextIsPhoto;
+    }
   });
+  dialog.close = () => { dialog.open = false; dialog.onclose(); };
 
   open(7);
   await photo.onload();
@@ -479,6 +500,27 @@ test("로고 프레임을 90도 돌려도 선택한 명함 영역을 유지한�
   assert.equal(save.disabled, false);
   assert.equal(zoom.disabled, true);
   assert.deepEqual([canvas.width, canvas.height, angle], [240, 600, Math.PI / 2]);
+
+  const handle = { dataset: { logoEdge: "se" }, setPointerCapture() {} };
+  frame.onpointerdown({ target: handle, button: 0, pointerId: 1, clientX: 0, clientY: 0 });
+  frame.onpointermove({ pointerId: 1, clientX: -175, clientY: -100 });
+  frame.onlostpointercapture({ pointerId: 1 });
+  assert.deepEqual([canvas.width, canvas.height], [100, 100]);
+  await form.onsubmit({ preventDefault() {} });
+  assert.equal(saved, "./api/cards/7/logo");
+  assert.deepEqual([output.width, output.height], [300, 300]);
+});
+
+test("왼쪽·위 테두리 조절은 반대쪽을 유지하고 이미지 경계를 넘지 않는다", () => {
+  const source = fs.readFileSync(path.join(projectRoot, "public/js/cardManagement.js"), "utf8");
+  const start = source.indexOf("function resizeLogoFrame(");
+  const end = source.indexOf("function openLogoEditor(", start);
+  const { resize, output } = vm.runInNewContext(`${source.slice(start, end)}\n({ resize: resizeLogoFrame, output: logoExportSize })`);
+  const frame = { x: -30, y: -15, width: 200, height: 100, imageWidth: 400, imageHeight: 250 };
+  assert.deepEqual({ ...resize(frame, "nw", 25, 10) }, { x: -55, y: -25, width: 175, height: 90 });
+  assert.deepEqual({ ...resize(frame, "nw", -90, -90) }, { x: 0, y: 0, width: 230, height: 115 });
+  assert.deepEqual({ ...resize(frame, "se", 900, 900) }, { x: -30, y: -15, width: 370, height: 235 });
+  assert.deepEqual({ ...output(250, 50) }, { width: 600, height: 120 });
 });
 
 test("일반 목록에서 즐겨찾기를 바꿔도 전체 목록을 다시 렌더링하지 않는다", () => {

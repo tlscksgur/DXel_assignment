@@ -798,6 +798,23 @@ function locateSavedLogo(photo, logo) {
   return { x: best.x / source.width, y: best.y / source.height, width: best.width / source.width, height: best.height / source.height };
 }
 
+function resizeLogoFrame(frame, edge, dx, dy) {
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const minWidth = Math.min(24, frame.width);
+  const minHeight = Math.min(24, frame.height);
+  const maxSize = 1600;
+  const left = edge.includes("w") ? clamp(Math.round(dx), Math.min(0, Math.max(frame.width - maxSize, Math.ceil(frame.x))), frame.width - minWidth) : 0;
+  const top = edge.includes("n") ? clamp(Math.round(dy), Math.min(0, Math.max(frame.height - maxSize, Math.ceil(frame.y))), frame.height - minHeight) : 0;
+  const right = edge.includes("e") ? clamp(frame.width + Math.round(dx), minWidth, Math.min(maxSize, Math.max(frame.width, Math.floor(frame.x + frame.imageWidth)))) : frame.width;
+  const bottom = edge.includes("s") ? clamp(frame.height + Math.round(dy), minHeight, Math.min(maxSize, Math.max(frame.height, Math.floor(frame.y + frame.imageHeight)))) : frame.height;
+  return { x: frame.x - left, y: frame.y - top, width: right - left, height: bottom - top };
+}
+
+function logoExportSize(width, height) {
+  const scale = Math.max(1, 300 / width, 120 / height);
+  return { width: Math.round(width * scale), height: Math.round(height * scale) };
+}
+
 function openLogoEditor(cardId) {
   const contact = visibleCards.find((card) => Number(card.id) === Number(cardId));
   if (!contact || !canEditCard(contact)) return;
@@ -807,13 +824,14 @@ function openLogoEditor(cardId) {
   const dialog = document.querySelector(".cardLogoModal");
   if (dialog.open) return;
   const form = dialog.querySelector("form");
+  const frame = form.querySelector(".cardLogoFrame");
   const canvas = form.querySelector("canvas");
   const zoom = form.querySelector('input[type="range"]');
   const rotate = form.querySelector(".cardLogoRotate");
   const save = form.querySelector('button[type="submit"]');
   const cancel = form.querySelector('[data-group-action="cancel"]');
   const choosePosition = form.querySelector(".cardLogoReposition");
-  const currentLogo = form.querySelector(".cardLogoCurrent");
+  const currentLogo = new Image();
   const status = form.querySelector(".cardLogoStatus");
   const context = canvas.getContext("2d");
   const photo = new Image();
@@ -823,21 +841,32 @@ function openLogoEditor(cardId) {
   let scale = 0;
   let turns = 0;
   let drag;
+  let resizing;
   let saving = false;
 
-  function draw() {
+  function paint(target, outputScaleX = 1, outputScaleY = 1) {
     const imageWidth = image.naturalWidth * scale;
     const imageHeight = image.naturalHeight * scale;
     const width = turns % 2 ? imageHeight : imageWidth;
     const height = turns % 2 ? imageWidth : imageHeight;
     x = Math.max(canvas.width - width, Math.min(0, x));
     y = Math.max(canvas.height - height, Math.min(0, y));
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.save();
-    context.translate(x + width / 2, y + height / 2);
-    context.rotate(turns * Math.PI / 2);
-    context.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
-    context.restore();
+    target.save();
+    target.scale(outputScaleX, outputScaleY);
+    target.clearRect(0, 0, canvas.width, canvas.height);
+    target.translate(x + width / 2, y + height / 2);
+    target.rotate(turns * Math.PI / 2);
+    target.drawImage(image, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+    target.restore();
+  }
+
+  function draw() {
+    const displayScale = resizing ? 1 / resizing.scaleX : 1;
+    frame.style.width = `${canvas.width * displayScale}px`;
+    frame.style.setProperty("--logo-frame-ratio", canvas.width / canvas.height);
+    frame.style.marginInlineStart = resizing?.edge.includes("w") ? `${Math.max(0, resizing.displayWidth - canvas.clientWidth)}px` : "";
+    frame.style.marginBlockStart = resizing?.edge.includes("n") ? `${Math.max(0, resizing.displayHeight - canvas.clientHeight)}px` : "";
+    paint(context);
   }
 
   function resize() {
@@ -853,8 +882,8 @@ function openLogoEditor(cardId) {
   }
 
   form.reset();
-  canvas.hidden = true;
-  currentLogo.hidden = choosePosition.hidden = true;
+  frame.hidden = choosePosition.hidden = true;
+  frame.style.marginInlineStart = frame.style.marginBlockStart = "";
   currentLogo.src = `.${contact.logo_path.trim()}`;
   zoom.disabled = rotate.disabled = save.disabled = true;
   cancel.disabled = choosePosition.disabled = false;
@@ -868,8 +897,8 @@ function openLogoEditor(cardId) {
   cancel.onclick = () => dialog.close();
   function showFrame() {
     resize();
-    choosePosition.hidden = currentLogo.hidden = true;
-    canvas.hidden = false;
+    choosePosition.hidden = true;
+    frame.hidden = false;
     zoom.disabled = rotate.disabled = save.disabled = false;
     status.textContent = "";
     canvas.focus();
@@ -883,8 +912,14 @@ function openLogoEditor(cardId) {
     } catch { /* 이전 로고를 불러오지 못해도 명함 사진으로 새 위치를 잡을 수 있다. */ }
     if (closed || !dialog.open) return;
     if (!crop) {
-      currentLogo.hidden = !currentLogo.naturalWidth;
-      rotate.disabled = currentLogo.hidden;
+      if (currentLogo.naturalWidth) {
+        image = currentLogo;
+        scale = 600 / Math.max(image.naturalWidth, image.naturalHeight);
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        draw();
+        frame.hidden = rotate.disabled = false;
+      }
       choosePosition.hidden = false;
       status.textContent = "";
       return;
@@ -914,44 +949,93 @@ function openLogoEditor(cardId) {
   photo.onerror = () => { status.textContent = "명함 사진을 불러오지 못했습니다."; };
   zoom.oninput = resize;
   rotate.onclick = () => {
-    if (canvas.hidden) {
-      image = currentLogo;
-      scale = 600 / Math.max(image.naturalWidth, image.naturalHeight);
-      canvas.width = Math.round(image.naturalWidth * scale);
-      canvas.height = Math.round(image.naturalHeight * scale);
-      x = y = 0;
-      currentLogo.hidden = true;
-      canvas.hidden = false;
-      save.disabled = false;
-    }
     const imageHeight = (turns % 2 ? image.naturalWidth : image.naturalHeight) * scale;
     // 프레임과 사진 좌표를 함께 돌려 선택 영역과 확대율을 유지한다.
     [x, y] = [canvas.height - y - imageHeight, x];
     [canvas.width, canvas.height] = [canvas.height, canvas.width];
     turns = (turns + 1) % 4;
     draw();
+    save.disabled = false;
   };
+
+  function frameBounds() {
+    return {
+      x, y, width: canvas.width, height: canvas.height,
+      imageWidth: (turns % 2 ? image.naturalHeight : image.naturalWidth) * scale,
+      imageHeight: (turns % 2 ? image.naturalWidth : image.naturalHeight) * scale
+    };
+  }
+
+  function applyFrameSize(bounds, edge, dx, dy) {
+    const next = resizeLogoFrame(bounds, edge, dx, dy);
+    if (x === next.x && y === next.y && canvas.width === next.width && canvas.height === next.height) return;
+    ({ x, y } = next);
+    canvas.width = next.width;
+    canvas.height = next.height;
+    if (!zoom.disabled) {
+      const value = Math.round(100 / Math.max(canvas.width / bounds.imageWidth, canvas.height / bounds.imageHeight));
+      zoom.max = Math.max(Number(zoom.max), value);
+      zoom.value = value;
+    }
+    draw();
+    save.disabled = false;
+  }
+
+  frame.onpointerdown = (event) => {
+    const edge = event.target.dataset.logoEdge;
+    if (!edge || event.button !== 0 || saving || resizing || drag) return;
+    resizing = {
+      edge, id: event.pointerId, x: event.clientX, y: event.clientY, bounds: frameBounds(),
+      displayWidth: canvas.clientWidth, displayHeight: canvas.clientHeight,
+      scaleX: canvas.width / canvas.clientWidth, scaleY: canvas.height / canvas.clientHeight
+    };
+    event.target.setPointerCapture(event.pointerId);
+  };
+  frame.onpointermove = (event) => {
+    if (resizing?.id !== event.pointerId || saving) return;
+    applyFrameSize(resizing.bounds, resizing.edge,
+      (event.clientX - resizing.x) * resizing.scaleX, (event.clientY - resizing.y) * resizing.scaleY);
+  };
+  frame.onlostpointercapture = (event) => {
+    if (resizing?.id !== event.pointerId) return;
+    resizing = null;
+    draw();
+  };
+  frame.onkeydown = (event) => {
+    const edge = event.target.dataset.logoEdge;
+    const offset = { ArrowLeft: [-8, 0], ArrowRight: [8, 0], ArrowUp: [0, -8], ArrowDown: [0, 8] }[event.key];
+    if (!edge || !Array.isArray(offset) || saving) return;
+    event.preventDefault();
+    applyFrameSize(frameBounds(), edge, ...offset);
+  };
+
+  function moveImage(dx, dy) {
+    const previousX = x;
+    const previousY = y;
+    x += dx;
+    y += dy;
+    draw();
+    if (x !== previousX || y !== previousY) save.disabled = false;
+  }
+
   canvas.onpointerdown = (event) => {
-    if (event.button !== 0 || drag || zoom.disabled) return;
+    if (event.button !== 0 || drag || resizing || saving) return;
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
     canvas.setPointerCapture(event.pointerId);
   };
   canvas.onpointermove = (event) => {
     if (drag?.id !== event.pointerId || saving) return;
-    x += (event.clientX - drag.x) * canvas.width / canvas.clientWidth;
-    y += (event.clientY - drag.y) * canvas.height / canvas.clientHeight;
+    moveImage((event.clientX - drag.x) * canvas.width / canvas.clientWidth,
+      (event.clientY - drag.y) * canvas.height / canvas.clientHeight);
     drag.x = event.clientX;
     drag.y = event.clientY;
-    draw();
   };
   canvas.onlostpointercapture = () => { drag = null; };
   canvas.onkeydown = (event) => {
     const offset = { ArrowLeft: [-12, 0], ArrowRight: [12, 0], ArrowUp: [0, -12], ArrowDown: [0, 12] }[event.key];
-    if (!Array.isArray(offset) || zoom.disabled) return;
+    if (!Array.isArray(offset) || saving) return;
     event.preventDefault();
-    x += offset[0];
-    y += offset[1];
-    draw();
+    moveImage(...offset);
   };
 
   form.onsubmit = async (event) => {
@@ -960,7 +1044,10 @@ function openLogoEditor(cardId) {
     saving = zoom.disabled = rotate.disabled = save.disabled = cancel.disabled = choosePosition.disabled = true;
     status.textContent = "로고를 저장하는 중입니다.";
     try {
-      const logo = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      const output = document.createElement("canvas");
+      ({ width: output.width, height: output.height } = logoExportSize(canvas.width, canvas.height));
+      paint(output.getContext("2d"), output.width / canvas.width, output.height / canvas.height);
+      const logo = await new Promise((resolve) => output.toBlob(resolve, "image/png"));
       if (!logo) throw new Error("로고 이미지를 만들지 못했습니다.");
       const body = new FormData();
       body.append("image", logo, "logo.png");
