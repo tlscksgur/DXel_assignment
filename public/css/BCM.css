@@ -1842,8 +1842,63 @@ body.detailOpen {
   background: rgba(255, 255, 255, .12);
 }
 
+.cardDetailEditTabs {
+  margin-top: 20px;
+  display: flex;
+  gap: 18px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.cardDetailEditTabs button {
+  padding: 10px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: .72;
+}
+
+.cardDetailEditTabs button[aria-selected="true"] {
+  border-bottom-color: currentColor;
+  font-weight: 700;
+  opacity: 1;
+}
+
+.cardDetailEditTabs button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+.cardDetailEditPanels {
+  position: relative;
+  margin-top: 18px;
+}
+
+.cardDetailEditForm .cardDetailEditPanel {
+  margin: 0;
+}
+
+.cardDetailEditPanel[data-edit-panel="meeting"] {
+  position: absolute;
+  inset: 0;
+  align-content: start;
+  row-gap: 12px;
+  overflow-y: auto;
+}
+
+.cardDetailEditPanel[hidden] {
+  /* 기본 정보는 숨겨도 공간을 유지해 탭을 바꿀 때 모달 높이를 고정한다. */
+  display: grid;
+  visibility: hidden;
+}
+
 .cardDetailEditForm .cardDetailField {
   display: block;
+  border: 0;
+  background: transparent;
 }
 
 .cardDetailCard > .cardDetailEditForm {
@@ -1860,13 +1915,16 @@ body.detailOpen {
 }
 
 .cardDetailInput {
+  display: block;
   width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid rgba(3, 22, 50, .18);
-  border-radius: 10px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 10px 12px 3px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 38%, transparent);
+  border-radius: 0;
   outline: none;
-  background: rgba(255, 255, 255, .92);
+  background: transparent;
   color: #031632;
   font: inherit;
   font-size: 16px;
@@ -1874,23 +1932,18 @@ body.detailOpen {
 }
 
 textarea.cardDetailInput {
-  min-height: 72px;
+  field-sizing: content;
   resize: vertical;
 }
 
-.cardDetailEmails textarea.cardDetailInput {
-  min-height: 44px;
-  height: 44px;
-}
-
-.cardDetailEmails.has-multiple-lines textarea.cardDetailInput {
-  min-height: 72px;
-  height: 72px;
-}
-
 .cardDetailInput:focus {
-  border-color: #031632;
-  box-shadow: 0 0 0 3px rgba(3, 22, 50, .12);
+  border-bottom-color: currentColor;
+  box-shadow: inset 0 -1px 0 currentColor;
+}
+
+.cardDetailCard:is(.card-dark, .card-dark-grey) .cardDetailInput {
+  color: inherit;
+  color-scheme: dark;
 }
 
 .cardDetailActions {

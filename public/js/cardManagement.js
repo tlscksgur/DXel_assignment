@@ -496,7 +496,7 @@ function createCardDetail(contact) {
 
 function createCardEditor(contact, statusMessage = "") {
   const classes = getCardVariant(contact);
-  const fields = [
+  const contactFields = [
     ["name", "이름", contact.name],
     ["company", "회사", contact.company],
     ["department", "부서", contact.department],
@@ -505,24 +505,25 @@ function createCardEditor(contact, statusMessage = "") {
     ["phone", "유선전화", contact.phone],
     ["email", "이메일", contact.email],
     ["website", "홈페이지", contact.website],
-    ["address", "주소", contact.address],
+    ["address", "주소", contact.address]
+  ];
+  const meetingFields = [
     ["meeting_date", "만난 날짜", contact.meeting_date],
     ["meeting_place", "만난 장소", contact.meeting_place],
     ["meeting_purpose", "만남 목적", contact.meeting_purpose],
     ["meeting_note", "만남 메모", contact.meeting_note]
   ];
-  const inputs = fields.map(([name, label, value]) => {
+  const renderFields = (fields) => fields.map(([name, label, value]) => {
     const safeValue = escapeHtml(value);
-    const hasMultipleEmailLines = name === "email" && /\r?\n/.test(String(value || ""));
     const isTextarea = ["address", "email", "meeting_note"].includes(name);
     const maxLength = name === "meeting_purpose" ? 50 : name === "meeting_note" ? 500 : null;
     const maxLengthAttribute = maxLength ? ` maxlength="${maxLength}"` : "";
     const input = isTextarea
-      ? `<textarea class="cardDetailInput" name="${name}" rows="2"${maxLengthAttribute}>${safeValue}</textarea>`
+      ? `<textarea class="cardDetailInput" name="${name}" rows="1"${maxLengthAttribute}>${safeValue}</textarea>`
       : `<input class="cardDetailInput" name="${name}" type="${name === "meeting_date" ? "datetime-local" : "text"}" value="${safeValue}"${maxLengthAttribute}>`;
 
     return `
-      <label class="cardDetailField${["address", "meeting_purpose", "meeting_note"].includes(name) ? " cardDetailAddress" : ""}${name === "name" ? " cardDetailName" : ""}${name === "email" ? ` cardDetailEmails${hasMultipleEmailLines ? " has-multiple-lines" : ""}` : ""}">
+      <label class="cardDetailField${["address", "meeting_purpose", "meeting_note"].includes(name) ? " cardDetailAddress" : ""}${name === "name" ? " cardDetailName" : ""}">
         <span>${label}</span>
         ${input}
       </label>
@@ -540,7 +541,14 @@ function createCardEditor(contact, statusMessage = "") {
           <p class="cardDetailEyebrow">BUSINESS CARD EDIT</p>
           <h2 id="cardDetailTitle">명함 정보 수정</h2>
         </div>
-        <div class="cardDetailGrid">${inputs}</div>
+        <div class="cardDetailEditTabs" role="tablist" aria-label="수정 항목">
+          <button type="button" role="tab" id="cardEditContactTab" aria-controls="cardEditContact" aria-selected="true" data-action="edit-tab" data-edit-tab="contact">기본 정보</button>
+          <button type="button" role="tab" id="cardEditMeetingTab" aria-controls="cardEditMeeting" aria-selected="false" tabindex="-1" data-action="edit-tab" data-edit-tab="meeting">만남 기록</button>
+        </div>
+        <div class="cardDetailEditPanels">
+          <div class="cardDetailGrid cardDetailEditPanel" role="tabpanel" id="cardEditContact" aria-labelledby="cardEditContactTab" data-edit-panel="contact">${renderFields(contactFields)}</div>
+          <div class="cardDetailGrid cardDetailEditPanel" role="tabpanel" id="cardEditMeeting" aria-labelledby="cardEditMeetingTab" data-edit-panel="meeting" hidden inert>${renderFields(meetingFields)}</div>
+        </div>
         <div class="cardDetailActions">
           <p class="cardDetailStatus" aria-live="polite">${escapeHtml(statusMessage)}</p>
           <button type="submit" data-action="save">저장</button>
@@ -638,6 +646,17 @@ function showCardEditor() {
   const firstInput = detailContent.querySelector('[name="name"]');
   if (firstInput) {
     firstInput.focus();
+  }
+}
+
+function selectCardEditTab(tab) {
+  const form = tab.closest(".cardDetailEditForm");
+  for (const button of form.querySelectorAll("[data-edit-tab]")) {
+    button.setAttribute("aria-selected", String(button === tab));
+    button.tabIndex = button === tab ? 0 : -1;
+  }
+  for (const panel of form.querySelectorAll("[data-edit-panel]")) {
+    panel.inert = panel.hidden = panel.dataset.editPanel !== tab.dataset.editTab;
   }
 }
 
@@ -2069,6 +2088,8 @@ detailContent.addEventListener("click", (event) => {
   const action = actionButton.dataset.action;
   if (action === "edit") {
     showCardEditor();
+  } else if (action === "edit-tab") {
+    selectCardEditTab(actionButton);
   } else if (action === "cancel") {
     showCardDetail();
   } else if (action === "view-image") {
@@ -2088,22 +2109,21 @@ detailContent.addEventListener("click", (event) => {
     toggleCardTag(actionButton.dataset.tag);
   }
 });
+detailContent.addEventListener("keydown", (event) => {
+  const tab = event.target.closest("[data-edit-tab]");
+  if (!tab || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = [...tab.parentElement.querySelectorAll("[data-edit-tab]")];
+  const next = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs.at(-1) : tabs.find((button) => button !== tab);
+  event.preventDefault();
+  selectCardEditTab(next);
+  next.focus();
+});
 detailContent.addEventListener("submit", (event) => {
   if (!event.target.matches(".cardDetailEditForm")) {
     return;
   }
   event.preventDefault();
   saveCardEdits(event.target);
-});
-detailContent.addEventListener("input", (event) => {
-  if (!event.target.matches('textarea[name="email"]')) {
-    return;
-  }
-
-  event.target.closest(".cardDetailEmails")?.classList.toggle(
-    "has-multiple-lines",
-    event.target.value.includes("\n")
-  );
 });
 detailModal.addEventListener("click", (event) => {
   if (event.target.classList?.contains("cardImageLightbox")) {

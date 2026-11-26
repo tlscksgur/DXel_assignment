@@ -1595,6 +1595,14 @@ test("명함 상세 편집 화면은 저장하는 9개 필드와 저장·취소 
     assert.match(editor, new RegExp(`name="${field}"`));
   }
   assert.match(editor, /class="cardDetailEditForm"/);
+  assert.match(editor, /class="cardDetailCompanyLine"[\s\S]*class="cardDetailEyebrow"[\s\S]*id="cardDetailTitle"/);
+  assert.match(editor, /data-action="save"[\s\S]*data-action="cancel"/);
+  const basic = editor.match(/data-edit-panel="contact">([\s\S]*?)<\/div>/)?.[1] || "";
+  const meeting = editor.match(/data-edit-panel="meeting" hidden inert>([\s\S]*?)<\/div>/)?.[1] || "";
+  assert.match(basic, /name="email"/);
+  assert.doesNotMatch(basic, /name="meeting_note"/);
+  assert.match(meeting, /name="meeting_note"/);
+  assert.doesNotMatch(meeting, /disabled/);
   assert.match(editor, /data-action="save"/);
   assert.match(editor, /data-action="cancel"/);
 });
@@ -1726,6 +1734,7 @@ test("명함 상세 수정 입력과 작업 버튼은 데스크톱과 모바일�
     css,
     /\.cardDetailInput\s*\{[\s\S]*width:\s*100%;[\s\S]*font:\s*inherit;/
   );
+  assert.match(css, /\.cardDetailInput\s*\{[^}]*border:\s*0;[^}]*border-bottom:\s*1px solid/);
   assert.match(
     css,
     /\.cardDetailActions\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-wrap:\s*wrap;/
